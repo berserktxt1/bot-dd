@@ -3,3 +3,8 @@
 node_modules/
 __pycache__/
 *.log
+dados/
+*.sqlite3
+build/
+dist/
+release/

@@ -1,0 +1,13 @@
+{
+  "_doc": "Mecânicas qualitativas. 'status': documentado (fonte pública), hipotese (não confirmado), observado (medido no cliente).",
+  "mechanics": [
+    {"id": "distance_ruler", "status": "documentado", "texto": "A distância usada nas tabelas é a tela visível dividida em 10 partes iguais (Laboratório de Combate).", "fontes": ["techtudo_65_2015", "ddcalc_guia"]},
+    {"id": "wind_sign", "status": "documentado", "texto": "Vento a favor aumenta o ângulo (30: +1x vento; 50/65/alto/médio: +2x vento). Vento contra diminui.", "fontes": ["ddtankdicaset_2013", "webpixel5_2013", "techtudo_65_2015"]},
+    {"id": "wind_20", "status": "documentado", "texto": "Fontes afirmam que o vento não afeta o tiro de 20°. O modelo físico prevê efeito pequeno porém não nulo; validar.", "fontes": ["ddcalc_guia"]},
+    {"id": "height", "status": "hipotese", "texto": "Diferença de altura não é tratada pelas tabelas. O bot usa o modelo físico para corrigir; ângulos baixos (20/30) são mais sensíveis.", "fontes": ["webpixel5_2013"]},
+    {"id": "physics_drag", "status": "documentado", "texto": "Projétil com gravidade, arrasto linear e vento como aceleração horizontal; gravidade/arrasto por mapa, massa/arrasto por munição.", "fontes": ["caderno_de_tiro"]},
+    {"id": "high_shot_range", "status": "documentado", "texto": "Tiro alto (força 95, ângulo 90-d) vale aproximadamente entre 60° e 80°.", "fontes": ["caderno_de_tiro"]},
+    {"id": "invisibility", "status": "hipotese", "texto": "Itens de invisibilidade escondem o personagem por tempo limitado. Nenhuma fonte pública específica do DDClássico foi encontrada. O bot só usa informações visíveis na interface (última posição observada) e nunca tenta revelar o alvo.", "fontes": []},
+    {"id": "server_rules", "status": "hipotese", "texto": "Regras do DDClássico sobre automação não puderam ser verificadas (site retornou 403). Outros servidores proíbem software de terceiros. Modo automático vem desabilitado.", "fontes": ["ddtank5_rules"]}
+  ]
+}
