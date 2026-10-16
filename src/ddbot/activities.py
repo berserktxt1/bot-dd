@@ -270,7 +270,7 @@ class ActivityRunner:
 
     def __init__(self, definition: ActivityDef, reader: ScreenReader, actor: Actor, combat_step,
                  kill: KillSwitch, config, limits: RunLimits, on_event=None, state_threshold: float = 0.8,
-                 clock=time.monotonic, on_battle_start=None):
+                 clock=time.monotonic, on_battle_start=None, on_failure_frame=None):
         self.d = definition
         self.reader = reader
         self.actor = actor
@@ -282,6 +282,8 @@ class ActivityRunner:
         self.state_threshold = state_threshold
         self.clock = clock
         self.on_battle_start = on_battle_start or (lambda: None)
+        self.on_failure_frame = on_failure_frame  # callable(frame, motivo): guarda a tela para diagnóstico
+        self._last_frame = None
         self.counters = RunCounters(started_at=clock(), clock=clock)
         self.status = RunStatus.IDLE
         self.current_state = "desconhecido"
@@ -382,6 +384,7 @@ class ActivityRunner:
             return True
         now = self.clock()
         screen = self.reader.read()
+        self._last_frame = screen.frame
         state = screen.state if screen.confidence >= self.state_threshold else "desconhecido"
         if state == "desconectado":
             return self._fail("o cliente mostra desconexão: reconecte manualmente e reinicie")
@@ -509,7 +512,15 @@ class ActivityRunner:
             return self._pause_for_user(why)
         return True
 
+    def _save_failure(self, why):
+        if self.on_failure_frame is not None and self._last_frame is not None:
+            try:
+                self.on_failure_frame(self._last_frame, why)
+            except Exception:
+                log.exception("falha ao salvar captura de diagnóstico")
+
     def _pause_for_user(self, why) -> bool:
+        self._save_failure(why)
         self._emit("erro", f"intervenção necessária: {why}")
         self.status = RunStatus.PAUSED
         self.reason = why
@@ -517,6 +528,7 @@ class ActivityRunner:
         return True
 
     def _fail(self, why) -> bool:
+        self._save_failure(why)
         self.status = RunStatus.FAILED
         self.reason = why
         self._emit("erro", f"rotina interrompida: {why}")

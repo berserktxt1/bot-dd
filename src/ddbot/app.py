@@ -92,11 +92,12 @@ def _selftest(home: Path | None) -> int:
             return runner.counters.as_dict()
 
         def gui_import():
+            import importlib
             try:
-                import tkinter  # noqa: F401
+                importlib.import_module("tkinter")
             except ImportError:
                 return "tkinter ausente (esperado só fora do Windows)"
-            from .gui import main_window  # noqa: F401
+            importlib.import_module("ddbot.gui.main_window")
             return "interface carregável"
 
         check("recursos", resources)

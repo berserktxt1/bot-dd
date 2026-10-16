@@ -141,7 +141,9 @@ class BotService:
                            if a.kind == "clicar" and a.target and a.target.startswith(("instancia_", "partida_"))),
                           "instancia_teste")
             client = SimulatedClient(world, option=option)
-            sim_store = ShotStore(self.paths.root / "simulacao.sqlite3")
+            if getattr(self, "_sim_store", None) is None:
+                self._sim_store = ShotStore(self.paths.root / "simulacao.sqlite3")
+            sim_store = self._sim_store
             sim_cal = Calibrator(sim_store, self.params, sources=("simulado",))
             cfg = Config(data={**self.config.data,
                                "automation": {**self.config.data["automation"], "server_rules_confirmed": True,
@@ -168,7 +170,9 @@ class BotService:
         runner = ActivityRunner(d, reader, actor, engine.step, self.kill, run_cfg, limits,
                                 on_event=self._run_event,
                                 state_threshold=float(self.config.get("thresholds.template", 0.8)),
-                                on_battle_start=engine.reset_battle)
+                                on_battle_start=engine.reset_battle,
+                                on_failure_frame=lambda f, why: self._push(
+                                    "aviso", f"tela salva para diagnóstico: {self.save_capture(f, 'falha')}"))
         self.engine = engine
         self.simulated = simulated
         return runner
@@ -229,6 +233,34 @@ class BotService:
     def status(self) -> RunStatus:
         return self.runner.status if self.runner else RunStatus.IDLE
 
+    # ------------------------------------------------------ teste de controles
+    def test_controls(self) -> str:
+        """Lê o ângulo, aperta 'aumentar' uma vez, lê de novo e desfaz. Não atira."""
+        if self.source is None:
+            raise RuntimeError("selecione a janela do jogo primeiro")
+        if not self.config.get("automation.server_rules_confirmed", False):
+            raise RuntimeError("autorize o modo automático em Configurações antes de enviar teclas")
+        if self.kill.triggered:
+            self.kill.reset()
+        if self.window is not None:
+            winapi.set_foreground(self.window.hwnd)
+            self.kill.sleep(0.5)
+        inp = self._input()
+        view = VisionBattleView(self.source, self.perception, self.config)
+        sh = KeyboardShooter(inp, view, self.config)
+        keys = self.config.get("automation.keys", {})
+        before = sh._read_angle()
+        inp.tap(keys.get("angle_up", "up"))
+        self.kill.sleep(0.4)
+        after = sh._read_angle()
+        inp.tap(keys.get("angle_down", "down"))
+        if before is None or after is None:
+            return (f"ângulo lido antes={before}, depois={after}: treine os dígitos do ângulo e confira a região")
+        if after == before + 1:
+            return f"OK: o ângulo foi de {before:.0f} para {after:.0f} e voltou"
+        return (f"o ângulo foi de {before:.0f} para {after:.0f} (esperado {before + 1:.0f}); "
+                "confira as teclas e se é o seu turno")
+
     # ------------------------------------------------------ mira assistida
     def start_assist(self):
         """Só lê a tela e sugere ângulo/força; não envia nenhuma tecla."""
@@ -275,3 +307,6 @@ class BotService:
             if self.source:
                 self.source.close()
             self.store.close()
+            if getattr(self, "_sim_store", None) is not None:
+                self._sim_store.close()
+                self._sim_store = None

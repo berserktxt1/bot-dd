@@ -157,3 +157,20 @@ def test_fake_clock():
     t = c()
     c.advance(2)
     assert c() == t + 2
+
+
+def test_failure_frame_saved(kb, params, inst):
+    import numpy as np
+    runner, client, *_rest, cleanup = simulated_activity(kb, params, inst, faults={"missing_button": "botao_iniciar"})
+    saved = []
+    runner.on_failure_frame = lambda f, why: saved.append(why)
+    orig = client.read
+
+    def read_with_frame():
+        s = orig()
+        s.frame = np.zeros((4, 4, 3), np.uint8)
+        return s
+    client.read = read_with_frame
+    drive(runner)
+    cleanup()
+    assert saved and "botao_iniciar" in saved[0]

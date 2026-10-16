@@ -342,7 +342,8 @@ class MainWindow:
         self.opt_cat.grid(row=2, column=1, sticky="we")
         ttk.Button(fo, text="Criar atividade com a opção/seleção", command=self.create_option).pack(fill="x", pady=2)
         ttk.Button(fo, text="Quais opções conhecidas estão visíveis?", command=self.check_visible_options).pack(fill="x")
-        ttk.Button(side, text="Excluir atividade selecionada no Início", command=self.delete_activity).pack(fill="x", pady=(8, 0))
+        ttk.Button(side, text="Teste de controles (aperta ↑ e ↓ no seu turno)", command=self.test_controls).pack(fill="x", pady=(8, 0))
+        ttk.Button(side, text="Excluir atividade selecionada no Início", command=self.delete_activity).pack(fill="x", pady=(4, 0))
 
     # ------------------------------------------------------------- Diagnóstico
     def _build_diagnostics(self):
@@ -672,6 +673,15 @@ class MainWindow:
             find_known_options(frame, self.svc.templates, th, "partida_")
         messagebox.showinfo("Opções visíveis", "\n".join(f"{k} ({s:.2f})" for k, s in found) or
                             "Nenhuma opção conhecida visível nesta captura.")
+
+    def test_controls(self):
+        def work():
+            try:
+                msg = self.svc.test_controls()
+            except Exception as exc:
+                msg = f"teste de controles: {exc}"
+            self.svc._push("aviso" if not msg.startswith("OK") else "etapa", msg)
+        threading.Thread(target=work, daemon=True, name="teste-controles").start()
 
     def delete_activity(self):
         d = self.selected_activity()
