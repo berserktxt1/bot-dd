@@ -20,8 +20,8 @@ atira, avança as etapas, reconhece vitória e derrota e recomeça até completa
 3. Se o Windows mostrar "O Windows protegeu o computador", clique em *Mais informações* → *Executar assim mesmo*
    (o executável não tem assinatura digital).
 
-Quer conhecer a tela antes de configurar o jogo? Marque **Demonstração (simulada, não usa o jogo)** no topo e
-clique em **Iniciar**. Nesse modo nada é enviado ao jogo.
+Quer conhecer a tela antes de configurar o jogo? Ligue **Modo demonstração** no canto superior direito e clique em
+**Iniciar**. Nesse modo nada é enviado ao jogo.
 
 ### 2. Primeira configuração (uma vez só)
 
@@ -52,13 +52,16 @@ resolução e a sua versão do jogo, e nada é inventado. Com o jogo aberto, dei
 
 Na aba **Início**:
 
-1. Escolha **Partidas automáticas** ou **Instâncias** e a atividade na lista.
-2. Escolha **Uma vez**, uma **Quantidade** ou **Contínuo (até parar)**.
-3. Clique em **Iniciar**. Use **Pausar**, **Retomar** e **Parar** quando quiser.
-4. **Parada de emergência: tecla F12**, a qualquer momento, mesmo com o jogo em foco.
+1. Em **O que jogar**, escolha **Instâncias** ou **Partidas automáticas** e a atividade na lista.
+2. Em **Quantas vezes**, escolha **Uma vez**, **Repetir N vezes** ou **Até eu parar**.
+3. Clique em **Iniciar** (ou F5). **Pausar/Retomar** é o mesmo botão (F6). **Parar** encerra a rotina (F8).
+4. **Parada de emergência: tecla F12** (configurável), a qualquer momento, mesmo com o jogo em foco. O rodapé
+   mostra se a tecla está funcionando. Se ela não puder ser registrada no Windows, o modo automático no jogo fica
+   bloqueado.
 
-A tela mostra a etapa atual, o progresso, o turno, o alvo, o ângulo, a força, o vento, a sugestão de mira e os
-contadores de vitórias, derrotas e atividades concluídas. O histórico lista partidas, resultados e erros.
+A faixa colorida no alto diz o que o bot está fazendo e, quando ele precisa de você, o que fazer (sempre com
+ícone e texto, não só cor). Ao lado ficam o **Progresso** (concluídas, vitórias, derrotas, batalhas) e a **Mira**
+(ângulo, força e vento durante o combate). O **Histórico** lista partidas, resultados, avisos e erros.
 
 ### O que o bot faz e o que ele não faz
 
@@ -68,8 +71,12 @@ contadores de vitórias, derrotas e atividades concluídas. O histórico lista p
   Para liberar um botão pago específico, digite o nome dele em Configurações.
 - Só envia teclas e cliques com a **janela do jogo em foco**, no máximo **um disparo por turno**, e não repete o
   mesmo clique em sequência.
-- Se não reconhecer a tela, um botão não aparecer ou a tela não avançar, ele tenta recuperar pelos meios normais
-  (fechar aviso, ESC). Se não conseguir, **pausa**, mostra o motivo e salva a imagem em `dados\capturas`.
+- Uma tela só vale depois de reconhecida em leituras seguidas: um quadro estranho (explosão, animação) não conta
+  vitória nem dispara de novo.
+- Se não reconhecer a tela, um botão não aparecer ou a tela não avançar, ele só fecha o aviso se reconhecer o
+  botão **X** (modelo "fechar"); nunca aperta teclas às cegas. Se não conseguir, **pausa**, mostra o motivo e o que
+  fazer, e salva a imagem em `dados\capturas`.
+- Se você trocar de janela (Alt+Tab) ou minimizar o jogo, o bot **pausa** e espera você clicar em Retomar.
 - Com o inimigo invisível, usa a última posição vista e calcula o quanto ele pode ter andado. Se a incerteza for
   grande, espera o inimigo reaparecer em vez de atirar às cegas.
 - Desconexão: para e avisa. Ele não faz login sozinho.
@@ -84,8 +91,19 @@ busca física) com a probabilidade estimada de acerto.
 ### Onde ficam os dados
 
 Tudo fica na pasta **`dados`**, ao lado do `DDClassicoBot.exe`: configuração, imagens capturadas, atividades,
-histórico de disparos e registros (`dados\logs\ddbot.log`). Para levar para outro computador, copie a pasta
-`DDClassicoBot` inteira. Para atualizar o programa, substitua os arquivos e **mantenha a pasta `dados`**.
+histórico de disparos e registros (`dados\logs\ddbot.log`). Se a pasta do programa não permitir gravar (por
+exemplo dentro de *Arquivos de Programas*), os dados vão para `%LOCALAPPDATA%\DDClassicoBot` e o aviso aparece no
+Histórico. O caminho exato está na aba Configurações.
+
+Para levar para outro computador, copie a pasta `DDClassicoBot` inteira. Para atualizar o programa, substitua os
+arquivos e **mantenha a pasta `dados`**: as tabelas novas entram sozinhas, a menos que você as tenha editado.
+
+> As capturas (`dados\capturas`, guardadas só as 200 mais recentes) podem mostrar seu nome no jogo e o chat.
+> Confira antes de enviar a pasta `dados` para alguém. Nos registros, a pasta do usuário do Windows aparece como
+> `%USERPROFILE%`.
+
+Se o `config.json` for corrompido (por exemplo, editado à mão), o programa abre com os valores padrão e guarda o
+arquivo antigo como `config.corrompido-<data>.json`.
 
 ---
 

@@ -7,10 +7,11 @@ DDClassico Bot - como usar (resumo)
 3. No topo, escolha a janela do jogo e clique em Atualizar se ela nao aparecer.
 4. Primeira vez: aba "Calibracao" (veja LEIA-ME.md, secao "Primeira configuracao").
 5. Aba "Configuracoes": leia o aviso e marque a autorizacao do modo automatico.
-6. Aba "Inicio": escolha uma Partida ou Instancia, a quantidade e clique em Iniciar.
-7. Para parar: botao Parar ou a tecla F12 (parada de emergencia), a qualquer momento.
+6. Aba "Inicio": escolha Instancias ou Partidas automaticas, a atividade, quantas vezes,
+   e clique em Iniciar (F5). Pausar/Retomar: F6. Parar: F8.
+7. Parada de emergencia: tecla F12 (configuravel), a qualquer momento, mesmo no jogo.
 
-Para conhecer a interface sem o jogo, marque "Demonstracao (simulada)" no topo.
+Para conhecer a interface sem o jogo, ligue "Modo demonstracao" no canto superior direito.
 Os dados (configuracao, modelos capturados, historico de disparos) ficam na pasta
 "dados", ao lado do DDClassicoBot.exe. Para levar para outro computador, copie a
 pasta inteira.

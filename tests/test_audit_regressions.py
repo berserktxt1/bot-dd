@@ -56,8 +56,9 @@ def test_visual_power_never_holds_past_timed_estimate(tmp_path):
     """Barra não lida durante a carga: solta no tempo estimado, não segura até 100%."""
     game, cfg, lib, per, kill, inp, view, store = build(tmp_path, power_mode="visual")
     from ddbot.game_io import KeyboardShooter
+    game.full_time = 2.0  # barra realista (a do jogo leva ~4 s); com 0,5 s, 15 ms do Windows = 3 pontos
+    cfg.set("automation.power_full_time_s", 2.0)
     sh = KeyboardShooter(inp, view, cfg)
-    per.read_power = lambda frame, snap: setattr(snap, "power", None) if snap.width else setattr(snap, "power", 0.0)
     first = {"done": False}
 
     def read_power(frame, snap):
@@ -65,7 +66,8 @@ def test_visual_power_never_holds_past_timed_estimate(tmp_path):
         first["done"] = True
     per.read_power = read_power
     sh.charge_and_fire(40.0)
-    assert game.released_power is not None and game.released_power < 55
+    # trava: tempo estimado (40) + 10% + 50 ms = ~46,5; nunca perto de 100
+    assert game.released_power is not None and 38 < game.released_power < 50
     store.close()
 
 
