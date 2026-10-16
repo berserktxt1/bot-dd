@@ -80,9 +80,10 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force test-results | Out-Null
-          function Run-Exe($exe, $args, $timeoutMs) {
-            $p = Start-Process $exe -ArgumentList $args -PassThru
-            if (-not $p.WaitForExit($timeoutMs)) { $p.Kill($true); Write-Error "o exe travou ($args)"; exit 1 }
+          # ($args é variável automática do PowerShell: não usar como nome de parâmetro)
+          function Run-Exe($exe, [string[]]$argList, $timeoutMs) {
+            $p = Start-Process $exe -ArgumentList $argList -PassThru
+            if (-not $p.WaitForExit($timeoutMs)) { $p.Kill($true); Write-Error "o exe travou ($($argList -join ' '))"; exit 1 }
             return $p.ExitCode
           }
           # cópia extraída do ZIP: simula outro computador sem Python no PATH
