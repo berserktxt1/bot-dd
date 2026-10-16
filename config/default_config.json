@@ -31,8 +31,7 @@
       "mode": "template",
       "hsv_low": null,
       "hsv_high": null
-    },
-    "marker_to_feet": 0.0
+    }
   },
   "thresholds": {
     "template": 0.8,
@@ -61,9 +60,8 @@
       "angle_down": "down",
       "fire": "space",
       "pass_turn": null,
-      "face_left": null,
-      "face_right": null,
-      "close": "esc"
+      "face_left": "left",
+      "face_right": "right"
     },
     "power_mode": "timed",
     "power_full_time_s": 4.0,
@@ -73,7 +71,9 @@
     "key_delay_ms": 45,
     "max_angle_presses": 120,
     "min_seconds_between_shots": 3.0,
-    "post_shot_wait_s": 4.0
+    "post_shot_wait_s": 4.0,
+    "turn_confirm_reads": 2,
+    "bad_reads_per_turn": 3
   },
   "safety": {
     "emergency_hotkey": "<f12>",

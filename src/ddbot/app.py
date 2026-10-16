@@ -4,6 +4,7 @@ Opções (diagnóstico/CI; o usuário final não precisa delas):
   --selftest        verifica recursos, configuração, mira, visão e simulação; código 0 = ok
   --simulate N      roda N batalhas simuladas e mostra a precisão
   --gui-smoke S     abre a interface, exercita os botões em modo simulado e fecha após S segundos
+  --screenshots DIR percorre os estados da interface e salva capturas (revisão visual)
   --home PASTA      usa outra pasta de dados
 """
 from __future__ import annotations
@@ -91,6 +92,19 @@ def _selftest(home: Path | None) -> int:
             assert status.value == "concluido", (status, runner.reason)
             return runner.counters.as_dict()
 
+        def entrada():
+            # a parte mais frágil do executável: teclado global e envio de teclas (pynput)
+            try:
+                from pynput import keyboard
+            except Exception as exc:
+                if sys.platform == "win32":
+                    raise
+                return f"pynput indisponível fora do Windows ({type(exc).__name__})"
+            listener = keyboard.GlobalHotKeys({"<f12>": lambda: None})
+            listener.start()
+            listener.stop()
+            return "tecla global ok"
+
         def gui_import():
             import importlib
             try:
@@ -104,6 +118,7 @@ def _selftest(home: Path | None) -> int:
         check("mira", aim)
         check("visao", vision)
         check("simulacao", simulation)
+        check("entrada", entrada)
         check("interface", gui_import)
     finally:
         svc.close()
@@ -147,21 +162,92 @@ def _simulate(n: int, home: Path | None) -> int:
     return 0
 
 
+def _attach_console():
+    """No .exe sem console, mostra a saída do --selftest/--simulate no terminal que o abriu."""
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return
+    try:
+        import ctypes
+        if ctypes.windll.kernel32.AttachConsole(-1):
+            sys.stdout = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+            sys.stderr = sys.stdout
+    except Exception:
+        pass
+
+
+def _install_excepthooks():
+    """Sem console, exceções não tratadas iriam para lugar nenhum: manda para o log."""
+    import logging
+    import threading
+    log = logging.getLogger("ddbot")
+    sys.excepthook = lambda *e: log.critical("erro fatal", exc_info=e)
+    threading.excepthook = lambda a: log.error("erro na thread %s", getattr(a.thread, "name", "?"),
+                                               exc_info=(a.exc_type, a.exc_value, a.exc_traceback))
+
+
+def _single_instance(home: Path | None):
+    """Impede duas cópias abertas usando a mesma pasta de dados (logs, banco e config)."""
+    from .paths import user_root
+    root = Path(home) if home else user_root()
+    root.mkdir(parents=True, exist_ok=True)
+    f = open(root / ".em_uso.lock", "a+")
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.close()
+        return None
+    return f
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="DDClassicoBot")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--simulate", type=int, default=0)
     ap.add_argument("--gui-smoke", type=float, default=0.0)
+    ap.add_argument("--screenshots", type=Path, default=None)
     ap.add_argument("--home", type=Path, default=None)
+    if argv is None and getattr(sys, "frozen", False):
+        argv = sys.argv[1:]
+    if argv and any(a in ("--selftest", "--simulate") for a in argv):
+        _attach_console()
     args = ap.parse_args(argv)
+    _install_excepthooks()
     if args.home:
+        args.home = args.home.expanduser().resolve()
         os.environ["DDBOT_HOME"] = str(args.home)
     if args.selftest:
         return _selftest(args.home)
     if args.simulate:
         return _simulate(args.simulate, args.home)
+    lock = _single_instance(args.home)
+    if lock is None:
+        _already_open()
+        return 2
     from .gui.main_window import run_gui
-    return run_gui(home=args.home, smoke_seconds=args.gui_smoke)
+    try:
+        return run_gui(home=args.home, smoke_seconds=args.gui_smoke, screenshots=args.screenshots)
+    finally:
+        lock.close()
+
+
+def _already_open():
+    _print("O DDClássico Bot já está aberto.")
+    if os.environ.get("DDBOT_SMOKE_OUT") or os.environ.get("DDBOT_HEADLESS"):
+        return
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        r = tk.Tk()
+        r.withdraw()
+        messagebox.showinfo("DDClássico Bot", "O programa já está aberto. Procure a janela na barra de tarefas.")
+        r.destroy()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

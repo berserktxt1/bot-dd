@@ -9,6 +9,18 @@ from pathlib import Path
 LOG_QUEUE: "queue.Queue[str]" = queue.Queue(maxsize=5000)
 
 
+class MaskHome(logging.Filter):
+    """Os registros podem ser enviados para suporte: troca a pasta do usuário por %USERPROFILE%."""
+
+    def filter(self, record):
+        from .util import mask_home
+        msg = record.getMessage()
+        masked = mask_home(msg)
+        if masked != msg:
+            record.msg, record.args = masked, ()
+        return True
+
+
 class QueueHandler(logging.Handler):
     def emit(self, record):
         try:
@@ -25,10 +37,11 @@ def setup_logging(log_dir: Path, level=logging.INFO) -> Path:
     root.setLevel(level)
     for h in list(root.handlers):
         root.removeHandler(h)
-    fh = RotatingFileHandler(log_file, maxBytes=2_000_000, backupCount=5, encoding="utf-8")
+    fh = RotatingFileHandler(log_file, maxBytes=2_000_000, backupCount=5, encoding="utf-8", delay=True)
     fh.setFormatter(fmt)
     qh = QueueHandler()
     qh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%H:%M:%S"))
-    root.addHandler(fh)
-    root.addHandler(qh)
+    for h in (fh, qh):
+        h.addFilter(MaskHome())
+        root.addHandler(h)
     return log_file
