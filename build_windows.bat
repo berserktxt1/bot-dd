@@ -37,7 +37,7 @@ mkdir release
 xcopy /e /i /q dist\DDClassicoBot release\DDClassicoBot >nul
 copy /y README.md release\DDClassicoBot\LEIA-ME.md >nul
 copy /y docs\USO.txt release\DDClassicoBot\COMO-USAR.txt >nul
-powershell -NoProfile -Command "Compress-Archive -Path 'release\DDClassicoBot' -DestinationPath 'release\DDClassicoBot.zip' -Force"
+python -m zipfile -c release\DDClassicoBot.zip release\DDClassicoBot
 if errorlevel 1 goto :erro
 
 echo.

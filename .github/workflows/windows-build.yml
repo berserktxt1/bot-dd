@@ -55,6 +55,9 @@ jobs:
           )
           foreach ($f in $need) { if (-not (Test-Path $f)) { Write-Error "faltando: $f"; exit 1 } else { Write-Host "ok: $f" } }
           Get-Item release/DDClassicoBot.zip | Select-Object Name, Length
+          # nomes no ZIP com "/" (padrão): abre no Explorer, 7-Zip, WinRAR, macOS e Linux
+          python -c "import zipfile; n = zipfile.ZipFile('release/DDClassicoBot.zip').namelist(); bad = [x for x in n if chr(92) in x]; assert not bad, bad[:3]; assert 'DDClassicoBot/DDClassicoBot.exe' in n; print(len(n), 'arquivos no ZIP')"
+          if ($LASTEXITCODE -ne 0) { Write-Error "ZIP com caminhos inválidos"; exit 1 }
 
       - name: Testar o .exe compilado (autoteste e interface)
         shell: pwsh
