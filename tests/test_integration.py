@@ -114,6 +114,7 @@ def test_vision_to_keyboard_shot(tmp_path, kb, params):
     assert eng.set_mode(Mode.AUTO)[0]
     obs = view.observe()
     assert obs.my_turn and abs(obs.distance - 6.0) < 0.05 and obs.current_angle == 30
+    eng.step()  # primeira leitura do turno; a segunda confirma e dispara
     rec = eng.step()
     b = rec.best
     assert b is not None
@@ -131,6 +132,10 @@ def test_vision_to_keyboard_shot(tmp_path, kb, params):
 
 def test_visual_power_mode(tmp_path, kb, params):
     game, cfg, lib, per, kill, inp, view, store = build(tmp_path, power_mode="visual")
+    # barra de 2 s (a real leva ~4 s): com 0,5 s a amostragem sob carga perde o ponto e a trava
+    # de segurança solta pelo tempo, o que é o comportamento correto mas não o que se testa aqui
+    game.full_time = 2.0
+    cfg.set("automation.power_full_time_s", 2.0)
     sh = KeyboardShooter(inp, view, cfg)
     sh.charge_and_fire(40.0)
     assert abs(game.released_power - 40) < 6

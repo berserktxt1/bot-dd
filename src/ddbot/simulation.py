@@ -41,6 +41,8 @@ class SimSettings:
     exec_sigma_force: float = 0.5
     target_width: float = 0.35
     turn_timeout_reads: int = 6      # leituras até o turno acabar sem disparo (cronômetro do jogo)
+    enemy_turn_reads: int = 2        # leituras do turno do inimigo (o bot confirma o turno em 2)
+    left_probability: float = 0.0    # chance de o inimigo estar à esquerda numa batalha
     # diferença entre o "jogo" e o modelo do bot (o bot não conhece estes fatores)
     true_speed_scale: float = 1.03
     true_wind_scale: float = 1.25
@@ -58,6 +60,8 @@ class SimState:
     my_turn: bool = True
     hits: int = 0
     reads_this_turn: int = 0
+    enemy_reads_left: int = 0
+    direction: int = 1
     skipped_turns: int = 0
     over: str | None = None
     log: list[dict] = field(default_factory=list)
@@ -75,8 +79,9 @@ class SimulatedWorld:
 
     def new_battle(self):
         s, r = self.s, self.rng
-        st = SimState(me_x=r.uniform(0.5, 2.0))
-        st.target_x = st.me_x + r.uniform(*s.distance_range)
+        st = SimState(me_x=r.uniform(8.0, 10.0))
+        st.direction = -1 if r.random() < s.left_probability else 1
+        st.target_x = st.me_x + st.direction * r.uniform(*s.distance_range)
         st.dy = r.uniform(*s.dy_range)
         st.wind_screen = round(r.uniform(-s.wind_max, s.wind_max), 1)
         self.state = st
@@ -86,8 +91,9 @@ class SimulatedWorld:
         st.turn += 1
         st.reads_this_turn = 0
         st.wind_screen = round(r.uniform(-s.wind_max, s.wind_max), 1)
-        lo, hi = st.me_x + s.distance_range[0], st.me_x + s.distance_range[1]
-        st.target_x = min(hi, max(lo, st.target_x + r.uniform(-s.move_per_turn, s.move_per_turn)))
+        d = abs(st.target_x - st.me_x) + r.uniform(-s.move_per_turn, s.move_per_turn)
+        d = min(s.distance_range[1], max(s.distance_range[0], d))
+        st.target_x = st.me_x + st.direction * d
         if st.hidden_left > 0:
             st.hidden_left -= 1
         elif r.random() < s.hide_probability:
@@ -99,9 +105,13 @@ class SimulatedWorld:
         st, s, r = self.state, self.s, self.rng
         if st.over:
             return BattleObservation(False, False, battle_over=st.over)
-        if not st.my_turn:  # turno do inimigo passa em uma leitura
-            st.my_turn = True
-            self._next_turn()
+        if not st.my_turn:  # turno do inimigo: algumas leituras
+            if st.enemy_reads_left <= 0:
+                st.enemy_reads_left = s.enemy_turn_reads
+            st.enemy_reads_left -= 1
+            if st.enemy_reads_left <= 0:
+                st.my_turn = True
+                self._next_turn()
             return BattleObservation(True, False)
         st.reads_this_turn += 1
         if st.reads_this_turn > s.turn_timeout_reads:  # tempo do turno esgotou
@@ -109,20 +119,27 @@ class SimulatedWorld:
             st.skipped_turns += 1
             return BattleObservation(True, False)
         visible = st.hidden_left == 0
-        obs = BattleObservation(True, True, wind=st.wind_screen + r.gauss(0, s.read_sigma_wind),
-                                dy=st.dy, me_x=st.me_x, confidence=0.95, target_visible=visible)
+        wind_read = st.wind_screen + r.gauss(0, s.read_sigma_wind)
+        # coordenadas de tela em régua: y cresce para baixo, o atirador fica em y=0
+        obs = BattleObservation(True, True, me_x=st.me_x, me_y=0.0, wind_screen=wind_read, wind_confidence=0.95,
+                                confidence=0.95, target_visible=visible)
         if visible:
             measured = st.target_x + r.gauss(0, s.read_sigma_distance)
-            obs.distance = measured - st.me_x
-            obs.target_x, obs.target_y = measured, st.dy
+            obs.direction = 1 if measured >= st.me_x else -1
+            obs.distance = abs(measured - st.me_x)
+            obs.wind = wind_read * obs.direction
+            obs.dy = st.dy
+            obs.target_x, obs.target_y = measured, -st.dy
         return obs
 
-    def fire(self, angle: float, force: float) -> ShotOutcome:
+    def fire(self, angle: float, force: float, direction: int = 1) -> ShotOutcome:
+        from .aiming import hit_half_width
         st, s = self.state, self.s
         f = min(100.0, max(0.0, force + self.rng.gauss(0, s.exec_sigma_force)))
-        x = float(landing_x(angle, f, st.wind_screen, st.dy, self.true_params))
-        true_distance = st.target_x - st.me_x
-        hit = bool(np.isfinite(x) and abs(x - true_distance) <= s.target_width / 2 + 0.25)
+        # o projétil vai para o lado em que o bot atirou; o vento conta relativo a esse lado
+        x = float(landing_x(angle, f, st.wind_screen * direction, st.dy, self.true_params))
+        true_distance = (st.target_x - st.me_x) * direction  # negativo = atirou para o lado errado
+        hit = bool(np.isfinite(x) and abs(x - true_distance) <= hit_half_width(s.target_width, 0.25))
         if hit:
             st.hits += 1
         st.log.append({"turno": st.turn, "angulo": angle, "forca": force, "impacto": x,
@@ -147,7 +164,7 @@ class SimulatedShooter(Shooter):
         self.world = world
 
     def shoot(self, angle, force, direction, obs):
-        return self.world.fire(angle, force)
+        return self.world.fire(angle, force, direction)
 
 
 @dataclass
@@ -196,7 +213,8 @@ def run_simulation(kb: KnowledgeBase, params: PhysicsParams, battles: int = 20,
     calibrator = Calibrator(store, params, sources=("simulado",))
     aimer = Aimer(kb, params, calibrator if calibrate else None)
     # configuração isolada: a autorização vale só para o executor simulado
-    cfg = Config(data={"automation": {"server_rules_confirmed": True, "min_seconds_between_shots": 0},
+    cfg = Config(data={"automation": {"server_rules_confirmed": True, "min_seconds_between_shots": 0,
+                                  "post_shot_wait_s": 0},
                        "aim": {"target_width": settings.target_width},
                        "thresholds": {"auto_min_hit_probability": 0.0}})
     engine = CombatEngine(SimulatedView(world), SimulatedShooter(world), aimer, calibrator,
@@ -251,12 +269,21 @@ class SimulatedClient:
         self._popup = False
         self.stage = 0
         self.battles_started = 0
+        self.ignored: set[str] = set()
 
     # ScreenReader
     def read(self):
         from .activities import ScreenState
         self.reads += 1
         f = self.faults
+        if f.get("read_error_at") and self.reads in f["read_error_at"]:
+            raise RuntimeError("falha passageira na captura")
+        if f.get("window_gone_at") and self.reads >= f["window_gone_at"]:
+            return ScreenState("janela_indisponivel", 1.0, None, "a janela do jogo está minimizada")
+        if f.get("no_focus_at") and self.reads >= f["no_focus_at"]:
+            return ScreenState("janela_sem_foco", 1.0)
+        if f.get("flash_at") and self.reads == f["flash_at"][0]:
+            return ScreenState(f["flash_at"][1], 0.95)  # um quadro falso isolado
         if f.get("disconnect_at") and self.reads >= f["disconnect_at"]:
             return ScreenState("desconectado", 0.95)
         if f.get("popup_at") and self.reads == f["popup_at"]:
@@ -278,6 +305,8 @@ class SimulatedClient:
             if result == "vitoria" and self.stage + 1 < stages:
                 self.stage += 1
                 self.screen = "etapa_concluida"
+            elif f.get("skip_result"):
+                self.screen = "lobby"  # o jogo volta direto, sem tela de resultado reconhecível
             else:
                 self.screen = result
         return ScreenState(self.screen, 0.95)
@@ -291,6 +320,13 @@ class SimulatedClient:
     def click(self, template, frame=None) -> bool:
         if template == self.faults.get("missing_button"):
             return False
+        if template == self.faults.get("focus_lost_on"):
+            from .automation.safety import FocusLost
+            raise FocusLost("a janela do jogo não está na frente")
+        if template == self.faults.get("ignore_first_click") and template not in self.ignored:
+            self.ignored.add(template)  # o jogo "perdeu" o clique (atraso)
+            self.clicks.append((self.screen, template + ":ignorado"))
+            return True
         if self._popup:
             if template == "botao_fechar":
                 self._popup = False
@@ -334,7 +370,8 @@ def simulated_activity(kb: KnowledgeBase, params: PhysicsParams, definition, run
         store_path = Path(tmpdir.name) / "sim.sqlite3"
     store = ShotStore(store_path)
     calibrator = Calibrator(store, params, sources=("simulado",))
-    data = {"automation": {"server_rules_confirmed": True, "min_seconds_between_shots": 0},
+    data = {"automation": {"server_rules_confirmed": True, "min_seconds_between_shots": 0,
+                                  "post_shot_wait_s": 0},
             "aim": {"target_width": settings.target_width},
             "thresholds": {"auto_min_hit_probability": 0.0}}
     for k, v in (config_overrides or {}).items():
@@ -382,6 +419,6 @@ def drive(runner, max_steps=20000):
     runner.status = RunStatus.RUNNING
     runner.counters = RunCounters(started_at=runner.clock(), clock=runner.clock)
     for _ in range(max_steps):
-        if not runner.step() or runner.status == RunStatus.PAUSED:
+        if not runner.run_once() or runner.status == RunStatus.PAUSED:
             break
     return runner.status

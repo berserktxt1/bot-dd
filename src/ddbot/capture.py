@@ -21,17 +21,33 @@ class FrameSource:
     def grab(self) -> np.ndarray | None:
         raise NotImplementedError
 
+    unavailable = ""
+
     def is_foreground(self) -> bool:
         return False
+
+    def release_thread(self):
+        """Libera recursos da thread atual (só a captura de janela usa)."""
 
     def close(self):
         pass
 
 
 class WindowCapture(FrameSource):
+    """Captura a área cliente da janela.
+
+    O MSS precisa de uma instância por thread e só libera os recursos do Windows (DCs e
+    bitmaps GDI) em ``close()``. Por isso todas as instâncias ficam registradas: cada
+    thread de trabalho chama ``release_thread()`` ao terminar e ``close()`` libera todas.
+    """
+
     def __init__(self, hwnd: int):
         self.hwnd = hwnd
-        self._local = threading.local()  # MSS não é thread-safe
+        self._local = threading.local()
+        self._all: dict[int, object] = {}
+        self._lock = threading.Lock()
+        self.unavailable = ""      # motivo quando grab() devolve None
+        self.last_info = None      # posição/tamanho da janela no último quadro
 
     def _sct(self):
         sct = getattr(self._local, "sct", None)
@@ -39,6 +55,8 @@ class WindowCapture(FrameSource):
             import mss
             sct = mss.mss()
             self._local.sct = sct
+            with self._lock:
+                self._all[id(sct)] = sct
         return sct
 
     @property
@@ -52,21 +70,48 @@ class WindowCapture(FrameSource):
 
     def grab(self):
         info = self.info
-        if info is None or winapi.is_minimized(self.hwnd) or info.width <= 0:
+        if info is None:
+            self.unavailable = "a janela do jogo foi fechada"
             return None
+        if winapi.is_minimized(self.hwnd) or info.width <= 0 or info.height <= 0:
+            self.unavailable = "a janela do jogo está minimizada"
+            return None
+        self.unavailable = ""
         mon = {"left": info.left, "top": info.top, "width": info.width, "height": info.height}
         shot = self._sct().grab(mon)
+        self.last_info = info
         return cv2.cvtColor(np.asarray(shot), cv2.COLOR_BGRA2BGR)
 
     def is_foreground(self) -> bool:
         fg = winapi.foreground_hwnd()
         return fg != 0 and winapi.root_of(fg) == winapi.root_of(self.hwnd)
 
-    def close(self):
+    def release_thread(self):
         sct = getattr(self._local, "sct", None)
         if sct is not None:
-            sct.close()
             self._local.sct = None
+            with self._lock:
+                self._all.pop(id(sct), None)
+            try:
+                sct.close()
+            except Exception:
+                pass
+
+    def close(self):
+        with self._lock:
+            items = list(self._all.values())
+            self._all.clear()
+        for sct in items:
+            try:
+                sct.close()
+            except Exception:
+                pass
+        self._local = threading.local()
+
+    @property
+    def open_instances(self) -> int:
+        with self._lock:
+            return len(self._all)
 
 
 class ImageSource(FrameSource):

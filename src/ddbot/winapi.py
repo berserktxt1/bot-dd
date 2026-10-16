@@ -132,22 +132,42 @@ if IS_WINDOWS:
         **{c: (sc, False) for c, sc in zip("qwertyuiop", range(0x10, 0x1A))},
         **{c: (sc, False) for c, sc in zip("asdfghjkl", range(0x1E, 0x27))},
         **{c: (sc, False) for c, sc in zip("zxcvbnm", range(0x2C, 0x33))},
-        **{f"f{i}": (0x3A + i, False) for i in range(1, 11)},
+        **{f"f{i}": (0x3A + i, False) for i in range(1, 11)}, "f11": (0x57, False), "f12": (0x58, False),
+        "shift": (0x2A, False), "ctrl": (0x1D, False), "alt": (0x38, False), "backspace": (0x0E, False),
+        "pageup": (0x49, True), "pagedown": (0x51, True), "home": (0x47, True), "end": (0x4F, True),
+        "insert": (0x52, True), "delete": (0x53, True),
     }
+
+    user32.WindowFromPoint.argtypes = [wintypes.POINT]
+    user32.WindowFromPoint.restype = wintypes.HWND
+
+    def _send(inp) -> None:
+        if user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT)) != 1:
+            from .automation.safety import InputBlocked
+            raise InputBlocked("o Windows bloqueou o envio de teclas/cliques; se o jogo roda como "
+                               "administrador, abra o bot também como administrador")
 
     def send_key(key: str, up: bool):
         sc, ext = SCANCODES[key.lower()]
         flags = KEYEVENTF_SCANCODE | (KEYEVENTF_EXTENDEDKEY if ext else 0) | (KEYEVENTF_KEYUP if up else 0)
         inp = INPUT(type=INPUT_KEYBOARD)
         inp.u.ki = KEYBDINPUT(0, sc, flags, 0, 0)
-        user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+        _send(inp)
 
     def mouse_click(x: int, y: int):
+        import time
         user32.SetCursorPos(int(x), int(y))
-        for flag in (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP):
+        time.sleep(0.03)  # alguns clientes ignoram clique sem movimento/pausa
+        for i, flag in enumerate((MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)):
             inp = INPUT(type=INPUT_MOUSE)
             inp.u.mi = MOUSEINPUT(0, 0, 0, flag, 0, 0)
-            user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+            _send(inp)
+            if i == 0:
+                time.sleep(0.04)
+
+    def window_at(x: int, y: int) -> int:
+        h = user32.WindowFromPoint(wintypes.POINT(int(x), int(y)))
+        return int(h) if h else 0
 
 else:  # Linux/macOS: só para desenvolvimento e testes
     def list_windows() -> list[WindowInfo]:
@@ -170,11 +190,21 @@ else:  # Linux/macOS: só para desenvolvimento e testes
 
     SCANCODES: dict = {}
 
+    def window_at(x: int, y: int) -> int:
+        return 0
+
     def send_key(key: str, up: bool):
         raise RuntimeError("Envio de teclas só é suportado no Windows")
 
     def mouse_click(x: int, y: int):
         raise RuntimeError("Cliques só são suportados no Windows")
+
+
+def key_supported(key: str | None) -> bool:
+    """True se a tecla pode ser enviada (fora do Windows não há como validar)."""
+    if not key:
+        return False
+    return not IS_WINDOWS or key.lower() in SCANCODES
 
 
 def find_game_windows(keywords) -> list[WindowInfo]:

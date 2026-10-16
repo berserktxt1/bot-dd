@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
 
+from . import winapi
 from .automation.input import InputController
 from .automation.safety import Aborted
 from .capture import FrameSource
@@ -14,49 +16,75 @@ log = logging.getLogger(__name__)
 
 
 class VisionBattleView(BattleView):
+    """Lê o combate na tela. O alvo é mantido pela proximidade com a última posição vista,
+    para que dois inimigos não se misturem quando um deles some (invisibilidade)."""
+
     def __init__(self, source: FrameSource, perception: Perception, config):
         self.source = source
         self.perception = perception
         self.config = config
         self.last_frame = None
         self.last_snapshot: Snapshot | None = None
+        self._target_px: tuple[float, float] | None = None
+
+    def reset(self):
+        self._target_px = None
+
+    def _pick_target(self, snap: Snapshot):
+        if not snap.enemies:
+            return None
+        if self.perception.manual_target or self._target_px is None:
+            return self.perception.target(snap)
+        tx, ty = self._target_px
+        best = min(snap.enemies, key=lambda e: math.hypot(e.x - tx, e.y - ty))
+        gate = float(self.config.get("tracking.max_move_per_turn", 1.5)) * 2 * max(snap.unit_px, 1.0)
+        if math.hypot(best.x - tx, best.y - ty) > gate:
+            return None  # o inimigo seguido sumiu; o que restou é outro
+        return best
 
     def observe(self) -> BattleObservation:
         frame = self.source.grab()
         if frame is None:
-            return BattleObservation(False, None, notes=["sem imagem da janela"])
+            why = getattr(self.source, "unavailable", "") or "sem imagem da janela"
+            return BattleObservation(False, None, notes=[why])
         snap = self.perception.analyze(frame)
         self.last_frame, self.last_snapshot = frame, snap
         over = snap.state if snap.state in ("vitoria", "derrota") else None
-        # a batalha é considerada ativa pelo modelo de estado OU pela leitura do turno
         in_battle = snap.state == "batalha" or bool(snap.my_turn)
+        angle = snap.angle if snap.angle_confidence >= 0.5 else None
         obs = BattleObservation(in_battle=in_battle, my_turn=snap.my_turn, battle_over=over, snapshot=snap,
-                                current_angle=snap.angle, notes=list(snap.warnings))
-        target = self.perception.target(snap)
+                                current_angle=angle, notes=list(snap.warnings),
+                                wind_screen=snap.wind, wind_confidence=snap.wind_confidence)
+        target = self._pick_target(snap)
         conv = to_ruler(snap, target, snap.wind)
         confs = [snap.turn_confidence if snap.my_turn else 1.0]
         if snap.me:
             obs.me_x = snap.me.x / snap.unit_px
+            obs.me_y = snap.me.y / snap.unit_px
             confs.append(snap.me.confidence)
         if conv is not None:
             distance, dy, wind_rel, direction = conv
             obs.distance, obs.dy, obs.wind, obs.direction = distance, dy, wind_rel, direction
             obs.target_x, obs.target_y = target.x / snap.unit_px, target.y / snap.unit_px
             obs.target_visible = True
+            self._target_px = (target.x, target.y)
             confs.append(target.confidence)
-            confs.append(snap.wind_confidence if snap.wind is not None else 0.0)
         else:
             obs.target_visible = False
+        # vento entra na confiança sempre (também quando o alvo está oculto)
+        confs.append(snap.wind_confidence if snap.wind is not None else 0.0)
         obs.confidence = float(min(confs)) if confs else 0.0
         return obs
 
 
 class KeyboardShooter(Shooter):
-    """Ajusta ângulo com as setas e segura a tecla de disparo pelo tempo/força desejados.
+    """Ajusta direção e ângulo com as teclas e segura o disparo pelo tempo/força desejados.
 
-    Todos os parâmetros (teclas, tempo de carga total, leitura visual da barra) vêm da
-    configuração e devem ser validados no cliente (Calibração > Teste de controles).
+    Nada é disparado sem confirmação: se o ângulo não for confirmado na tela, se o turno
+    acabar durante o ajuste ou se a direção não puder ser garantida, o disparo é cancelado.
     """
+
+    ANGLE_SETTLE_S = 0.12
 
     def __init__(self, inp: InputController, view: VisionBattleView, config):
         self.inp = inp
@@ -65,81 +93,140 @@ class KeyboardShooter(Shooter):
         self.assumed_angle: float | None = None
         self.assumed_facing: int | None = None
 
-    def _keys(self):
-        return self.config.get("automation.keys", {})
+    def reset(self):
+        """Nova batalha: direção e ângulo anteriores não valem mais."""
+        self.assumed_angle = None
+        self.assumed_facing = None
 
-    def _read_angle(self):
+    def _keys(self):
+        return self.config.get("automation.keys", {}) or {}
+
+    def _grab_snap(self):
         frame = self.view.source.grab()
         if frame is None:
+            return None, None
+        return frame, Snapshot(width=frame.shape[1], height=frame.shape[0])
+
+    def _read_angle(self):
+        frame, snap = self._grab_snap()
+        if frame is None:
             return None
-        snap = Snapshot()
         self.view.perception.read_angle(frame, snap)
         return snap.angle if snap.angle_confidence >= 0.5 else None
 
+    def _stable_angle(self):
+        """Lê o ângulo até duas leituras seguidas coincidirem (o número na tela demora a atualizar)."""
+        last = None
+        for _ in range(4):
+            self.inp.sleep(self.ANGLE_SETTLE_S)
+            value = self._read_angle()
+            if value is not None and value == last:
+                return value
+            last = value
+        return last
+
     def face(self, direction: int):
         keys = self._keys()
-        if self.assumed_facing == direction or not keys.get("face_left"):
+        key = keys.get("face_left") if direction < 0 else keys.get("face_right")
+        if self.assumed_facing == direction:
             return
-        self.inp.tap(keys["face_left"] if direction < 0 else keys["face_right"])
+        if not key:
+            raise Aborted("configure as teclas de virar para a esquerda/direita: sem elas não dá para garantir "
+                          "a direção do disparo")
+        self.inp.tap(key)
         self.assumed_facing = direction
 
     def set_angle(self, target: int, current: float | None):
         keys = self._keys()
+        up, down = keys.get("angle_up") or "up", keys.get("angle_down") or "down"
         max_presses = int(self.config.get("automation.max_angle_presses", 120))
-        for attempt in range(3):
-            if current is None:
-                current = self._read_angle() if attempt else None
-            if current is None:
-                current = self.assumed_angle
-            if current is None:
-                raise Aborted("ângulo atual desconhecido: treine a leitura do ângulo")
+        has_reader = bool(self.config.get("regions.angle")) and self.view.perception.angle_reader.trained
+        if current is None and has_reader:
+            current = self._stable_angle()
+        if current is None:
+            current = self.assumed_angle
+        if current is None:
+            raise Aborted("ângulo atual desconhecido: treine a leitura do ângulo em Calibração > Números")
+        for _ in range(3):
             diff = int(round(target - current))
             if diff == 0:
-                break
+                self.assumed_angle = target
+                return
             if abs(diff) > max_presses:
                 raise Aborted(f"ajuste de ângulo excessivo ({diff})")
-            self.inp.tap(keys.get("angle_up", "up") if diff > 0 else keys.get("angle_down", "down"), abs(diff))
-            current = None
-            self.assumed_angle = target
-            read = self._read_angle()
+            self.inp.tap(up if diff > 0 else down, abs(diff))
+            if not has_reader:
+                # sem leitura na tela só resta confiar na contagem de toques
+                self.assumed_angle = target
+                return
+            read = self._stable_angle()
             if read is None:
-                break  # sem leitura: confia na contagem de toques
-            current = read
-            if int(round(read)) == target:
                 break
-        self.assumed_angle = target
+            current = read
+        if current is not None and int(round(current)) == target:
+            self.assumed_angle = target
+            return
+        self.assumed_angle = None
+        raise Aborted(f"ângulo não confirmado na tela (queria {target}, lido {current})")
+
+    def _still_my_turn(self) -> bool | None:
+        if not self.config.get("regions.turn_indicator") or not self.view.perception.templates.has("turno"):
+            return None
+        frame, snap = self._grab_snap()
+        if frame is None:
+            return False
+        self.view.perception.read_turn(frame, snap)
+        return snap.my_turn
 
     def charge_and_fire(self, force: float):
-        fire = self._keys().get("fire", "space")
+        fire = self._keys().get("fire") or "space"
         full = float(self.config.get("automation.power_full_time_s", 4.0))
         # atraso de reação (captura + SendInput) compensado em pontos de força; calibrável
         force = max(1.0, force - float(self.config.get("automation.power_offset", 0.0)))
+        timed = full * force / 100.0
         if self.config.get("automation.power_mode") == "visual" and self.config.get("regions.power_bar"):
-            def reached():
-                frame = self.view.source.grab()
-                if frame is None:
-                    return False
-                snap = Snapshot()
+            frame, snap = self._grab_snap()
+            if frame is not None:
                 self.view.perception.read_power(frame, snap)
-                return snap.power is not None and snap.power >= force - 0.5
-            self.inp.hold(fire, full * 1.2, until=reached, poll_s=0.005)
-        else:
-            self.inp.hold(fire, full * force / 100.0)
+            if frame is None or snap.power is None:
+                log.warning("barra de força não lida: usando o tempo de carga")
+            else:
+                misses = {"n": 0}
+
+                def reached():
+                    f, s = self._grab_snap()
+                    if f is None:
+                        misses["n"] += 1
+                        return False
+                    self.view.perception.read_power(f, s)
+                    if s.power is None:
+                        misses["n"] += 1
+                        return False
+                    return s.power >= force - 0.5
+                # nunca segura além do tempo estimado (+10%): sem leitura, solta como no modo por tempo
+                if not self.inp.hold(fire, timed * 1.1 + 0.05, until=reached, poll_s=0.005):
+                    log.warning("barra de força não atingiu %.1f na leitura; solto pelo tempo", force)
+                return
+        self.inp.hold(fire, timed)
 
     def shoot(self, angle, force, direction, obs) -> ShotOutcome:
         log.info("executando disparo: ângulo %s, força %.1f, direção %s", angle, force, direction)
-        self.face(direction)
         try:
+            self.face(direction)
             self.set_angle(angle, obs.current_angle)
+            if self._still_my_turn() is False:
+                raise Aborted("o turno acabou durante o ajuste")
         except Aborted:
-            # sem confirmar o ângulo não atira; passa o turno se houver tecla configurada
+            # sem confirmar não atira; passa o turno se houver tecla configurada
             pass_key = self._keys().get("pass_turn")
             if pass_key and not self.inp.kill.triggered:
-                log.warning("ângulo não confirmado: passando o turno")
-                self.inp.tap(pass_key)
+                log.warning("disparo cancelado: passando o turno")
+                try:
+                    self.inp.tap(pass_key)
+                except Aborted:
+                    pass
             raise
         self.charge_and_fire(force)
-        self.inp.kill.sleep(float(self.config.get("automation.post_shot_wait_s", 4.0)))
         return ShotOutcome()  # impacto real é marcado pelo usuário ou por detector futuro
 
 
@@ -149,17 +236,26 @@ from .vision.templates import TemplateLibrary  # noqa: E402
 
 
 class VisionScreenReader(ScreenReader):
-    """Identifica a tela atual pelos modelos ``estado_*``."""
+    """Identifica a tela atual pelos modelos ``estado_*``.
 
-    def __init__(self, source: FrameSource, perception: Perception):
+    Janela minimizada/fechada e janela sem foco são estados próprios: a rotina pausa em vez
+    de tentar "recuperar" com cliques numa tela que o bot não está vendo.
+    """
+
+    def __init__(self, source: FrameSource, perception: Perception, require_foreground: bool = True):
         self.source = source
         self.perception = perception
+        self.require_foreground = require_foreground
         self.last: ScreenState | None = None
 
     def read(self) -> ScreenState:
         frame = self.source.grab()
         if frame is None:
-            self.last = ScreenState("desconhecido", 0.0, None)
+            self.last = ScreenState("janela_indisponivel", 1.0, None,
+                                    getattr(self.source, "unavailable", "") or "sem imagem da janela")
+            return self.last
+        if self.require_foreground and not self.source.is_foreground():
+            self.last = ScreenState("janela_sem_foco", 1.0, frame, "a janela do jogo não está na frente")
             return self.last
         snap = Snapshot(width=frame.shape[1], height=frame.shape[0])
         self.perception.classify_state(frame, snap)
@@ -168,10 +264,12 @@ class VisionScreenReader(ScreenReader):
 
 
 class GameActor(Actor):
-    """Clica em botões localizados por modelo de imagem, só com a janela do jogo em foco.
+    """Clica em botões localizados por modelo de imagem.
 
-    Proteções: limiar de confiança, intervalo mínimo entre cliques no mesmo botão e
-    conversão de coordenadas pela posição atual da janela (nunca coordenadas fixas).
+    Proteções: limiar de confiança; intervalo mínimo entre cliques no mesmo botão (devolve
+    ``None`` = adiado, não "não encontrado"); a janela precisa ter o mesmo tamanho do quadro
+    em que o botão foi achado; o ponto precisa cair dentro da área cliente e sobre a
+    própria janela do jogo (nada de clicar em outra janela por cima).
     """
 
     def __init__(self, inp: InputController, source: FrameSource, templates: TemplateLibrary, config,
@@ -193,19 +291,38 @@ class GameActor(Actor):
         m = self.templates.best(template, frame)
         return m if m and m.score >= self.threshold() else None
 
-    def click(self, template: str, frame) -> bool:
+    def _screen_point(self, frame, cx, cy):
+        info = getattr(self.source, "info", None)
+        if info is None:  # fontes de teste/imagem: só a origem
+            ox, oy = self.source.origin
+            return ox + cx, oy + cy
+        h, w = frame.shape[:2]
+        if (info.width, info.height) != (w, h):
+            log.warning("janela mudou de tamanho entre a leitura e o clique; clique cancelado")
+            return None
+        x, y = info.left + cx, info.top + cy
+        if not (info.left <= x < info.left + info.width and info.top <= y < info.top + info.height):
+            return None
+        under = winapi.window_at(x, y)
+        if under and winapi.root_of(under) != winapi.root_of(self.source.hwnd):
+            log.warning("outra janela está sobre o jogo no ponto do clique; clique cancelado")
+            return None
+        return x, y
+
+    def click(self, template: str, frame) -> bool | None:
         m = self.find(template, frame)
         if m is None:
             return False
         now = self.clock()
         if now - self._last_click.get(template, -1e9) < self.min_repeat_s:
-            log.info("clique em %s ignorado (repetido rápido demais)", template)
-            return False
-        ox, oy = self.source.origin
+            return None  # adiado: o mesmo botão foi clicado há instantes
         cx, cy = m.center
+        point = self._screen_point(frame, cx, cy)
+        if point is None:
+            return False
         self._last_click[template] = now
         log.info("clicando em %s (%.2f) em %d,%d", template, m.score, cx, cy)
-        self.inp.click(ox + cx, oy + cy)
+        self.inp.click(*point)
         return True
 
     def press(self, key: str):

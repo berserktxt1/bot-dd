@@ -63,13 +63,18 @@ def test_defeat_limit(kb, params, inst):
     hard = SimSettings(true_speed_scale=1.3, target_width=0.01, max_turns=3)
     status, r, _ = run(kb, params, inst, runs=0, settings=hard, calibrate=False,
                        limits=RunLimits(runs=0, max_defeats=2))
-    assert status == RunStatus.FINISHED and r.counters.defeats == 2 and "derrotas" in r.reason or \
-        r.counters.defeats == 2
+    assert status == RunStatus.FINISHED and "derrotas" in r.reason
+    assert r.counters.defeats == 2
 
 
 def test_time_limit(kb, params, inst):
-    status, r, _ = run(kb, params, inst, runs=0, limits=RunLimits(runs=0, max_minutes=0.05))
-    assert status == RunStatus.FINISHED and r.counters.completed >= 1
+    # o limite é conferido sempre que o bot está fora de uma atividade (telas iniciais);
+    # dentro dela, termina a execução atual antes de parar
+    status, r, _ = run(kb, params, inst, runs=0, limits=RunLimits(runs=0, max_minutes=0.5))
+    assert status == RunStatus.FINISHED and "tempo máximo" in r.reason
+    assert r.counters.completed >= 1 and r.counters.battles == r.counters.completed
+    status, r, _ = run(kb, params, inst, runs=0, limits=RunLimits(runs=0, max_minutes=0.04))
+    assert status == RunStatus.FINISHED and r.counters.battles == 0  # não entra em batalha nova
 
 
 def test_requires_authorization_and_pve(kb, params, inst):
@@ -174,3 +179,117 @@ def test_failure_frame_saved(kb, params, inst):
     drive(runner)
     cleanup()
     assert saved and "botao_iniciar" in saved[0]
+
+
+# ---------------------------------------------------------------- regressões da auditoria
+def test_single_false_victory_frame_not_counted(kb, params, inst):
+    """Um quadro de 'vitória' no meio da batalha não conta resultado nem reinicia o combate."""
+    runner, client, engine, clock, cleanup = simulated_activity(kb, params, inst, runs=1)
+    resets = []
+    orig = runner.on_battle_start
+    runner.on_battle_start = lambda: (resets.append(1), orig())
+    # o quadro falso aparece logo depois do início da batalha
+    client.faults["flash_at"] = (12, "vitoria")
+    drive(runner)
+    cleanup()
+    assert runner.status == RunStatus.FINISHED
+    assert runner.counters.completed == 1 and runner.counters.battles == 1 and len(resets) == 1
+
+
+def test_limits_work_without_result_screen(kb, params, inst):
+    """O jogo volta ao lobby sem tela de vitória/derrota: a execução conta como 'sem resultado'."""
+    status, r, _ = run(kb, params, inst, runs=2, faults={"skip_result": True})
+    assert status == RunStatus.FINISHED
+    assert r.counters.completed == 2 and r.counters.unknown_results == 2
+
+
+def test_focus_lost_pauses_instead_of_emergency(kb, params, inst):
+    status, r, _ = run(kb, params, inst, runs=1, faults={"focus_lost_on": "botao_iniciar"})
+    assert status == RunStatus.PAUSED and "frente" in r.reason
+
+
+def test_window_minimized_pauses(kb, params, inst):
+    status, r, _ = run(kb, params, inst, runs=1, faults={"window_gone_at": 4})
+    assert status == RunStatus.PAUSED and "minimizada" in r.reason
+
+
+def test_no_focus_waits_then_pauses(kb, params, inst):
+    status, r, c = run(kb, params, inst, runs=1, faults={"no_focus_at": 4})
+    assert status == RunStatus.PAUSED and "frente" in r.reason
+    assert c.clicks == [("lobby", "botao_instancias")] or len(c.clicks) <= 1  # nada clicado sem foco
+
+
+def test_transient_read_errors_tolerated(kb, params, inst):
+    status, r, _ = run(kb, params, inst, runs=1, faults={"read_error_at": {5, 9}})
+    assert status == RunStatus.FINISHED and r.counters.completed == 1
+
+
+def test_repeated_errors_pause(kb, params, inst):
+    status, r, _ = run(kb, params, inst, runs=1, faults={"read_error_at": {5, 6, 7}})
+    assert status == RunStatus.PAUSED and "erros repetidos" in r.reason
+
+
+def test_ignored_click_is_retried(kb, params, inst):
+    status, r, c = run(kb, params, inst, runs=1, faults={"ignore_first_click": "botao_iniciar"})
+    assert status == RunStatus.FINISHED
+    assert ("sala", "botao_iniciar:ignorado") in c.clicks and ("sala", "botao_iniciar") in c.clicks
+
+
+def test_unknown_screen_never_sends_keys(kb, params, inst):
+    status, r, c = run(kb, params, inst, runs=1, faults={"unknown_at": 2, "unknown_for": 10_000})
+    assert status == RunStatus.PAUSED and c.keys == []  # nada de ESC às cegas
+
+
+def test_recurring_popup_recovered_each_time(kb, params, inst):
+    runner, client, engine, clock, cleanup = simulated_activity(kb, params, inst, runs=2)
+    orig_read = client.read
+
+    def read_with_popups():
+        if client.reads in (3, 60):
+            client._popup = True
+        return orig_read()
+    client.read = read_with_popups
+    drive(runner)
+    cleanup()
+    assert runner.status == RunStatus.FINISHED and runner.counters.recoveries == 2
+
+
+def test_paused_time_not_counted(kb, params, inst):
+    runner, client, engine, clock, cleanup = simulated_activity(kb, params, inst, runs=0,
+                                                                limits=RunLimits(runs=0, max_minutes=1))
+    runner.status = RunStatus.RUNNING
+    runner.pause()
+    clock.advance(600)
+    runner.resume()
+    assert runner.counters.elapsed() < 1
+    cleanup()
+
+
+def test_pause_resume_race_does_not_resurrect_failed_run(kb, params, inst):
+    runner, *_rest, cleanup = simulated_activity(kb, params, inst)
+    runner.status = RunStatus.FAILED
+    runner.pause()
+    assert runner.status == RunStatus.FAILED
+    cleanup()
+
+
+def test_definition_rejects_path_names(tmp_path):
+    with pytest.raises(ValueError):
+        ActivityDef.from_raw({"id": "../x", "fluxo": {"v": [{"concluir": "vitoria"}]}})
+    with pytest.raises(ValueError):
+        ActivityDef.from_raw({"id": "x", "fluxo": {"lobby": [{"clicar": "../../segredo"}],
+                                                  "v": [{"concluir": "vitoria"}]}})
+
+
+def test_multistage_defeat_prevails(kb, params, inst):
+    """Uma instância que mostra 'vitória' por etapa e 'derrota' no fim conta derrota."""
+    runner, client, engine, clock, cleanup = simulated_activity(kb, params, inst, runs=1)
+    runner._in_activity = True
+    runner._pending_result = "vitoria"
+    a_def = inst.flow["derrota"][0]
+    runner._visit_done_actions = 0
+    runner._run_actions("derrota", [a_def], client.read(), clock())
+    assert runner._pending_result == "derrota"
+    runner._run_actions("vitoria", [inst.flow["vitoria"][0]], client.read(), clock())
+    assert runner._pending_result == "derrota"
+    cleanup()
