@@ -18,10 +18,11 @@ log = logging.getLogger(__name__)
 
 # estados reconhecidos por modelos "estado_<nome>"
 STATES = ["batalha", "vitoria", "derrota", "recompensa", "etapa_concluida", "lobby",
-          "menu_instancias", "sala", "carregando", "desconectado"]
+          "menu_instancias", "menu_partidas", "sala", "carregando", "desconectado"]
 STATE_LABELS = {
     "batalha": "Batalha", "vitoria": "Vitória", "derrota": "Derrota", "recompensa": "Recompensa",
     "etapa_concluida": "Etapa concluída", "lobby": "Lobby", "menu_instancias": "Menu de instâncias",
+    "menu_partidas": "Menu de partidas",
     "sala": "Sala/preparação", "carregando": "Carregando", "desconectado": "Desconectado",
     "desconhecido": "Desconhecido",
 }

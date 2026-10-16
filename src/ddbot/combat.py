@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -85,8 +84,10 @@ class CombatEngine:
         self.last_recommendation: Recommendation | None = None
         self.last_observation: BattleObservation | None = None
         self.paused = threading.Event()
+        self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._recommended_turn = -1
+        self._cache_key: tuple | None = None
         self.shots_this_battle = 0
 
     # ------------------------------------------------------------- autorização
@@ -129,6 +130,13 @@ class CombatEngine:
             sigma_distance=float(self.config.get("aim.sigma_distance", 0.1)),
             allowed_methods=tuple(allowed) if allowed else None)
 
+    def reset_battle(self):
+        """Esquece alvos e cache ao começar uma nova batalha."""
+        self.tracker.reset()
+        self.shots_this_battle = 0
+        self._cache_key = None
+        self.last_recommendation = None
+
     # -------------------------------------------------------------- um passo
     def step(self) -> Recommendation | None:
         self.kill.check()
@@ -136,8 +144,7 @@ class CombatEngine:
         self.last_observation = obs
         if obs.battle_over:
             self._emit("fim", f"batalha encerrada: {obs.battle_over}", result=obs.battle_over)
-            self.tracker.reset()
-            self.shots_this_battle = 0
+            self.reset_battle()
             return None
         if not obs.in_battle:
             return None
@@ -164,8 +171,14 @@ class CombatEngine:
 
         if distance is None or distance <= 0:
             return None
-        rec = self.aimer.recommend(self.build_context(obs, distance))
-        self.last_recommendation = rec
+        # reaproveita o cálculo enquanto a leitura não muda de forma relevante no turno
+        key = (turn, round(distance / 0.05), round((obs.wind or 0.0) / 0.1), round(obs.dy / 0.05),
+               obs.wind is None)
+        if key == self._cache_key and self.last_recommendation is not None:
+            rec = self.last_recommendation
+        else:
+            rec = self.aimer.recommend(self.build_context(obs, distance))
+            self.last_recommendation, self._cache_key = rec, key
         if self._recommended_turn != turn:
             self._recommended_turn = turn
             msg = rec.reason if rec.best else f"sem recomendação: {rec.reason}"
@@ -209,6 +222,7 @@ class CombatEngine:
                           hit=outcome.hit if outcome else None, method=b.method, weapon=rec.context.weapon.name,
                           source=self.source, mode=mode)
         shot_id = self.calibrator.record(shot)
+        self._cache_key = None  # a calibração pode ter mudado
         self.shots_this_battle += 1
         res = "acerto" if shot.hit else ("erro" if shot.hit is False else "resultado pendente")
         self._emit("disparo", f"disparo #{shot_id}: {b.angle}°/{b.force:.1f} ({b.method}) -> {res}",
@@ -219,7 +233,7 @@ class CombatEngine:
     def run(self, interval_s: float = 0.25):
         self._emit("turno", f"combate iniciado em modo {self.mode.value}")
         try:
-            while not self.kill.triggered:
+            while not self.kill.triggered and not self._stop.is_set():
                 if self.paused.is_set():
                     self.kill.sleep(0.2)
                     continue
@@ -236,9 +250,13 @@ class CombatEngine:
             pass
         self._emit("fim", "combate parado")
 
+    def stop(self):
+        self._stop.set()
+
     def start(self, interval_s=0.25):
         if self._thread and self._thread.is_alive():
             return
+        self._stop.clear()
         self._thread = threading.Thread(target=self.run, args=(interval_s,), daemon=True, name="combate")
         self._thread.start()
 

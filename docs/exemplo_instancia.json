@@ -1,0 +1,82 @@
+{
+  "id": "exemplo_instancia",
+  "nome": "Exemplo (modelo para copiar)",
+  "tipo": "instancia",
+  "categoria": "pve",
+  "descricao": "MODELO DE EXEMPLO, não validado no cliente. Use Calibração > Opções do menu para criar as instâncias reais a partir do que o jogo mostra.",
+  "validada_no_cliente": false,
+  "estados_iniciais": [
+    "lobby",
+    "menu_instancias",
+    "sala"
+  ],
+  "proibido": [],
+  "fluxo": {
+    "lobby": [
+      {
+        "clicar": "botao_instancias",
+        "espera": 1.5
+      }
+    ],
+    "menu_instancias": [
+      {
+        "clicar": "instancia_exemplo",
+        "espera": 1.0
+      },
+      {
+        "clicar_opcional": "botao_confirmar",
+        "espera": 1.5
+      }
+    ],
+    "sala": [
+      {
+        "clicar": "botao_iniciar",
+        "espera": 2.0
+      }
+    ],
+    "carregando": [
+      {
+        "aguardar": 1.0
+      }
+    ],
+    "batalha": [
+      {
+        "combate": true
+      }
+    ],
+    "etapa_concluida": [
+      {
+        "clicar_opcional": "botao_continuar",
+        "espera": 1.5
+      }
+    ],
+    "recompensa": [
+      {
+        "clicar_opcional": "carta_recompensa",
+        "espera": 1.0
+      },
+      {
+        "clicar_opcional": "botao_sair",
+        "espera": 1.5
+      }
+    ],
+    "vitoria": [
+      {
+        "concluir": "vitoria"
+      },
+      {
+        "clicar_opcional": "botao_sair",
+        "espera": 1.5
+      }
+    ],
+    "derrota": [
+      {
+        "concluir": "derrota"
+      },
+      {
+        "clicar_opcional": "botao_sair",
+        "espera": 1.5
+      }
+    ]
+  }
+}

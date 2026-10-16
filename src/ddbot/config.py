@@ -22,9 +22,13 @@ DEFAULTS: dict = {
     "weapons": {"padrao": {"force_scale": 1.0, "drag_scale": 1.0, "angle_offset": 0.0, "blast_radius": 0.25}},
     "automation": {
         "server_rules_confirmed": False,
-        "keys": {"angle_up": "up", "angle_down": "down", "fire": "space"},
+        "keys": {"angle_up": "up", "angle_down": "down", "fire": "space", "pass_turn": None,
+                 "face_left": None, "face_right": None, "close": "esc"},
         "power_mode": "timed",
         "power_full_time_s": 4.0,
+        "power_offset": 0.0,
+        "forbidden_templates": [],
+        "allowed_paid_templates": [],
         "key_delay_ms": 45,
         "max_angle_presses": 120,
         "min_seconds_between_shots": 3.0,
@@ -33,7 +37,8 @@ DEFAULTS: dict = {
     "safety": {"emergency_hotkey": "<f12>", "require_foreground": True},
     "tracking": {"max_move_per_turn": 1.5, "max_uncertainty": 2.5, "area_attack_radius": 1.0},
     "instances": {"selected": None, "max_attempts": 3, "max_defeats": 2, "max_minutes": 60,
-                  "unknown_state_timeout_s": 20, "action_timeout_s": 60},
+                  "unknown_state_timeout_s": 20, "action_timeout_s": 60,
+                  "battle_timeout_s": 900, "runs": 1},
     "ui": {"language": "pt-BR"},
 }
 

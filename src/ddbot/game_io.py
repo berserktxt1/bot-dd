@@ -112,6 +112,8 @@ class KeyboardShooter(Shooter):
     def charge_and_fire(self, force: float):
         fire = self._keys().get("fire", "space")
         full = float(self.config.get("automation.power_full_time_s", 4.0))
+        # atraso de reação (captura + SendInput) compensado em pontos de força; calibrável
+        force = max(1.0, force - float(self.config.get("automation.power_offset", 0.0)))
         if self.config.get("automation.power_mode") == "visual" and self.config.get("regions.power_bar"):
             def reached():
                 frame = self.view.source.grab()
@@ -127,7 +129,84 @@ class KeyboardShooter(Shooter):
     def shoot(self, angle, force, direction, obs) -> ShotOutcome:
         log.info("executando disparo: ângulo %s, força %.1f, direção %s", angle, force, direction)
         self.face(direction)
-        self.set_angle(angle, obs.current_angle)
+        try:
+            self.set_angle(angle, obs.current_angle)
+        except Aborted:
+            # sem confirmar o ângulo não atira; passa o turno se houver tecla configurada
+            pass_key = self._keys().get("pass_turn")
+            if pass_key and not self.inp.kill.triggered:
+                log.warning("ângulo não confirmado: passando o turno")
+                self.inp.tap(pass_key)
+            raise
         self.charge_and_fire(force)
         self.inp.kill.sleep(float(self.config.get("automation.post_shot_wait_s", 4.0)))
         return ShotOutcome()  # impacto real é marcado pelo usuário ou por detector futuro
+
+
+# ------------------------------------------------------------ atividades (telas e botões)
+from .activities import Actor, ScreenReader, ScreenState  # noqa: E402
+from .vision.templates import TemplateLibrary  # noqa: E402
+
+
+class VisionScreenReader(ScreenReader):
+    """Identifica a tela atual pelos modelos ``estado_*``."""
+
+    def __init__(self, source: FrameSource, perception: Perception):
+        self.source = source
+        self.perception = perception
+        self.last: ScreenState | None = None
+
+    def read(self) -> ScreenState:
+        frame = self.source.grab()
+        if frame is None:
+            self.last = ScreenState("desconhecido", 0.0, None)
+            return self.last
+        snap = Snapshot(width=frame.shape[1], height=frame.shape[0])
+        self.perception.classify_state(frame, snap)
+        self.last = ScreenState(snap.state, snap.state_confidence, frame)
+        return self.last
+
+
+class GameActor(Actor):
+    """Clica em botões localizados por modelo de imagem, só com a janela do jogo em foco.
+
+    Proteções: limiar de confiança, intervalo mínimo entre cliques no mesmo botão e
+    conversão de coordenadas pela posição atual da janela (nunca coordenadas fixas).
+    """
+
+    def __init__(self, inp: InputController, source: FrameSource, templates: TemplateLibrary, config,
+                 min_repeat_s: float = 1.0, clock=time.monotonic):
+        self.inp = inp
+        self.source = source
+        self.templates = templates
+        self.config = config
+        self.min_repeat_s = min_repeat_s
+        self.clock = clock
+        self._last_click: dict[str, float] = {}
+
+    def threshold(self) -> float:
+        return float(self.config.get("thresholds.template", 0.8))
+
+    def find(self, template: str, frame):
+        if frame is None or not self.templates.has(template):
+            return None
+        m = self.templates.best(template, frame)
+        return m if m and m.score >= self.threshold() else None
+
+    def click(self, template: str, frame) -> bool:
+        m = self.find(template, frame)
+        if m is None:
+            return False
+        now = self.clock()
+        if now - self._last_click.get(template, -1e9) < self.min_repeat_s:
+            log.info("clique em %s ignorado (repetido rápido demais)", template)
+            return False
+        ox, oy = self.source.origin
+        cx, cy = m.center
+        self._last_click[template] = now
+        log.info("clicando em %s (%.2f) em %d,%d", template, m.score, cx, cy)
+        self.inp.click(ox + cx, oy + cy)
+        return True
+
+    def press(self, key: str):
+        self.inp.tap(key)

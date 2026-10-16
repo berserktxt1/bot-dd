@@ -1,6 +1,6 @@
 """Acompanhamento de alvos, incluindo alvos que ficaram invisíveis.
 
-Regras (ver docs/PESQUISA.md):
+Regras (ver docs/RESEARCH.md):
 - Só usamos o que a interface mostra. Nada de ler memória ou tráfego para revelar o alvo.
 - A última posição conhecida NÃO é tratada como posição atual: a incerteza cresce com
   cada turno sem observação, de acordo com o deslocamento máximo configurado.

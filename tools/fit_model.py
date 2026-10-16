@@ -21,7 +21,8 @@ def build_targets(kb: KnowledgeBase):
     """Linhas (ângulo, distância, vento, força_esperada, peso, grupo)."""
     rows = []
     for angle, d, f, key in kb.documented_cells():
-        rows.append((angle, d, 0.0, f, 1.0, key))
+        # 20° vem de uma única fonte antiga: peso menor
+        rows.append((angle, d, 0.0, f, 0.6 if key == "a20" else 1.0, key))
     # regras de vento: ângulo ajustado + força da tabela deve acertar a mesma distância
     for key in ("a50", "a65", "a30"):
         m = kb.table_methods[key]
@@ -69,7 +70,7 @@ def fit(kb: KnowledgeBase, start: PhysicsParams | None = None):
         groups.setdefault(row[5], []).append(r)
     stats = {g: {"rmse_forca": float(np.sqrt(np.mean(np.square(v)))),
                  "max_abs": float(np.max(np.abs(v))), "n": len(v)} for g, v in groups.items()}
-    table_res = np.concatenate([groups[k] for k in ("a30", "a50", "a65")])
+    table_res = np.concatenate([groups[k] for k in ("a20", "a30", "a50", "a65") if k in groups])
     stats["tabelas_total"] = {"rmse_forca": float(np.sqrt(np.mean(table_res ** 2))),
                               "dentro_2": int(np.sum(np.abs(table_res) <= 2)), "n": len(table_res)}
     return params, stats

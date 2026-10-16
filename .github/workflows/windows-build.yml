@@ -1,0 +1,88 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "release/**", "hotfix/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint
+        run: python -m pyflakes src tools tests || true
+      - name: Testes (Linux + Xvfb)
+        run: xvfb-run -a python -m pytest -q tests
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+
+      - name: Dependências
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Testes (código-fonte, inclui interface)
+        run: python -m pytest -q tests -rs --junitxml=test-results/pytest-windows.xml
+
+      - name: Compilar (build_windows.bat)
+        shell: cmd
+        run: build_windows.bat --sem-testes
+
+      - name: Conferir arquivos do pacote
+        shell: pwsh
+        run: |
+          $need = @(
+            "release/DDClassicoBot/DDClassicoBot.exe",
+            "release/DDClassicoBot.zip",
+            "release/DDClassicoBot/LEIA-ME.md",
+            "release/DDClassicoBot/COMO-USAR.txt",
+            "release/DDClassicoBot/_internal/data/knowledge/angle_tables.json",
+            "release/DDClassicoBot/_internal/data/knowledge/model_params.json",
+            "release/DDClassicoBot/_internal/config/default_config.json"
+          )
+          foreach ($f in $need) { if (-not (Test-Path $f)) { Write-Error "faltando: $f"; exit 1 } else { Write-Host "ok: $f" } }
+          Get-Item release/DDClassicoBot.zip | Select-Object Name, Length
+
+      - name: Testar o .exe compilado (autoteste e interface)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force test-results | Out-Null
+          # cópia extraída do ZIP: simula outro computador sem Python
+          Expand-Archive release/DDClassicoBot.zip -DestinationPath zipcheck -Force
+          $exe = "zipcheck/DDClassicoBot/DDClassicoBot.exe"
+          $env:PATH = "C:\Windows\System32;C:\Windows"   # sem Python no PATH
+          $env:DDBOT_SELFTEST_OUT = "$PWD/test-results/exe-selftest.json"
+          $p = Start-Process $exe -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content $env:DDBOT_SELFTEST_OUT
+          if ($p.ExitCode -ne 0) { Write-Error "autoteste do exe falhou ($($p.ExitCode))"; exit 1 }
+          $env:DDBOT_SMOKE_OUT = "$PWD/test-results/exe-gui-smoke.json"
+          $p = Start-Process $exe -ArgumentList "--gui-smoke","8" -Wait -PassThru
+          Get-Content $env:DDBOT_SMOKE_OUT
+          if ($p.ExitCode -ne 0) { Write-Error "teste de interface do exe falhou ($($p.ExitCode))"; exit 1 }
+          # execução normal grava a pasta portátil 'dados' ao lado do exe
+          if (-not (Test-Path "zipcheck/DDClassicoBot/dados/config.json")) { Write-Error "dados/config.json não criado"; exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DDClassicoBot-windows
+          path: release/DDClassicoBot.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorios-de-teste
+          path: test-results/

@@ -54,6 +54,51 @@
       "conteudo": "Proíbe software 'alheio ao jogo' e exploração de bugs; irregularidades julgadas caso a caso.",
       "aplicabilidade": "nenhuma direta (outro servidor)",
       "observacoes": "Indica que servidores privados costumam punir programas de terceiros. As regras do DDClássico (ddclassico.com) não puderam ser lidas (HTTP 403)."
+    },
+    {
+      "id": "techtudo_lab_2013",
+      "titulo": "DDTank: veja como completar tarefas do Laboratório de Combate",
+      "url": "https://www.techtudo.com.br/noticias/2013/05/ddtank-veja-como-completar-tarefas-do-laboratorio-de-combate.ghtml",
+      "data": "2013-05",
+      "conteudo": "Tabela de força 20° (d 1-20) e 65°; 20° sem correção de vento.",
+      "aplicabilidade": "media",
+      "observacoes": "Versão antiga do DDTank; precisa de calibração."
+    },
+    {
+      "id": "ddladora",
+      "titulo": "website-ddladora (calculadora Full Angle)",
+      "url": "https://github.com/Yagasaki7K/website-ddladora",
+      "data": "consultado 2026-10-16",
+      "conteudo": "Tiro alto: força 95, ângulo 90 - d ± 2·vento; d 0-20 em passos de 0,5.",
+      "aplicabilidade": "media",
+      "observacoes": "README declara MIT sem arquivo LICENSE; só a fórmula foi usada."
+    },
+    {
+      "id": "boomshot_formulas",
+      "titulo": "BoomShot FORMULAS.md",
+      "url": "https://github.com/chramos/BoomShot/blob/main/FORMULAS.md",
+      "data": "consultado 2026-10-16",
+      "conteudo": "Tiro médio (60, 90-2d±2v), alto (95, 90-d±2v); física gravidade+arrasto+vento.",
+      "aplicabilidade": "media (constantes do clone não valem para o jogo)",
+      "observacoes": "Sem licença: nenhum código copiado."
+    },
+    {
+      "id": "qozi_onhook",
+      "titulo": "qozi/ddtank-onhook",
+      "url": "https://github.com/qozi/ddtank-onhook",
+      "data": "consultado 2026-10-16",
+      "conteudo": "Bot de instâncias (cliente chinês): estados por templates, força por leitura da barra, passar turno quando falha.",
+      "aplicabilidade": "ideias de arquitetura",
+      "observacoes": "Sem licença: só ideias, nenhum código."
+    },
+    {
+      "id": "mobilegamer_ddclassico_2026",
+      "titulo": "DDTank Clássico (Mobile Gamer Brasil)",
+      "url": "https://www.mobilegamer.com.br/2026/08/ddtank-classico.html",
+      "data": "2026-08",
+      "conteudo": "Lançamento 29/08/2026; PvE (instâncias), PvP, ranqueadas, crossplay.",
+      "aplicabilidade": "contexto",
+      "observacoes": "Sem lista de instâncias, armas ou regras."
     }
   ]
 }

@@ -8,3 +8,6 @@ dados/
 build/
 dist/
 release/
+
+.venv-build/
+*.spec.bak

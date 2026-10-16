@@ -1,0 +1,132 @@
+import cv2
+import numpy as np
+
+from ddbot.capture import ArraySource, ImageSource, load_image, save_image
+from ddbot.config import Config
+from ddbot.vision.digits import DigitReader
+from ddbot.vision.menu import detect_option_tiles, find_known_options
+from ddbot.vision.perception import Perception, power_fill, to_ruler
+from ddbot.vision.regions import crop, frac_to_px, px_to_frac
+from ddbot.vision.templates import TemplateLibrary, find_all, match_template
+
+
+def text_img(t, w=90):
+    img = np.zeros((30, w, 3), np.uint8)
+    cv2.putText(img, t, (4, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+    return img
+
+
+def test_regions_roundtrip():
+    shape = (600, 1000, 3)
+    rect = frac_to_px([0.1, 0.2, 0.3, 0.1], shape)
+    assert rect == (100, 120, 300, 60)
+    assert px_to_frac(rect, shape) == [0.1, 0.2, 0.3, 0.1]
+    sub, r = crop(np.zeros(shape, np.uint8), [0.1, 0.2, 0.3, 0.1])
+    assert sub.shape[:2] == (60, 300)
+
+
+def test_template_multiscale():
+    rng = np.random.default_rng(0)
+    img = rng.integers(0, 255, (300, 400, 3), dtype=np.uint8)
+    tpl = img[100:140, 200:260].copy()
+    small = cv2.resize(img, None, fx=0.8, fy=0.8)
+    score, x, y, w, h = match_template(small, tpl)
+    assert score > 0.8 and abs(x - 160) <= 2 and abs(y - 80) <= 2
+    hits = find_all(img, tpl, 0.9)
+    assert len(hits) == 1
+
+
+def test_template_library(tmp_path):
+    lib = TemplateLibrary(tmp_path / "t")
+    rng = np.random.default_rng(1)
+    img = rng.integers(0, 255, (200, 200, 3), dtype=np.uint8)
+    lib.add("botao_iniciar", img[20:60, 30:90])
+    assert lib.keys() == ["botao_iniciar"]
+    m = lib.best("botao_iniciar", img)
+    assert m.score > 0.95 and m.center == (60, 40)
+    found = find_known_options(img, lib, 0.9, prefix="botao_")
+    assert found and found[0][0] == "botao_iniciar"
+
+
+def test_digits_learn_and_read(tmp_path):
+    r = DigitReader(tmp_path / "g.json")
+    assert not r.trained
+    assert r.learn(text_img("1234"), "1234")
+    assert r.learn(text_img("5678"), "5678")
+    assert r.learn(text_img("90"), "90")
+    v, conf = r.read(text_img("4709"))
+    assert v == 4709 and conf > 0.5
+    r2 = DigitReader(tmp_path / "g.json")  # persistido
+    assert r2.read(text_img("865"))[0] == 865
+    assert not r.learn(text_img("12"), "123")  # quantidade de glifos não confere
+
+
+def test_power_fill():
+    bar = np.zeros((10, 100, 3), np.uint8)
+    bar[:, :40] = (0, 0, 255)
+    assert abs(power_fill(bar) - 40) < 2
+
+
+def test_menu_tiles_detected():
+    img = np.full((600, 1000, 3), 40, np.uint8)
+    for r in range(2):
+        for c in range(3):
+            x, y = 120 + c * 250, 150 + r * 200
+            cv2.rectangle(img, (x, y), (x + 180, y + 140), (90 + 40 * c, 140, 200), -1)
+    tiles = detect_option_tiles(img)
+    assert len(tiles) == 6
+    assert tiles[0][0] < tiles[1][0] < tiles[2][0] and tiles[3][1] > tiles[0][1]
+
+
+def test_image_io_unicode_path(tmp_path):
+    img = text_img("7")
+    p = save_image(tmp_path / "ação" / "x.png", img)
+    assert np.array_equal(load_image(p), img)
+    src = ImageSource(p)
+    assert src.grab().shape == img.shape
+    assert ArraySource(None).grab() is None
+
+
+def _scene(tmp_path, me=(200, 400), enemy=(700, 350)):
+    """Cena sintética: marcadores, número do ângulo, vento e indicador de turno."""
+    rng = np.random.default_rng(5)
+    frame = np.full((600, 1000, 3), 60, np.uint8)
+    me_tpl = rng.integers(0, 255, (24, 24, 3), dtype=np.uint8)
+    en_tpl = rng.integers(0, 255, (24, 24, 3), dtype=np.uint8)
+    turn_tpl = rng.integers(0, 255, (20, 40, 3), dtype=np.uint8)
+    frame[me[1] - 12:me[1] + 12, me[0] - 12:me[0] + 12] = me_tpl
+    frame[enemy[1] - 12:enemy[1] + 12, enemy[0] - 12:enemy[0] + 12] = en_tpl
+    frame[20:40, 900:940] = turn_tpl
+    frame[540:570, 20:110] = text_img("1234")
+    frame[10:40, 450:540] = text_img("12")
+    cfg = Config(data={"regions": {"angle": [0.02, 0.9, 0.09, 0.05], "wind": [0.45, 0.0167, 0.09, 0.05],
+                                   "turn_indicator": [0.88, 0.02, 0.1, 0.06]}})
+    lib = TemplateLibrary(tmp_path / "tpl")
+    lib.add("marcador_eu", me_tpl)
+    lib.add("marcador_inimigo", en_tpl)
+    lib.add("turno", turn_tpl)
+    p = Perception(cfg, lib, tmp_path / "tpl")
+    for reader in (p.angle_reader, p.wind_reader):
+        reader.learn(text_img("1234"), "1234")
+        reader.learn(text_img("5678"), "5678")
+    return frame, p
+
+
+def test_perception_scene(tmp_path):
+    frame, p = _scene(tmp_path)
+    snap = p.analyze(frame)
+    assert snap.my_turn is True
+    assert snap.angle is None  # 1234 > 90: leitura descartada
+    assert abs(snap.me.x - 200) < 3 and abs(snap.enemies[0].x - 700) < 3
+    assert snap.unit_px == 100
+    d, dy, wind_rel, direction = to_ruler(snap, p.target(snap), 1.5)
+    assert abs(d - 5.0) < 0.05 and abs(dy - 0.5) < 0.05 and direction == 1 and wind_rel == 1.5
+    # vento sem setas capturadas: valor lido, direção incerta, confiança baixa
+    assert snap.wind == 12 and snap.wind_confidence < 0.5
+
+
+def test_target_left_flips_wind(tmp_path):
+    frame, p = _scene(tmp_path, me=(800, 400), enemy=(300, 350))
+    snap = p.analyze(frame)
+    d, dy, wind_rel, direction = to_ruler(snap, p.target(snap), 1.5)
+    assert direction == -1 and wind_rel == -1.5
