@@ -100,12 +100,13 @@ jobs:
           Get-Content $env:DDBOT_SMOKE_OUT
           if ($code -ne 0) { Write-Error "teste de interface do exe falhou ($code)"; exit 1 }
           if (-not (Test-Path "zipcheck/DDClassicoBot/dados/config.json")) { Write-Error "dados/config.json não criado"; exit 1 }
-          # pasta do programa sem permissão de escrita (ex.: Arquivos de Programas): usa %LOCALAPPDATA%
+          # sem como gravar ao lado do exe (ex.: Arquivos de Programas): usa %LOCALAPPDATA%.
+          # Simulado com um ARQUIVO chamado 'dados' (impede criar a pasta); negar escrita com icacls
+          # também impede o Windows de iniciar o processo no runner.
           Expand-Archive release/DDClassicoBot.zip -DestinationPath rocheck -Force
-          icacls rocheck\DDClassicoBot /deny "$($env:USERNAME):(OI)(CI)W" | Out-Null
+          Set-Content -Path rocheck/DDClassicoBot/dados -Value "bloqueio"
           $env:DDBOT_SMOKE_OUT = "$PWD/test-results/exe-gui-smoke-readonly.json"
           $code = Run-Exe (Resolve-Path "rocheck/DDClassicoBot/DDClassicoBot.exe").Path @("--gui-smoke","8") 120000
-          icacls rocheck\DDClassicoBot /remove:d "$env:USERNAME" | Out-Null
           if ($code -ne 0) { Write-Error "exe em pasta somente leitura falhou ($code)"; exit 1 }
           if (-not (Test-Path "$env:LOCALAPPDATA/DDClassicoBot/config.json")) { Write-Error "fallback para LOCALAPPDATA não criou a configuração"; exit 1 }
           Remove-Item Env:DDBOT_SMOKE_OUT, Env:DDBOT_SELFTEST_OUT
