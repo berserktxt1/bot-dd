@@ -98,6 +98,13 @@ if IS_WINDOWS:
     def set_foreground(hwnd) -> bool:
         return bool(user32.SetForegroundWindow(hwnd))
 
+    def work_area() -> tuple[int, int, int, int] | None:
+        """Área de trabalho do monitor principal (sem a barra de tarefas): x, y, largura, altura."""
+        rc = wintypes.RECT()
+        if user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rc), 0):  # SPI_GETWORKAREA
+            return rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top
+        return None
+
     # ---------------------------------------------------------------- SendInput
     INPUT_MOUSE, INPUT_KEYBOARD = 0, 1
     KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY = 0x2, 0x8, 0x1
@@ -187,6 +194,9 @@ else:  # Linux/macOS: só para desenvolvimento e testes
 
     def set_foreground(hwnd) -> bool:
         return False
+
+    def work_area():
+        return None
 
     SCANCODES: dict = {}
 

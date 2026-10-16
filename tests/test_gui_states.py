@@ -69,3 +69,23 @@ def test_contrast_of_palette():
     pairs += [(fg, bg) for bg, fg, _ in T.STATE_STYLES.values()]
     for fg, bg in pairs:
         assert ratio(fg, bg) >= 4.5, (fg, bg, round(ratio(fg, bg), 2))
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("tela: batalha", "Tela: Batalha"),
+    ("clicou em botao_iniciar", "Clicou em Botão Iniciar na sala de preparação"),
+    ("clicou em instancia_labirinto_azul", "Clicou em labirinto azul"),
+    ("disparo #1: 68°/76.3 (fisica) -> acerto", "Disparo #1: 68°/76.3 (fisica): acerto"),
+])
+def test_history_messages_humanized(raw, expected):
+    from ddbot.gui.states import humanize
+    assert humanize(raw) == expected
+
+
+def test_options_deduplicated():
+    from types import SimpleNamespace as N
+
+    from ddbot.gui.states import pick_options
+    cands = [N(method="fisica")] * 6 + [N(method="a65"), N(method="high")]
+    out = pick_options(cands)
+    assert [c.method for c in out] == ["fisica", "fisica", "a65", "high"]

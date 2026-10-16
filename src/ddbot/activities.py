@@ -775,8 +775,9 @@ class ActivityRunner:
         with self._lock:
             self.status = RunStatus.RUNNING
         self.counters = RunCounters(started_at=self.clock(), clock=self.clock)
-        self._emit("etapa", f"iniciando '{self.d.name}' ({'contínuo' if not self.limits.runs else self.limits.runs}"
-                   f" execução(ões))")
+        how = "repetição contínua" if not self.limits.runs else (
+            "uma vez" if self.limits.runs == 1 else f"{self.limits.runs} vezes")
+        self._emit("etapa", f"iniciando {self.d.name} ({how})")
         try:
             while self.run_once():
                 pass

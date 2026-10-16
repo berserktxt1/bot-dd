@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..activities import RunStatus
+from ..activities import COMMON_TEMPLATES, RunStatus
 from ..vision.perception import STATE_LABELS
 
 
@@ -49,6 +49,27 @@ ADVICE = [
     ("derrotas", "O limite de derrotas foi atingido. Ajuste a mira em Mira e disparos ou aumente o limite."),
     ("ângulo atual desconhecido", "Treine os números do ângulo em Calibração > Números."),
 ]
+
+
+METHOD_LABELS = {"fisica": "Modelo físico", "a20": "Tabela 20°", "a30": "Tabela 30°", "a50": "Tabela 50°",
+                 "a65": "Tabela 65°", "high": "Tiro alto", "medium": "Tiro médio"}
+
+
+def method_label(key: str) -> str:
+    return METHOD_LABELS.get(key, key)
+
+
+def pick_options(candidates, limit=8, per_method=2):
+    """Opções para mostrar: as melhores de cada método, sem dezenas de variações quase iguais."""
+    out, seen = [], {}
+    for c in candidates:
+        if seen.get(c.method, 0) >= per_method:
+            continue
+        seen[c.method] = seen.get(c.method, 0) + 1
+        out.append(c)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def advice(reason: str) -> str:
@@ -98,3 +119,19 @@ def describe(s: UiSnapshot) -> Banner:
         return Banner("ready", "Parado", f"Pronto para iniciar {s.activity_name} de novo.")
     return Banner("ready", "Pronto para iniciar",
                   f"{s.activity_name}." + (" Modo demonstração: nada é enviado ao jogo." if s.demo else ""))
+
+
+def humanize(message: str) -> str:
+    """Troca nomes internos (telas e modelos) pelos nomes que o usuário vê na Calibração."""
+    import re
+    names = {**{f"estado_{k}": f"tela {v}" for k, v in STATE_LABELS.items()},
+             **{k: v.split(" (")[0] for k, v in COMMON_TEMPLATES.items()}}
+
+    def tela(m):
+        return f"Tela: {STATE_LABELS.get(m.group(1), m.group(1))}"
+    message = re.sub(r"^tela: (\w+)$", tela, message)
+    message = re.sub(r"\b(botao_\w+|carta_recompensa|estado_\w+)\b", lambda m: names.get(m.group(1), m.group(1)),
+                     message)
+    message = re.sub(r"\b(instancia|partida)_(\w+)", lambda m: m.group(2).replace("_", " "), message)
+    message = message.replace(" -> ", ": ")
+    return message[:1].upper() + message[1:]

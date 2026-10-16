@@ -90,9 +90,17 @@ class Theme:
 
     def _apply(self):
         from tkinter import ttk
+        import tkinter.font as tkfont
         r, f, px = self.root, self.fonts, self.px
         r.configure(background=BG)
-        r.option_add("*Font", f["body"])
+        # fontes padrão pelos nomes do Tk: option_add("*Font") forçaria a fonte em cada widget e
+        # anularia as fontes dos estilos (títulos, contadores e números da mira ficavam pequenos)
+        body = f["body"].actual()
+        for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont", "TkCaptionFont"):
+            try:
+                tkfont.nametofont(name).configure(family=body["family"], size=body["size"])
+            except Exception:
+                pass
         r.option_add("*TCombobox*Listbox.font", f["body"])
         r.option_add("*TCombobox*Listbox.selectBackground", PRIMARY)
         st = ttk.Style(r)

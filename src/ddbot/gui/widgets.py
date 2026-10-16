@@ -22,8 +22,11 @@ class Panel(ttk.Frame):
             ttk.Label(self, text=title, style="SurfaceSection.TLabel").grid(row=row, column=0, sticky="w")
             row += 1
         if hint:
-            ttk.Label(self, text=hint, style="SurfaceMuted.TLabel", wraplength=th.px(420),
-                      justify="left").grid(row=row, column=0, sticky="w", pady=(th.px(2), 0))
+            lbl = ttk.Label(self, text=hint, style="SurfaceMuted.TLabel", wraplength=th.px(420), justify="left")
+            lbl.grid(row=row, column=0, sticky="we", pady=(th.px(2), 0))
+            # a quebra acompanha a largura do painel (limitada para linhas legíveis, ~90 caracteres)
+            self.bind("<Configure>", lambda e, lbl=lbl: lbl.configure(
+                wraplength=max(th.px(200), min(e.width - th.px(T.SPACE["l"]) * 2, th.px(760)))), add="+")
             row += 1
         self.body = ttk.Frame(self, style="Surface.TFrame")
         self.body.grid(row=row, column=0, sticky="nsew", pady=(th.px(T.SPACE["s"]) if (title or hint) else 0, 0))

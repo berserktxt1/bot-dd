@@ -23,7 +23,7 @@ from ..vision.menu import detect_option_tiles, find_known_options
 from ..vision.perception import REGION_KEYS, STATE_LABELS, STATES, draw_overlay
 from ..vision.regions import crop, px_to_frac
 from . import theme as T
-from .states import UiSnapshot, advice, describe
+from .states import UiSnapshot, advice, describe, humanize, method_label, pick_options
 from .widgets import Counter, ImageCanvas, Panel, Readout, ScrollFrame, StatusBanner
 
 log = logging.getLogger(__name__)
@@ -64,10 +64,13 @@ class MainWindow:
         self._closing = False
         self._notice_after = None
         root.title(f"DDClássico Bot {__version__}")
-        sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
-        w, h = min(px(1220), int(sw * 0.94)), min(px(800), int(sh * 0.9))
-        root.geometry(f"{w}x{h}")
-        root.minsize(min(px(960), sw), min(px(620), sh))
+        from .. import winapi
+        area = winapi.work_area()
+        ax, ay, aw, ah = area or (0, 0, root.winfo_screenwidth(), root.winfo_screenheight() - px(48))
+        # cabe na área de trabalho (sem a barra de tarefas), descontando borda e barra de título
+        w, h = min(px(1220), aw - px(16)), min(px(800), ah - px(40))
+        root.geometry(f"{w}x{h}+{ax + max(0, (aw - w) // 2)}+{ay + max(0, (ah - h - px(32)) // 2)}")
+        root.minsize(min(px(960), aw), min(px(600), ah - px(40)))
         self._build_top()
         self.nb = ttk.Notebook(root)
         self._build_notice()
@@ -111,7 +114,7 @@ class MainWindow:
         ttk.Checkbutton(top, text="Modo demonstração", variable=self.simulated,
                         command=self._toggle_demo).pack(side="right")
         self.lbl_window = ttk.Label(top, text="", style="Muted.TLabel")
-        self.lbl_window.pack(side="right", padx=px(16))
+        self.lbl_window.pack(side="left", padx=(px(16), 0))
 
     def _build_notice(self):
         """Rodapé: retorno das ações (salvou, capturou...) e o estado da tecla de emergência."""
@@ -217,16 +220,18 @@ class MainWindow:
         self.ro_force = Readout(ab, self.th, "força")
         self.ro_wind = Readout(ab, self.th, "vento")
         for i, ro in enumerate((self.ro_angle, self.ro_force, self.ro_wind)):
-            ro.grid(row=0, column=i, sticky="w", padx=(0, px(24)))
+            ro.grid(row=0, column=i, sticky="w", padx=(0, px(32)))
+            ab.columnconfigure(i, weight=0)
+        ab.columnconfigure(3, weight=1)  # sobra de espaço à direita: os três números ficam juntos
         self.lbl_target = ttk.Label(ab, text="Os valores aparecem durante o combate.", style="SurfaceMuted.TLabel",
                                     justify="left", wraplength=px(380))
-        self.lbl_target.grid(row=1, column=0, columnspan=3, sticky="w", pady=(px(8), 0))
+        self.lbl_target.grid(row=1, column=0, columnspan=4, sticky="w", pady=(px(8), 0))
 
         hist = Panel(t, self.th, "Histórico")
         hist.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(gap, 0))
         hb = hist.body
         hb.rowconfigure(0, weight=1)
-        self.tree_hist = ttk.Treeview(hb, columns=("hora", "tipo", "msg"), show="headings", height=5)
+        self.tree_hist = ttk.Treeview(hb, columns=("hora", "tipo", "msg"), show="headings", height=4)
         for col, text, w in (("hora", "Hora", 76), ("tipo", "Tipo", 110), ("msg", "O que aconteceu", 760)):
             self.tree_hist.heading(col, text=text, anchor="w")
             self.tree_hist.column(col, width=px(w), stretch=col == "msg", anchor="w")
@@ -246,7 +251,7 @@ class MainWindow:
         self.calib_canvas = ImageCanvas(t, "Clique em Capturar tela do jogo.\nDepois arraste o mouse sobre a imagem "
                                         "para selecionar.", on_select=self._on_calib_select)
         self.calib_canvas.grid(row=0, column=0, sticky="nsew", padx=(0, px(12)))
-        side = ScrollFrame(t, self.th, width=360)
+        side = ScrollFrame(t, self.th, width=390)
         side.grid(row=0, column=1, sticky="ns")
         s = side.inner
         s.columnconfigure(0, weight=1)
@@ -262,7 +267,7 @@ class MainWindow:
             f = ttk.Frame(sub, style="Surface.TFrame", padding=px(10))
             f.columnconfigure(0, weight=1)
             sub.add(f, text=title)
-            ttk.Label(f, text=hint, style="SurfaceMuted.TLabel", wraplength=px(300), justify="left").grid(
+            ttk.Label(f, text=hint, style="SurfaceMuted.TLabel", wraplength=px(320), justify="left").grid(
                 row=0, column=0, columnspan=2, sticky="w", pady=(0, px(8)))
             return f
 
@@ -302,7 +307,7 @@ class MainWindow:
         self.digit_value.pack(side="left", padx=(px(8), 0))
         ttk.Button(f, text="Aprender", command=self.learn_digits).grid(row=3, column=0, sticky="we", pady=(px(8), 0))
 
-        f = page("Opções do menu", "Abra no jogo o menu de instâncias ou de partidas, capture e clique em Detectar. "
+        f = page("Menu", "Abra no jogo o menu de instâncias ou de partidas, capture e clique em Detectar. "
                  "Cada opção que você nomear vira uma atividade no Início.")
         ttk.Button(f, text="Detectar opções", command=self.detect_options).grid(row=1, column=0, sticky="we")
         self.lst_tiles = tk.Listbox(f, height=5, exportselection=False, relief="flat", highlightthickness=1,
@@ -383,8 +388,8 @@ class MainWindow:
         opts = Panel(t, self.th, "Opções de disparo", "Ordenadas pela chance estimada de acerto.")
         opts.grid(row=0, column=1, sticky="nsew")
         self.tree_aim = ttk.Treeview(opts.body, columns=("met", "ang", "for", "p", "base"), show="headings", height=7)
-        for col, text, w in (("met", "Método", 80), ("ang", "Ângulo", 64), ("for", "Força", 64),
-                             ("p", "Chance", 70), ("base", "De onde vem", 440)):
+        for col, text, w in (("met", "Método", 120), ("ang", "Ângulo", 64), ("for", "Força", 64),
+                             ("p", "Chance", 70), ("base", "De onde vem", 400)):
             self.tree_aim.heading(col, text=text, anchor="w")
             self.tree_aim.column(col, width=px(w), stretch=col == "base", anchor="w")
         self.tree_aim.grid(row=0, column=0, sticky="nsew")
@@ -532,14 +537,14 @@ class MainWindow:
             self.select_window()
         elif not self.windows:
             self.cb_window.set("")
-            self.lbl_window.configure(text="Nenhuma janela do jogo encontrada")
+            self.lbl_window.configure(text="Jogo não encontrado")
 
     def select_window(self):
         i = self.cb_window.current()
         if 0 <= i < len(self.windows):
             self.svc.select_window(self.windows[i])
             w = self.windows[i]
-            self.lbl_window.configure(text=f"Jogo conectado ({w.width}×{w.height})")
+            self.lbl_window.configure(text=f"Conectado, {w.width}×{w.height}")
 
     def _toggle_demo(self):
         self.refresh_activities()
@@ -821,8 +826,8 @@ class MainWindow:
             return
         rec = self.svc.recommend(vals["distance"], vals["wind"], vals["dy"])
         self.tree_aim.delete(*self.tree_aim.get_children())
-        for c in rec.candidates[:15]:
-            self.tree_aim.insert("", "end", values=(c.method, f"{c.angle}°", f"{c.force:.1f}",
+        for c in pick_options(rec.candidates):
+            self.tree_aim.insert("", "end", values=(method_label(c.method), f"{c.angle}°", f"{c.force:.1f}",
                                                     f"{c.hit_probability:.0%}", "; ".join(c.basis)))
         if not rec.candidates:
             self.notice(f"Sem opções: {rec.reason}.", True)
@@ -962,8 +967,8 @@ class MainWindow:
             n += 1
             tag = e.kind if e.kind in T.RESULT_COLORS else ""
             kind = f"{HIST_ICONS[e.kind]} {e.kind}" if e.kind in HIST_ICONS else e.kind
-            self.tree_hist.insert("", 0, values=(time.strftime("%H:%M:%S", time.localtime(e.when)), kind, e.message),
-                                  tags=(tag,))
+            self.tree_hist.insert("", 0, values=(time.strftime("%H:%M:%S", time.localtime(e.when)), kind,
+                                                 humanize(e.message)), tags=(tag,))
             if e.kind == "combate" and "shot_id" in e.data:
                 self.refresh_shots()
         kids = self.tree_hist.get_children()
@@ -1024,7 +1029,12 @@ class MainWindow:
                                         f"{c['concluidas']} concluída(s), repetição contínua")
             self.progress.configure(value=100 * c["concluidas"] / total if total else 0)
         eng = self.svc.engine
-        if eng is None:
+        active = bool(r and r.alive) or self.svc.assist_alive
+        if eng is None or not active:
+            # nada rodando: não mostrar números velhos como se fossem atuais
+            for ro in (self.ro_angle, self.ro_force, self.ro_wind):
+                ro.set(None)
+            self.lbl_target.configure(text="Os valores aparecem durante o combate.")
             return
         obs, rec = eng.last_observation, eng.last_recommendation
         if rec is not None and rec.best:
@@ -1037,7 +1047,8 @@ class MainWindow:
                 if not obs.target_visible:
                     target += " (invisível: posição estimada)"
                 target += ". "
-            self.lbl_target.configure(text=f"{target}Método {bst.method}, chance estimada {bst.hit_probability:.0%}.")
+            self.lbl_target.configure(text=f"{target}{method_label(bst.method)}, chance estimada "
+                                           f"{bst.hit_probability:.0%}.")
         if obs is not None:
             self.ro_wind.set(None if obs.wind is None else f"{obs.wind:+.1f}".replace(".", ","))
 
