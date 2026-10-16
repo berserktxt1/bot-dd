@@ -11,3 +11,9 @@ release/
 
 .venv-build/
 *.spec.bak
+test-results/
+zipcheck/
+rocheck/
+screenshots/
+shots-home-*/
+*.tmp

@@ -28,6 +28,6 @@ exe = EXE(
     name="DDClassicoBot",
     console=False,
     upx=False,
-    version=None,
+    version=str(ROOT / "packaging" / "version_info.txt"),
 )
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="DDClassicoBot")
