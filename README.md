@@ -34,7 +34,15 @@ Quer conhecer a tela antes de configurar o jogo? Ligue **Modo demonstração** n
 O bot "enxerga" o jogo por imagens que **você captura do seu próprio cliente**. Por isso funciona com a sua
 resolução e a sua versão do jogo, e nada é inventado. Com o jogo aberto, deixe a janela num tamanho fixo e:
 
-1. No topo, escolha a **janela do jogo** (clique em *Atualizar* se ela não aparecer).
+1. **Identifique a janela do jogo** (uma vez só). Abra o DDClássico pelo launcher, entre no jogo e clique em
+   **Identificar janela**, no topo. O bot lista as janelas abertas, com o programa e uma prévia da captura:
+   - escolha a janela onde a batalha aparece e clique em **Este é o jogo**. Se o jogo aparece *dentro* do
+     launcher, escolha a janela **interna** que mostra só o jogo;
+   - escolha a janela do launcher e clique em **Este é o launcher**;
+   - clique em **Salvar**.
+
+   Daí em diante o bot reencontra o jogo sozinho, mesmo quando você fecha e abre de novo pelo launcher. Se o
+   launcher estiver aberto e o jogo ainda não, a faixa do Início mostra "Launcher aberto, aguardando o jogo".
 2. Aba **Calibração** → *Capturar tela do jogo*. Arraste o mouse sobre a imagem para selecionar e salve:
    - **Regiões:** número do ângulo, indicador de vento, barra de força, indicador de turno e a área de jogo
      (a "régua" de 10 partes da tela).
@@ -83,6 +91,9 @@ A faixa colorida no alto diz o que o bot está fazendo e, quando ele precisa de 
   botão **X** (modelo "fechar"); nunca aperta teclas às cegas. Se não conseguir, **pausa**, mostra o motivo e o que
   fazer, e salva a imagem em `dados\capturas`.
 - Se você trocar de janela (Alt+Tab) ou minimizar o jogo, o bot **pausa** e espera você clicar em Retomar.
+- **Nunca manda comandos ao launcher:** só clica se o ponto estiver sobre a área do jogo (não sobre um botão do
+  launcher, mesmo que estejam na mesma janela) e só envia teclas se o foco do teclado estiver dentro do jogo. Se o
+  foco estiver no launcher, ele pausa e pede para você clicar uma vez dentro do jogo.
 - Com o inimigo invisível, usa a última posição vista e calcula o quanto ele pode ter andado. Se a incerteza for
   grande, espera o inimigo reaparecer em vez de atirar às cegas.
 - Desconexão: para e avisa. Ele não faz login sozinho.

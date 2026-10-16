@@ -13,7 +13,8 @@ from .util import atomic_write_text
 log = logging.getLogger(__name__)
 
 DEFAULTS: dict = {
-    "window": {"title_keywords": ["DDTank", "DDClássico", "DDClassico", "Clássico", "Classico"]},
+    # palavras só para SUGERIR candidatos no assistente; o jogo é reconhecido pelo perfil salvo
+    "window": {"title_keywords": ["DDTank", "DDClássico", "DDClassico", "Clássico", "Classico"], "profile": {}},
     "capture": {"fps": 4},
     "ruler": {"units_per_screen": 10, "playfield": [0.0, 0.0, 1.0, 1.0]},
     "regions": {},

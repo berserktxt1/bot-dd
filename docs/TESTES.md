@@ -38,6 +38,29 @@ pasta portátil `dados\config.json` foi criada ao lado do executável.
 
 Os resultados de cada execução estão em [`PROGRESS.md`](../PROGRESS.md).
 
+## Launcher (pendente no Windows real)
+
+O jogo é aberto por um launcher. A identificação da janela, o estado "launcher aberto sem jogo", a regra de
+foco do teclado e a recusa de cliques sobre o launcher estão cobertos por `tests/test_launcher.py`, mas com
+listas de janelas **simuladas**: não houve acesso a um Windows com o launcher. Para validar:
+
+1. Abra só o launcher e o bot. Use Identificar janela e anote o que aparece (programa, classe, se há janelas
+   internas). Feche o assistente: a faixa deve mostrar "Identifique a janela do jogo".
+2. Entre no jogo pelo launcher. Abra Identificar janela de novo:
+   - descubra se o jogo é uma **janela principal de outro programa** ou uma **janela interna** do launcher;
+   - confira na prévia que a captura mostra a batalha, e não a moldura do launcher;
+   - marque o jogo e o launcher e salve.
+3. Feche o jogo e mantenha o launcher aberto: em até ~3 s a faixa deve mostrar "Launcher aberto, aguardando o
+   jogo", e Iniciar deve ser recusado com essa mensagem.
+4. Abra o jogo de novo: o topo deve mostrar "conectado" sozinho, sem identificar de novo.
+5. Clique num campo ou botão do launcher (deixando o foco ali) e use Calibração > Testar teclas do ângulo: o
+   teste deve ser recusado ("foco do teclado está no launcher"). Clique dentro do jogo e repita: deve funcionar.
+6. Diagnóstico ao vivo: as capturas devem acompanhar o jogo quando a janela é movida ou redimensionada.
+7. Se o jogo rodar como administrador e o bot não, o envio de teclas é bloqueado pelo Windows: o bot deve
+   pausar com essa explicação.
+
+Anote o resultado de cada passo (e o programa/classe identificados) para ajustar o bot se algo não bater.
+
 ## No jogo real (pendente)
 
 Ainda **não validado no cliente**: reconhecimento das telas e botões, leitura de ângulo, vento e turno, tempo de

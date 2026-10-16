@@ -22,9 +22,13 @@ class FrameSource:
         raise NotImplementedError
 
     unavailable = ""
+    focus_problem = ""
 
     def is_foreground(self) -> bool:
         return False
+
+    def keyboard_focused(self) -> bool:
+        return self.is_foreground()
 
     def release_thread(self):
         """Libera recursos da thread atual (só a captura de janela usa)."""
@@ -83,8 +87,29 @@ class WindowCapture(FrameSource):
         return cv2.cvtColor(np.asarray(shot), cv2.COLOR_BGRA2BGR)
 
     def is_foreground(self) -> bool:
+        """A janela principal que contém o jogo está na frente (requisito para clicar)."""
         fg = winapi.foreground_hwnd()
         return fg != 0 and winapi.root_of(fg) == winapi.root_of(self.hwnd)
+
+    @property
+    def is_child(self) -> bool:
+        info = self.info
+        return bool(info and info.parent)
+
+    def keyboard_focused(self) -> bool:
+        """As teclas chegariam ao jogo (foco do teclado dentro da área do jogo, não no launcher)."""
+        from .game_window import keyboard_ok
+        ok, why = keyboard_ok(self.hwnd, self.is_child, winapi.foreground_hwnd(), winapi.focus_hwnd(),
+                              winapi.root_of, winapi.is_same_or_child)
+        self.focus_problem = why
+        return ok
+
+    focus_problem = ""
+
+    def rebind(self, hwnd: int):
+        """O jogo foi reaberto (nova janela): passa a capturar a janela nova."""
+        self.hwnd = hwnd
+        self.last_info = None
 
     def release_thread(self):
         sct = getattr(self._local, "sct", None)
@@ -141,6 +166,9 @@ class ArraySource(FrameSource):
         return None if self.frame is None else self.frame.copy()
 
     def is_foreground(self):
+        return self.foreground
+
+    def keyboard_focused(self):
         return self.foreground
 
 

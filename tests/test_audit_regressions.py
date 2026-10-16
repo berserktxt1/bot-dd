@@ -98,8 +98,8 @@ class Desktop:
         return self.OTHER
 
     @staticmethod
-    def root_of(hwnd):
-        return hwnd
+    def contains(target, hwnd):
+        return hwnd == target
 
 
 def _actor_on_desktop(tmp_path):
@@ -111,7 +111,7 @@ def _actor_on_desktop(tmp_path):
     game.info = Info()
     game.hwnd = Desktop.GAME
     desk = Desktop(Info)
-    actor = GameActor(inp, game, lib, cfg, window_at=desk.window_at, root_of=desk.root_of)
+    actor = GameActor(inp, game, lib, cfg, window_at=desk.window_at, contains=desk.contains)
     return game, Info, desk, actor, store
 
 
