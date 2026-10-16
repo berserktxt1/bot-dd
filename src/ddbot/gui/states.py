@@ -23,6 +23,7 @@ class UiSnapshot:
     unknown_screen: bool = False
     completed: int = 0
     runs: int = 1
+    window_state: str = ""   # jogo | launcher_sem_jogo | nada | sem_perfil | "" (desconhecido)
 
 
 @dataclass
@@ -35,7 +36,10 @@ class Banner:
 # orientação para os motivos mais comuns de pausa/erro (trecho do motivo -> o que fazer)
 ADVICE = [
     ("regras do servidor", "Abra Configurações, leia o aviso e marque a autorização."),
-    ("selecione a janela", "Abra o DDClássico e escolha a janela no topo."),
+    ("selecione a janela", "Abra o DDClássico pelo launcher; se for a primeira vez, use Identificar janela."),
+    ("launcher está aberto", "Entre no jogo pelo launcher. O bot conecta sozinho quando o jogo abrir."),
+    ("foco do teclado", "Clique uma vez dentro da área do jogo (não no launcher) e depois em Retomar."),
+    ("não foi encontrado", "Abra o DDClássico pelo launcher; se a janela mudou, use Identificar janela."),
     ("tela desconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
     ("não reconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
     ("não encontrado na tela", "Capture de novo esse botão em Calibração > Modelos (a aparência pode ter mudado)."),
@@ -108,8 +112,14 @@ def describe(s: UiSnapshot) -> Banner:
         tip = advice(s.reason)
         return Banner("error", f"Interrompido: {s.reason}", tip)
     if not s.has_window and not s.demo:
+        if s.window_state == "launcher_sem_jogo":
+            return Banner("idle", "Launcher aberto, aguardando o jogo",
+                          "Entre no jogo pelo launcher. O bot conecta sozinho quando a janela do jogo aparecer.")
+        if s.window_state == "sem_perfil":
+            return Banner("warning", "Identifique a janela do jogo",
+                          "Abra o jogo pelo launcher e clique em Identificar janela, no topo. É preciso fazer só uma vez.")
         return Banner("warning", "Jogo não encontrado",
-                      "Abra o DDClássico e clique em Atualizar. Para conhecer o programa, ligue o modo demonstração.")
+                      "Abra o DDClássico pelo launcher. Para conhecer o programa, ligue o modo demonstração.")
     if not s.activity_name:
         return Banner("idle", "Escolha o que jogar",
                       "As instâncias e partidas aparecem aqui depois de capturadas do menu do jogo "

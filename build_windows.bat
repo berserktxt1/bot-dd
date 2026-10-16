@@ -47,6 +47,9 @@ if /i not "%1"=="--sem-testes" (
 echo [4/5] Compilando com PyInstaller...
 %PY% -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\DDClassicoBot.spec
 if errorlevel 1 goto :erro
+echo      ... e a versao em arquivo unico
+%PY% -m PyInstaller --noconfirm --clean --distpath dist-unico --workpath build-unico packaging\DDClassicoBot-arquivo-unico.spec
+if errorlevel 1 goto :erro
 
 echo [5/5] Montando release...
 if exist release rmdir /s /q release
@@ -68,11 +71,14 @@ if exist release\DDClassicoBot\dados (
 )
 %PY% -m zipfile -c release\DDClassicoBot.zip release\DDClassicoBot
 if errorlevel 1 goto :erro
+copy /y dist-unico\DDClassicoBot.exe release\DDClassicoBot.exe >nul
+if errorlevel 1 goto :erro
 
 echo.
 echo Pronto:
 echo   %CD%\release\DDClassicoBot\DDClassicoBot.exe
 echo   %CD%\release\DDClassicoBot.zip
+echo   %CD%\release\DDClassicoBot.exe  (arquivo unico, roda sozinho)
 endlocal
 exit /b 0
 

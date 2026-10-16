@@ -17,3 +17,5 @@ rocheck/
 screenshots/
 shots-home-*/
 *.tmp
+dist-unico/
+build-unico/

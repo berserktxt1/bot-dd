@@ -21,10 +21,18 @@ class WindowInfo:
     width: int
     height: int
     pid: int = 0
+    exe: str = ""            # nome do executável do processo dono (ex.: launcher.exe)
+    cls: str = ""            # classe da janela (identifica o tipo de área: navegador, Flash, Unity...)
+    parent: int = 0          # 0 = janela principal; senão, a janela que a contém
+    visible: bool = True
 
     @property
     def rect(self):
         return self.left, self.top, self.width, self.height
+
+    @property
+    def area(self) -> int:
+        return max(0, self.width) * max(0, self.height)
 
 
 if IS_WINDOWS:
@@ -51,6 +59,61 @@ if IS_WINDOWS:
     user32.IsIconic.argtypes = [wintypes.HWND]
     user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
     user32.GetAncestor.restype = wintypes.HWND
+    user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    user32.GetParent.argtypes = [wintypes.HWND]
+    user32.GetParent.restype = wintypes.HWND
+    user32.IsChild.argtypes = [wintypes.HWND, wintypes.HWND]
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+                                                    ctypes.POINTER(wintypes.DWORD)]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+    class GUITHREADINFO(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("flags", wintypes.DWORD), ("hwndActive", wintypes.HWND),
+                    ("hwndFocus", wintypes.HWND), ("hwndCapture", wintypes.HWND),
+                    ("hwndMenuOwner", wintypes.HWND), ("hwndMoveSize", wintypes.HWND),
+                    ("hwndCaret", wintypes.HWND), ("rcCaret", wintypes.RECT)]
+
+    user32.GetGUIThreadInfo.argtypes = [wintypes.DWORD, ctypes.POINTER(GUITHREADINFO)]
+
+    def _class(hwnd) -> str:
+        buf = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, buf, 256)
+        return buf.value
+
+    _exe_cache: dict[int, str] = {}
+
+    def process_exe(pid: int) -> str:
+        """Nome do executável do processo (só leitura do nome; nada é aberto para escrita)."""
+        if pid in _exe_cache:
+            return _exe_cache[pid]
+        name = ""
+        h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if h:
+            try:
+                size = wintypes.DWORD(1024)
+                buf = ctypes.create_unicode_buffer(size.value)
+                if kernel32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                    name = buf.value.replace("/", "\\").rsplit("\\", 1)[-1]
+            finally:
+                kernel32.CloseHandle(h)
+        if len(_exe_cache) > 512:
+            _exe_cache.clear()
+        _exe_cache[pid] = name
+        return name
+
+    def focus_hwnd() -> int:
+        """Janela que recebe o teclado agora (pode ser uma janela interna do launcher)."""
+        info = GUITHREADINFO(cbSize=ctypes.sizeof(GUITHREADINFO))
+        if user32.GetGUIThreadInfo(0, ctypes.byref(info)) and info.hwndFocus:
+            return int(info.hwndFocus)
+        return foreground_hwnd()
+
+    def is_same_or_child(target, hwnd) -> bool:
+        return bool(hwnd) and (int(hwnd) == int(target) or bool(user32.IsChild(target, hwnd)))
 
     def _title(hwnd) -> str:
         n = user32.GetWindowTextLengthW(hwnd)
@@ -68,20 +131,39 @@ if IS_WINDOWS:
         user32.ClientToScreen(hwnd, ctypes.byref(pt))
         pid = wintypes.DWORD()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-        return WindowInfo(int(hwnd), _title(hwnd), pt.x, pt.y, rc.right - rc.left,
-                          rc.bottom - rc.top, pid.value)
+        parent = user32.GetParent(hwnd)
+        root = user32.GetAncestor(hwnd, 2)
+        is_child = bool(root) and int(root) != int(hwnd)
+        return WindowInfo(int(hwnd), _title(hwnd), pt.x, pt.y, rc.right - rc.left, rc.bottom - rc.top,
+                          pid.value, process_exe(pid.value), _class(hwnd),
+                          int(parent) if (parent and is_child) else 0, bool(user32.IsWindowVisible(hwnd)))
 
-    def list_windows() -> list[WindowInfo]:
+    def list_windows(min_size: int = 100) -> list[WindowInfo]:
+        """Janelas principais visíveis (com ou sem título) maiores que ``min_size``."""
         result: list[WindowInfo] = []
 
         def cb(hwnd, _):
-            if user32.IsWindowVisible(hwnd) and user32.GetWindowTextLengthW(hwnd) > 0:
+            if user32.IsWindowVisible(hwnd):
                 info = window_info(hwnd)
-                if info and info.width > 100 and info.height > 100:
+                if info and info.width > min_size and info.height > min_size:
                     result.append(info)
             return True
 
         user32.EnumWindows(EnumWindowsProc(cb), 0)
+        return result
+
+    def child_windows(hwnd, min_size: int = 100) -> list[WindowInfo]:
+        """Janelas internas visíveis (ex.: a área onde o launcher desenha o jogo)."""
+        result: list[WindowInfo] = []
+
+        def cb(child, _):
+            if user32.IsWindowVisible(child):
+                info = window_info(child)
+                if info and info.width > min_size and info.height > min_size:
+                    result.append(info)
+            return True
+
+        user32.EnumChildWindows(hwnd, EnumWindowsProc(cb), 0)
         return result
 
     def foreground_hwnd() -> int:
@@ -177,8 +259,20 @@ if IS_WINDOWS:
         return int(h) if h else 0
 
 else:  # Linux/macOS: só para desenvolvimento e testes
-    def list_windows() -> list[WindowInfo]:
+    def list_windows(min_size: int = 100) -> list[WindowInfo]:
         return []
+
+    def child_windows(hwnd, min_size: int = 100) -> list[WindowInfo]:
+        return []
+
+    def process_exe(pid: int) -> str:
+        return ""
+
+    def focus_hwnd() -> int:
+        return 0
+
+    def is_same_or_child(target, hwnd) -> bool:
+        return bool(hwnd) and hwnd == target
 
     def window_info(hwnd) -> WindowInfo | None:
         return None

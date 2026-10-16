@@ -1,9 +1,52 @@
 # Andamento
 
-Última atualização: 2026-10-16. Versão 0.2.0.
+Última atualização: 2026-10-16. Versão 0.2.1.
 
 > **Nada foi testado no cliente real do DDClássico.** Todos os resultados abaixo vêm de testes unitários,
 > simulações, imagens sintéticas e da execução do `.exe` no Windows da CI (sem o jogo).
+
+## Versão 0.2.1
+
+### Falha de `test_actor_refuses_click_when_window_resized`
+
+| | |
+|---|---|
+| Sintoma | No Windows do usuário, o segundo clique (janela já com o tamanho certo) era recusado como "outra janela sobre o jogo". |
+| Causa | O teste usava uma janela de jogo falsa, mas a checagem de sobreposição consultava o Windows de verdade (`WindowFromPoint`) no ponto (990, 815). Na CI esse ponto ficava fora da tela pequena do runner (resposta: nenhuma janela) e o teste passava; num monitor 1080p havia uma janela real ali. |
+| Defeito real encontrado junto | Com o ponto do clique fora de qualquer monitor (jogo parcialmente fora da tela), o clique era **aceito**. Agora é recusado. |
+| Correção | A consulta ao Windows é injetável no `GameActor`. O teste simula a área de trabalho de forma explícita, com três casos: tamanho errado, outra janela por cima e ponto fora da tela. Nenhuma proteção foi removida. |
+
+### Jogo aberto pelo launcher
+
+- **Assistente "Identificar janela":** lista as janelas principais e internas com programa, classe, tamanho e prévia da captura. O usuário marca o jogo e o launcher; o perfil (executável, classe, interna ou principal) fica salvo, sem nomes presumidos nem coordenadas.
+- **Estados:**
+  - jogo encontrado;
+  - launcher aberto sem o jogo (aguarda; Iniciar é recusado com explicação);
+  - nada aberto;
+  - janela ainda não identificada.
+
+  A procura roda a cada ~3 s, em thread, e reconecta sozinha. Se o jogo for reaberto durante uma pausa, Retomar reconecta à janela nova.
+- **Comandos:**
+  - clique só se a janela sob o ponto for a área do jogo ou uma janela interna dela (botões do launcher na mesma janela principal são recusados);
+  - teclas só com o foco do teclado dentro da área do jogo.
+- **Validação:** `tests/test_launcher.py` (19 testes) com listas de janelas **simuladas**. **Não houve teste com o launcher real**; o roteiro está em `docs/TESTES.md`, seção "Launcher".
+
+### Distribuição
+
+- Além do ZIP, um `DDClassicoBot.exe` de **arquivo único** que roda sozinho (cria `dados/` ao lado de si; abre alguns segundos mais devagar).
+- `SHA256SUMS.txt` e `build-info.json` (commit, execução da CI, versões, resultado dos testes) em cada build.
+- Release automática quando uma tag `v*` é enviada: o job `release`, o único com `contents: write`, publica os arquivos já testados.
+
+### Resultados confirmados (CI 38966300566, commit `3affe8c`, branch `hotfix/0.2.1`)
+
+| Verificação | Resultado |
+|---|---|
+| pytest no Windows | 172 de 172 aprovados, 0 pulados |
+| pytest no Linux (CI, Xvfb) | aprovado |
+| pytest no Linux (dev) | 171 aprovados, 1 pulado (interface: sem tkinter) |
+| `.exe` da pasta (ZIP extraído, sem Python no PATH) | autoteste OK; teste de interface OK; pasta não gravável OK |
+| `.exe` de arquivo único, sozinho numa pasta vazia, sem Python no PATH | autoteste OK; teste de interface OK; criou `dados/config.json` ao lado |
+| Capturas 100/125/150% | nenhum texto cortado nem elemento fora da janela |
 
 ## Tipos de validação
 
@@ -14,6 +57,7 @@
 | Empacotamento: `.exe` extraído do ZIP, sem Python no PATH, pasta não gravável | CI Windows | aprovado |
 | Revisão visual por capturas em 100%, 125% e 150% | CI Windows (1920×1080) | feita; correções aplicadas |
 | **No jogo real** (telas, botões, leitura, disparos, instância completa) | — | **pendente: sem Windows com o cliente** |
+| **Com o launcher real** (identificação da janela, espera, foco, reconexão) | — | **pendente: roteiro em `docs/TESTES.md`** |
 
 ## Auditoria de 2026-10-16
 

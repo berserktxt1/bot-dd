@@ -43,10 +43,12 @@ class InputController:
     """
 
     def __init__(self, kill: KillSwitch, backend: InputBackend | None = None,
-                 foreground_check=None, key_delay_s: float = 0.045, cancel_check=None):
+                 foreground_check=None, key_delay_s: float = 0.045, cancel_check=None, key_focus_check=None):
         self.kill = kill
         self.backend = backend or InputBackend()
-        self.foreground_check = foreground_check  # callable -> bool
+        self.foreground_check = foreground_check  # callable -> bool (janela do jogo na frente)
+        # callable -> bool: o foco do TECLADO está na área do jogo (e não num campo do launcher)
+        self.key_focus_check = key_focus_check
         self.cancel_check = cancel_check          # callable -> str | None (motivo)
         self.key_delay_s = key_delay_s
         self._held: set[str] = set()
@@ -65,6 +67,8 @@ class InputController:
     def key_down(self, key):
         with self._lock:
             self._guard()
+            if self.key_focus_check is not None and not self.key_focus_check():
+                raise FocusLost("o foco do teclado não está na área do jogo (clique dentro do jogo)")
             self.backend.key(key, False)
             self._held.add(key)
 
@@ -122,6 +126,8 @@ class InputController:
                 self.kill.check()
                 if self.foreground_check is not None and not self.foreground_check():
                     raise FocusLost("a janela do jogo perdeu o foco")
+                if self.key_focus_check is not None and not self.key_focus_check():
+                    raise FocusLost("o foco do teclado saiu da área do jogo")
                 time.sleep(poll_s)
         finally:
             self.key_up(key)

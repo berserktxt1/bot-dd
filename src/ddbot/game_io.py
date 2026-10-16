@@ -269,17 +269,26 @@ class GameActor(Actor):
     Proteções: limiar de confiança; intervalo mínimo entre cliques no mesmo botão (devolve
     ``None`` = adiado, não "não encontrado"); a janela precisa ter o mesmo tamanho do quadro
     em que o botão foi achado; o ponto precisa cair dentro da área cliente e sobre a
-    própria janela do jogo (nada de clicar em outra janela por cima).
+    própria janela do jogo (nada de clicar em outra janela por cima nem fora da tela).
+
+    A janela sob o ponto precisa ser a própria área do jogo ou uma janela interna dela. Com o
+    jogo dentro do launcher, os botões do launcher têm a mesma janela principal: comparar só
+    a janela principal deixaria o clique cair no launcher.
+
+    ``window_at``/``contains`` consultam o Windows; os testes injetam versões simuladas para
+    não depender do que estiver aberto na área de trabalho de quem roda a suíte.
     """
 
     def __init__(self, inp: InputController, source: FrameSource, templates: TemplateLibrary, config,
-                 min_repeat_s: float = 1.0, clock=time.monotonic):
+                 min_repeat_s: float = 1.0, clock=time.monotonic, window_at=None, contains=None):
         self.inp = inp
         self.source = source
         self.templates = templates
         self.config = config
         self.min_repeat_s = min_repeat_s
         self.clock = clock
+        self.window_at = window_at or winapi.window_at
+        self.contains = contains or winapi.is_same_or_child
         self._last_click: dict[str, float] = {}
 
     def threshold(self) -> float:
@@ -303,9 +312,15 @@ class GameActor(Actor):
         x, y = info.left + cx, info.top + cy
         if not (info.left <= x < info.left + info.width and info.top <= y < info.top + info.height):
             return None
-        under = winapi.window_at(x, y)
-        if under and winapi.root_of(under) != winapi.root_of(self.source.hwnd):
-            log.warning("outra janela está sobre o jogo no ponto do clique; clique cancelado")
+        under = self.window_at(x, y)
+        if not under:
+            # nenhuma janela no ponto: ele está fora de qualquer monitor (jogo parcialmente fora da tela)
+            if winapi.IS_WINDOWS or self.window_at is not winapi.window_at:
+                log.warning("o ponto do clique está fora da tela; clique cancelado")
+                return None
+        elif not self.contains(self.source.hwnd, under):
+            log.warning("o ponto do clique não está sobre a área do jogo (launcher ou outra janela); "
+                        "clique cancelado")
             return None
         return x, y
 

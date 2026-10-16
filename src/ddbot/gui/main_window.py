@@ -103,18 +103,15 @@ class MainWindow:
         top = ttk.Frame(self.root, padding=(px(16), px(12), px(16), px(8)))
         top.pack(fill="x")
         ttk.Label(top, text="DDClássico Bot", style="Section.TLabel").pack(side="left", padx=(0, px(24)))
-        ttk.Label(top, text="Janela do jogo").pack(side="left")
-        self.cb_window = ttk.Combobox(top, state="readonly", width=40)
-        self.cb_window.pack(side="left", padx=(px(8), px(6)))
-        self.cb_window.bind("<<ComboboxSelected>>", lambda e: self.select_window())
-        ttk.Button(top, text="Atualizar", command=self.refresh_windows).pack(side="left")
-        self.all_windows = tk.BooleanVar(value=False)
-        ttk.Checkbutton(top, text="Listar todas as janelas", variable=self.all_windows,
-                        command=self.refresh_windows).pack(side="left", padx=(px(10), 0))
+        ttk.Label(top, text="Jogo").pack(side="left")
+        self.lbl_window = ttk.Label(top, text="procurando...")
+        self.lbl_window.pack(side="left", padx=(px(8), px(12)))
+        ttk.Button(top, text="Identificar janela", command=self.open_window_wizard).pack(side="left")
         ttk.Checkbutton(top, text="Modo demonstração", variable=self.simulated,
                         command=self._toggle_demo).pack(side="right")
-        self.lbl_window = ttk.Label(top, text="", style="Muted.TLabel")
-        self.lbl_window.pack(side="left", padx=(px(16), 0))
+        self.window_state = ""
+        self._locating = False
+        self._locate_queue: "queue.Queue" = queue.Queue(maxsize=2)
 
     def _build_notice(self):
         """Rodapé: retorno das ações (salvou, capturou...) e o estado da tecla de emergência."""
@@ -528,25 +525,44 @@ class MainWindow:
         self.notice(text, error)
 
     def refresh_windows(self):
-        try:
-            self.windows = self.svc.find_windows(self.all_windows.get())
-        except Exception as exc:
-            self.windows = []
-            self.notice(f"Não foi possível listar as janelas: {exc}", True)
-        self.cb_window["values"] = [f"{w.title}  ({w.width}×{w.height})" for w in self.windows]
-        if self.windows and self.svc.window is None:
-            self.cb_window.current(0)
-            self.select_window()
-        elif not self.windows:
-            self.cb_window.set("")
-            self.lbl_window.configure(text="Jogo não encontrado")
+        """Procura o jogo pelo perfil salvo (em thread: consultar processos leva alguns ms)."""
+        if self._locating:
+            return
+        self._locating = True
 
-    def select_window(self):
-        i = self.cb_window.current()
-        if 0 <= i < len(self.windows):
-            self.svc.select_window(self.windows[i])
-            w = self.windows[i]
-            self.lbl_window.configure(text=f"Conectado, {w.width}×{w.height}")
+        def work():
+            try:
+                self._locate_queue.put((self.svc.auto_connect(), None))
+            except Exception as exc:
+                log.exception("procura da janela do jogo")
+                self._locate_queue.put((None, exc))
+            finally:
+                self._locating = False
+        threading.Thread(target=work, daemon=True, name="procura-janela").start()
+
+    def _drain_locate(self):
+        try:
+            found, exc = self._locate_queue.get_nowait()
+        except queue.Empty:
+            return
+        if exc is not None or found is None:
+            self.lbl_window.configure(text="erro ao procurar a janela")
+            return
+        self.window_state = found.state
+        if found.state == "jogo" and self.svc.window is not None:
+            w = self.svc.window
+            self.lbl_window.configure(text=f"conectado ({w.exe or 'janela'}, {w.width}×{w.height})")
+        else:
+            self.lbl_window.configure(text=found.message.lower())
+
+    def open_window_wizard(self):
+        from .window_wizard import WindowWizard
+        WindowWizard(self, self.svc, on_saved=self._wizard_saved)
+
+    def _wizard_saved(self):
+        self.svc.window = None
+        self.refresh_windows()
+        self.notice("Janela do jogo identificada. O bot vai reencontrá-la sozinho daqui para frente.")
 
     def _toggle_demo(self):
         self.refresh_activities()
@@ -946,6 +962,10 @@ class MainWindow:
             return
         try:
             self._drain_events()
+            self._drain_locate()
+            self._ticks = getattr(self, "_ticks", 0) + 1
+            if self._ticks % 15 == 0 and not (self.svc.runner and self.svc.runner.alive):
+                self.refresh_windows()  # a cada ~3 s: o jogo pode abrir/fechar pelo launcher
             self._drain_logs()
             self._drain_diag()
             self._update_status()
@@ -1016,7 +1036,8 @@ class MainWindow:
             emergency=self.svc.kill.triggered, emergency_reason=self.svc.kill.reason,
             my_turn=(obs.my_turn if obs else None),
             unknown_screen=bool(alive and r.unknown_screen),
-            completed=(r.counters.completed if r else 0), runs=(r.limits.runs if r else self._runs()))
+            completed=(r.counters.completed if r else 0), runs=(r.limits.runs if r else self._runs()),
+            window_state=self.window_state)
 
     def _update_status(self):
         b = describe(self.ui_snapshot())

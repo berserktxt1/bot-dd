@@ -3,6 +3,7 @@ name: Windows build
 on:
   push:
     branches: [main, develop, "feature/**", "release/**", "hotfix/**"]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -62,6 +63,7 @@ jobs:
           $need = @(
             "release/DDClassicoBot/DDClassicoBot.exe",
             "release/DDClassicoBot.zip",
+            "release/DDClassicoBot.exe",
             "release/DDClassicoBot/LEIA-ME.md",
             "release/DDClassicoBot/COMO-USAR.txt",
             "release/DDClassicoBot/_internal/data/knowledge/angle_tables.json",
@@ -73,8 +75,12 @@ jobs:
           # nomes com "/" e sem a pasta pessoal 'dados' dentro do pacote
           python -c "import zipfile; n = zipfile.ZipFile('release/DDClassicoBot.zip').namelist(); bad = [x for x in n if chr(92) in x]; assert not bad, bad[:3]; assert 'DDClassicoBot/DDClassicoBot.exe' in n; assert not any(x.startswith('DDClassicoBot/dados/') for x in n), 'dados pessoais no ZIP'; print(len(n), 'arquivos no ZIP')"
           if ($LASTEXITCODE -ne 0) { Write-Error "ZIP inválido"; exit 1 }
-          (Get-FileHash release/DDClassicoBot.zip -Algorithm SHA256).Hash | Out-File -Encoding ascii release/DDClassicoBot.zip.sha256
-          Get-Content release/DDClassicoBot.zip.sha256
+          # formato do sha256sum: "<hash>  <arquivo>"
+          $lines = foreach ($f in @("DDClassicoBot.zip", "DDClassicoBot.exe")) {
+            "$((Get-FileHash "release/$f" -Algorithm SHA256).Hash.ToLower())  $f"
+          }
+          $lines | Out-File -Encoding ascii release/SHA256SUMS.txt
+          Get-Content release/SHA256SUMS.txt
 
       - name: Testar o .exe compilado (autoteste, interface e pasta somente leitura)
         shell: pwsh
@@ -109,6 +115,19 @@ jobs:
           $code = Run-Exe (Resolve-Path "rocheck/DDClassicoBot/DDClassicoBot.exe").Path @("--gui-smoke","8") 120000
           if ($code -ne 0) { Write-Error "exe em pasta somente leitura falhou ($code)"; exit 1 }
           if (-not (Test-Path "$env:LOCALAPPDATA/DDClassicoBot/config.json")) { Write-Error "fallback para LOCALAPPDATA não criou a configuração"; exit 1 }
+          # arquivo único: sozinho numa pasta vazia (sem _internal), sem Python no PATH
+          New-Item -ItemType Directory -Force unico | Out-Null
+          Copy-Item release/DDClassicoBot.exe unico/
+          $one = (Resolve-Path "unico/DDClassicoBot.exe").Path
+          $env:DDBOT_SELFTEST_OUT = "$PWD/test-results/exe-unico-selftest.json"
+          $code = Run-Exe $one "--selftest" 240000
+          Get-Content $env:DDBOT_SELFTEST_OUT
+          if ($code -ne 0) { Write-Error "autoteste do exe de arquivo único falhou ($code)"; exit 1 }
+          $env:DDBOT_SMOKE_OUT = "$PWD/test-results/exe-unico-gui-smoke.json"
+          $code = Run-Exe $one @("--gui-smoke","8") 180000
+          Get-Content $env:DDBOT_SMOKE_OUT
+          if ($code -ne 0) { Write-Error "teste de interface do exe de arquivo único falhou ($code)"; exit 1 }
+          if (-not (Test-Path "unico/dados/config.json")) { Write-Error "o exe de arquivo único não criou dados/config.json ao lado de si"; exit 1 }
           Remove-Item Env:DDBOT_SMOKE_OUT, Env:DDBOT_SELFTEST_OUT
 
       - name: Capturas da interface (100%, 125%, 150%)
@@ -138,12 +157,41 @@ jobs:
             Select-String -Path build/DDClassicoBot/warn-DDClassicoBot.txt -Pattern "ddbot|pynput" | ForEach-Object { Write-Host $_ }
           }
 
+      - name: Registro da compilação e notas da versão
+        shell: pwsh
+        run: |
+          $xml = [xml](Get-Content test-results/pytest-windows.xml)
+          $suite = $xml.testsuites.testsuite
+          $passed = [int]$suite.tests - [int]$suite.failures - [int]$suite.errors - [int]$suite.skipped
+          $tests = "$passed de $($suite.tests) aprovados ($($suite.failures) falhas, $($suite.skipped) pulados)"
+          $sums = @{}
+          foreach ($l in Get-Content release/SHA256SUMS.txt) { $p = $l -split "  "; $sums[$p[1]] = $p[0] }
+          $pyi = (python -m PyInstaller --version).Trim()
+          $info = [ordered]@{
+            versao = (python -c "import sys; sys.path.insert(0, 'src'); import ddbot; print(ddbot.__version__)").Trim()
+            commit = "${{ github.sha }}"
+            ref = "${{ github.ref }}"
+            ci_execucao = "${{ github.run_id }}"
+            ci_url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            compilado_em = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            python = (python --version).Trim()
+            pyinstaller = $pyi
+            testes_windows = $tests
+            sha256 = $sums
+          }
+          $info | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 release/build-info.json
+          Get-Content release/build-info.json
+          (Get-Content docs/RELEASE_NOTES.md -Raw).Replace("{COMMIT}", "${{ github.sha }}").Replace("{RUN_URL}", $info.ci_url).Replace("{TESTES}", $tests).Replace("{SHA_ZIP}", $sums["DDClassicoBot.zip"]).Replace("{SHA_EXE}", $sums["DDClassicoBot.exe"]) | Out-File -Encoding utf8 release/release-notes.md
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: DDClassicoBot-windows
           path: |
             release/DDClassicoBot.zip
-            release/DDClassicoBot.zip.sha256
+            release/DDClassicoBot.exe
+            release/SHA256SUMS.txt
+            release/build-info.json
+            release/release-notes.md
           if-no-files-found: error
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
@@ -158,3 +206,38 @@ jobs:
           name: capturas-da-interface
           path: screenshots/
           if-no-files-found: warn
+
+  # Só em tags v*: cria a Release com os arquivos testados acima (único job que escreve no repositório)
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test-linux, build-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: DDClassicoBot-windows
+          path: pacote
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: relatorios-de-teste
+          path: relatorios
+      - name: Publicar a Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          (cd pacote && sha256sum -c SHA256SUMS.txt)
+          (cd relatorios && zip -qr ../relatorios-de-teste.zip .)
+          files="pacote/DDClassicoBot.zip pacote/DDClassicoBot.exe pacote/SHA256SUMS.txt pacote/build-info.json relatorios-de-teste.zip"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" $files --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --notes-file pacote/release-notes.md --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" $files --verify-tag --title "DDClássico Bot ${TAG#v}" \
+              --notes-file pacote/release-notes.md --repo "$GITHUB_REPOSITORY"
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets --jq '.url, (.assets[] | "\(.name) \(.size)")'
