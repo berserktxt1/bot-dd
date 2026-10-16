@@ -1,0 +1,100 @@
+"""O que a faixa de estado mostra em cada situação (sem Tkinter: testável)."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from ..activities import RunStatus
+from ..vision.perception import STATE_LABELS
+
+
+@dataclass
+class UiSnapshot:
+    has_window: bool
+    demo: bool
+    activity_name: str | None
+    activity_auto: bool = True
+    status: RunStatus = RunStatus.IDLE
+    alive: bool = False
+    reason: str = ""
+    screen: str = "desconhecido"
+    emergency: bool = False
+    emergency_reason: str = ""
+    my_turn: bool | None = None
+    unknown_screen: bool = False
+    completed: int = 0
+    runs: int = 1
+
+
+@dataclass
+class Banner:
+    kind: str
+    title: str
+    detail: str = ""
+
+
+# orientação para os motivos mais comuns de pausa/erro (trecho do motivo -> o que fazer)
+ADVICE = [
+    ("regras do servidor", "Abra Configurações, leia o aviso e marque a autorização."),
+    ("selecione a janela", "Abra o DDClássico e escolha a janela no topo."),
+    ("tela desconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
+    ("não reconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
+    ("não encontrado na tela", "Capture de novo esse botão em Calibração > Modelos (a aparência pode ter mudado)."),
+    ("não avançou", "Confira se o jogo pede alguma confirmação e resolva no jogo; depois clique em Retomar."),
+    ("muitos cliques", "Confira o jogo: o botão pode estar desativado (energia, ingressos). Depois clique em Retomar."),
+    ("desconex", "Entre no jogo de novo e clique em Iniciar."),
+    ("foco", "Deixe a janela do jogo na frente e não use o mouse/teclado enquanto o bot joga."),
+    ("PvE", "Escolha uma instância ou partida contra o computador."),
+    ("proibido", "Esse botão gasta recursos. Libere-o em Configurações só se tiver certeza."),
+    ("tempo máximo", "Aumente o tempo máximo em Configurações se quiser rotinas mais longas."),
+    ("derrotas", "O limite de derrotas foi atingido. Ajuste a mira em Mira e disparos ou aumente o limite."),
+    ("ângulo atual desconhecido", "Treine os números do ângulo em Calibração > Números."),
+]
+
+
+def advice(reason: str) -> str:
+    low = (reason or "").lower()
+    for key, text in ADVICE:
+        if key.lower() in low:
+            return text
+    return ""
+
+
+def describe(s: UiSnapshot) -> Banner:
+    if s.emergency:
+        return Banner("emergency", "Parada de emergência",
+                      "Nenhum comando será enviado ao jogo. Clique em Iniciar quando quiser recomeçar.")
+    running = s.alive and s.status in (RunStatus.RUNNING, RunStatus.PAUSED)
+    if running and s.status == RunStatus.PAUSED:
+        tip = advice(s.reason)
+        return Banner("paused", f"Pausado: {s.reason}" if s.reason else "Pausado",
+                      tip or "Clique em Retomar para continuar ou em Parar para encerrar.")
+    if running:
+        progress = (f"{s.completed} de {s.runs} concluída(s)." if s.runs
+                    else f"{s.completed} concluída(s), repetição contínua.")
+        where = STATE_LABELS.get(s.screen, s.screen)
+        if s.unknown_screen:
+            return Banner("warning", f"{s.activity_name}: tela não reconhecida",
+                          "Tentando recuperar pelos meios normais do jogo. Se não conseguir, o bot pausa.")
+        if s.screen == "batalha":
+            turn = {True: "seu turno, mirando", False: "turno do adversário", None: "lendo o turno"}[s.my_turn]
+            return Banner("combat", f"Em combate: {turn}", f"{s.activity_name}. {progress}")
+        return Banner("running", f"Executando {s.activity_name}", f"Tela atual: {where}. {progress}")
+    if s.status == RunStatus.FINISHED:
+        return Banner("done", "Concluído", s.reason or "A quantidade configurada foi concluída.")
+    if s.status == RunStatus.FAILED:
+        tip = advice(s.reason)
+        return Banner("error", f"Interrompido: {s.reason}", tip)
+    if not s.has_window and not s.demo:
+        return Banner("warning", "Jogo não encontrado",
+                      "Abra o DDClássico e clique em Atualizar. Para conhecer o programa, ligue o modo demonstração.")
+    if not s.activity_name:
+        return Banner("idle", "Escolha o que jogar",
+                      "As instâncias e partidas aparecem aqui depois de capturadas do menu do jogo "
+                      "(Calibração > Opções do menu).")
+    if not s.activity_auto:
+        return Banner("warning", f"{s.activity_name} envolve outros jogadores",
+                      "O bot não joga sozinho contra pessoas. Use a mira assistida na aba Diagnóstico.")
+    if s.status == RunStatus.IDLE and s.reason.startswith("parado"):
+        return Banner("ready", "Parado", f"Pronto para iniciar {s.activity_name} de novo.")
+    return Banner("ready", "Pronto para iniciar",
+                  f"{s.activity_name}." + (" Modo demonstração: nada é enviado ao jogo." if s.demo else ""))
