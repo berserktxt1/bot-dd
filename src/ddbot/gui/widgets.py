@@ -14,8 +14,9 @@ from . import theme as T
 class Panel(ttk.Frame):
     """Área branca com título opcional; o conteúdo vai em ``.body``."""
 
-    def __init__(self, master, th: T.Theme, title: str | None = None, hint: str | None = None, **kw):
-        super().__init__(master, style="Surface.TFrame", padding=th.px(T.SPACE["l"]), **kw)
+    def __init__(self, master, th: T.Theme, title: str | None = None, hint: str | None = None, pad: str = "l",
+                 **kw):
+        super().__init__(master, style="Surface.TFrame", padding=th.px(T.SPACE[pad]), **kw)
         self.columnconfigure(0, weight=1)
         row = 0
         if title:
@@ -42,9 +43,9 @@ class StatusBanner(tk.Frame):
         self.th = th
         pad = th.px(T.SPACE["l"])
         self.icon = tk.Label(self, font=th.fonts["banner"], width=2, anchor="center")
-        self.icon.pack(side="left", padx=(pad, th.px(4)), pady=th.px(10))
+        self.icon.pack(side="left", padx=(pad, th.px(4)), pady=th.px(8))
         box = tk.Frame(self)
-        box.pack(side="left", fill="x", expand=True, pady=th.px(8))
+        box.pack(side="left", fill="x", expand=True, pady=th.px(6))
         self.title = tk.Label(box, font=th.fonts["banner"], anchor="w", justify="left")
         self.title.pack(fill="x")
         self.detail = tk.Label(box, font=th.fonts["body"], anchor="w", justify="left")

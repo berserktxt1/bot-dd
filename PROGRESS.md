@@ -1,63 +1,116 @@
 # Andamento
 
-Última atualização: 2026-10-16. Branch `feature/bot-core`.
+Última atualização: 2026-10-16. Versão 0.2.0.
 
-## Concluído
+> **Nada foi testado no cliente real do DDClássico.** Todos os resultados abaixo vêm de testes unitários,
+> simulações, imagens sintéticas e da execução do `.exe` no Windows da CI (sem o jogo).
 
-| Etapa | Situação | Validação |
+## Tipos de validação
+
+| Tipo | Onde | Situação |
 |---|---|---|
-| Pesquisa (bots, calculadoras, fórmulas, licenças) | feito: `docs/RESEARCH.md` | — |
-| Base de conhecimento (tabelas 20/30/50/65, Alto, Médio, fontes) | feito | testes de conhecimento |
-| Modelo físico ajustado às 4 tabelas | feito: RMSE 1,01 de força, 76/80 células dentro de ±2 | `tools/fit_model.py`, testes de física |
-| Solver de força: 3–4× mais rápido, sem raízes falsas para alvos inalcançáveis | feito | 4000 casos aleatórios, erro < 0,02 |
-| Mira: tabelas + fórmulas + busca física, probabilidade de acerto, terreno, arma | feito | testes de mira |
-| Calibração com disparos (correção por método + reajuste das constantes) | feito | testes + simulação |
-| Alvos invisíveis (última posição + incerteza crescente, aguardar/área/atirar) | feito | testes + simulação |
-| Combate automático (turno, um disparo por turno, confiança mínima, cache) | feito | testes de cenário e integração |
-| Controlador de estados para partidas e instâncias, com recuperação e limites | feito: `activities.py` | 15 testes de cenário |
-| Descoberta das opções do menu a partir da captura (sem lista fixa) | feito: `vision/menu.py` | teste com menu sintético |
-| Execução real: leitura de telas, cliques por modelo, teclado com travas | feito: `game_io.py` | integração com tela falsa que reage às teclas |
-| Interface gráfica em português | feito: `gui/main_window.py` | **só na CI** (sem tkinter no Linux de desenvolvimento) |
-| Autoteste (`--selftest`) e teste de interface (`--gui-smoke`) | feito | selftest OK no Linux |
-| Empacotamento: PyInstaller, `build_windows.bat`, workflow Windows | feito | **pendente: a CI não pôde ser enviada (ver bloqueios)** |
-| README pt-BR, `docs/TESTES.md`, `docs/USO.txt` | feito | — |
+| Unitários, integração com tela sintética, cenários simulados | Linux (dev) e CI Linux + Windows | aprovados |
+| Interface real (Tkinter), botões, pausa/parada/emergência, responsividade | CI Windows (código-fonte e `.exe`) e CI Linux (Xvfb) | aprovados |
+| Empacotamento: `.exe` extraído do ZIP, sem Python no PATH, pasta não gravável | CI Windows | aprovado |
+| Revisão visual por capturas em 100%, 125% e 150% | CI Windows (1920×1080) | feita; correções aplicadas |
+| **No jogo real** (telas, botões, leitura, disparos, instância completa) | — | **pendente: sem Windows com o cliente** |
 
-## Resultados dos testes (Linux, Python 3.12, 2026-10-16)
+## Auditoria de 2026-10-16
 
-- `pytest`: **68 aprovados, 1 pulado** (o teste de interface precisa de tkinter, que não existe neste Linux).
-- `pyflakes`: sem avisos.
-- `--selftest`: OK (recursos, mira, visão, fluxo simulado completo).
-- Simulação de precisão (`--simulate 15`). O "jogo" simulado tem constantes diferentes das do modelo
-  (velocidade +3%, vento +25%, arrasto −5%) e ruído de leitura e de execução:
+Três revisões independentes (automação/concorrência, mira/visão, segurança/build). Os itens marcados como
+"reproduzido" foram confirmados com scripts antes da correção. Cada correção tem teste de regressão em
+`tests/test_audit_regressions.py`, `tests/test_activities.py`, `tests/test_safety_combat.py` ou `tests/test_vision.py`.
 
-| | Disparos | Acerto | Vitórias | Erro médio do impacto (1ª metade → 2ª metade) |
-|---|---|---|---|---|
-| Sem calibração | 113 | 35% | 12/15 | 0,72 → 0,78 |
-| Com calibração | 53 | 85% | 15/15 | 0,30 → 0,17 |
+### Críticos e altos corrigidos
 
-- Cenários de atividade simulados: fluxo completo, várias etapas, pop-up, tela desconhecida, botão ausente,
-  desconexão, limites de derrotas e de tempo, PvP recusado, botão proibido, pausar/retomar/parar e emergência.
-  Todos passaram.
+| Problema | Correção |
+|---|---|
+| Um quadro mal lido como "vitória" no meio da batalha contava vitória e reiniciava o combate (reproduzido) | tela só vale após leituras seguidas iguais; resultado fica pendente e só é contado ao voltar ao início; derrota prevalece |
+| Leitura de turno oscilando (True, None, True) liberava 2º disparo no mesmo turno (reproduzido) | turno confirmado por 2 leituras; None mantém o estado; intervalo contado do fim do disparo |
+| Primeiro turno de cada batalha nova era pulado (reproduzido) | trava de turno reiniciada a cada batalha |
+| Limites de tempo/derrotas/quantidade nunca disparavam sem tela de resultado reconhecida (reproduzido: rodou 50 batalhas com limite de 3 s) | execução conta como "sem resultado" ao voltar ao início; limite de tempo conferido fora das transições; pausa não conta |
+| ESC enviado às cegas na recuperação (podia sair da batalha ou da sala) | recuperação só clica no botão fechar se ele for reconhecido; senão pausa |
+| Combate seguia com tela desconhecida (diálogo por cima) | com a tela incerta, o motor só observa e sugere, não dispara |
+| Alt+Tab/minimizar encerrava a rotina como "parada de emergência" | perda de foco, janela minimizada/fechada e envio bloqueado pausam com o motivo |
+| Disparo com ângulo não confirmado na tela (reproduzido) | ângulo confirmado por leitura estável; sem confirmação, cancela e passa o turno |
+| Direção do personagem herdada da batalha anterior | direção e ângulo reiniciados a cada batalha; teclas de virar com padrão |
+| Modo de força visual soltava a 100% se a barra não fosse lida | nunca segura além do tempo estimado + 10% |
+| Turno não revalidado antes de carregar a força | turno conferido logo antes da carga |
+| Clique em coordenadas desatualizadas ou sobre outra janela | tamanho da janela conferido; ponto dentro da área cliente e sobre a janela do jogo |
+| Pausa/parada não interrompiam um disparo em andamento | interrupção entre teclas; espera pós-disparo interrompível; disparo registrado antes da espera |
+| Alvo invisível: atirava para a direita, sem vento e sem altura | direção, vento relativo e altura vêm da região estimada; incerteza da região somada |
+| Correção da arma aplicada duas vezes (reproduzido) | resíduo com a arma e o ângulo efetivos; modelos por (arma, método) |
+| Terreno plano bloqueava tiros altos com vento contra (reproduzido) | trajetória cortada no impacto |
+| Leitor de dígitos aceitava ruído como "0"; vento sem direção recebia sinal "+" | confiança mínima; vento fora da faixa ou sem direção não é usado |
+| Vazamento de handles GDI do MSS a cada thread (diagnóstico ao vivo esgotaria em minutos) | instâncias registradas e liberadas por thread e no fechamento |
+| `config.json` com BOM, vazio ou corrompido impedia o app de abrir (reproduzido) | leitura tolerante; original guardado como `.corrompido`; tipos inválidos voltam ao padrão |
+| Tecla de emergência podia falhar em silêncio | estado real mostrado no rodapé; modo automático no jogo bloqueado sem ela; autoteste do exe testa o pynput |
+| Exceções sumiam no `.exe` sem console | ganchos de exceção do Tk, de threads e do processo gravam no log |
+| CI podia travar 40 min num diálogo; actions por tag mutável; dependências sem versão fixa | timeouts, nenhum diálogo em modo automático, actions por SHA, versões fixas, `permissions: contents: read` |
 
-**Nada disso foi testado no cliente real do DDClássico.**
+### Médios e baixos corrigidos (resumo)
 
-## Bloqueios
+- **Interface e execução:** clique ignorado pelo jogo é repetido; botão "adiado" não é tratado como ausente; erros passageiros tolerados (3 seguidos pausam); tentativas de recuperação esquecidas quando a tela avança; teste de controles recusado com a rotina ativa; mira assistida que para é mostrada na interface.
+- **Mira e calibração:**
+  - incerteza preditiva correta da calibração;
+  - correção geral só de viés;
+  - reajuste com limites físicos e ancorado nas tabelas;
+  - raio do alvo oculto pelo deslocamento máximo;
+  - identidade do alvo por proximidade;
+  - extrapolação das tabelas até +0,5;
+  - arredondamento comum;
+  - refinamento da busca física;
+  - critério único de acerto.
+- **Visão:** marcador em outra escala; supressão de vizinhos; barra de força contínua; ROI inválida avisada; ordenação das opções do menu.
+- **Arquivos e dados:**
+  - gravação atômica (configuração, modelo, glifos, atividades);
+  - arquivos corrompidos restaurados da cópia do programa;
+  - dados de conhecimento atualizados em versões novas só se o usuário não os editou;
+  - instância única;
+  - capturas limitadas a 200;
+  - pasta do usuário mascarada nos logs;
+  - nomes com `../` recusados;
+  - colisão de nomes de atividades resolvida com sufixo.
+- **Build:** `.bat` confere cada passo e recusa `dados/` dentro do pacote; ZIP com separadores padrão; SHA-256 do ZIP publicado; metadados de versão no `.exe`.
 
-1. **Compilação Windows (CI).** O `git push` foi recusado porque o token do GitHub CLI não tem o escopo
-   `workflow`, necessário para enviar `.github/workflows/windows-build.yml`. Para liberar:
-   `gh auth refresh -h github.com -s workflow`. Sem isso, o `.exe` e o ZIP não puderam ser gerados.
-   Alternativa: rodar `build_windows.bat` num Windows com Python 3.12.
-2. **Cliente real.** Não há Windows com o DDClássico neste ambiente. Calibração, navegação, disparos e uma
-   execução completa de instância ainda precisam ser validados no jogo (roteiro em `docs/TESTES.md`).
-3. **Regras do servidor.** O site do DDClássico respondeu 403. O modo automático continua exigindo confirmação
-   explícita.
+### Não corrigidos (conscientemente)
 
-## Limitações conhecidas
+- Vetorizar a avaliação de candidatos (recomendação ~0,25 s). Com cache por turno, roda uma vez por turno; não é gargalo.
+- `marker_to_feet` removido da configuração (não era usado). Diferença de altura entre marcadores de tipos
+  diferentes continua não compensada.
+- Usuários de versões anteriores (sem manifesto) mantêm as tabelas antigas; apagar `dados/knowledge` atualiza.
+- Possíveis erros de digitação nas tabelas publicadas (50° d=10: 48,3; 30° d=17: 65,7) mantidos como na fonte.
+- O runtime empacotado é o Python 3.12.10 (último 3.12 com instalador Windows); migrar para 3.13 depois.
 
-- Instâncias e partidas não foram validadas no cliente; cada atividade criada fica marcada "não validada".
-- Perfil do terreno: a mira aceita obstáculos (`ShotContext.terrain`), mas a visão ainda não extrai o terreno da
-  tela.
-- Armas, habilidades, pets e pérolas: só como parâmetros configuráveis (`weapons`); não há mecânicas específicas do
-  DDClássico porque nenhuma fonte foi encontrada.
-- Força por tempo depende de medir `power_full_time_s` no cliente; o modo visual (`power_mode: visual`) lê a barra.
-- Desconexão: o bot para e avisa; não faz login sozinho.
+## Redesign da interface
+
+Feito com a skill `frontend-design` (marketplace oficial da Anthropic, lida em disco).
+
+- **Sistema visual** (`gui/theme.py`): fundo cinza frio, painéis brancos, azul-aço para a ação principal e latão
+  só nos números da mira. Tipografia: Bahnschrift (Windows) nos números e títulos, Segoe UI no texto. Todas as
+  combinações de cor passam em contraste ≥ 4,5:1 (teste automático).
+- **Faixa de estado** com cor, ícone e texto juntos para: jogo não encontrado, escolha o que jogar, pronto,
+  executando, combate (seu turno / adversário), tela não reconhecida, pausado (com o que fazer), concluído,
+  interrompido (com o que fazer) e parada de emergência.
+- **Início** com três áreas: "O que jogar" (Instâncias | Partidas automáticas, quantas vezes, Iniciar/Pausar-Retomar/Parar),
+  "Progresso" e "Mira". Atalhos F5/F6/F8. Calibração, diagnóstico e configurações em abas separadas.
+- **Escala:** tamanhos ajustados ao DPI; janela limitada à área de trabalho.
+
+Revisão pelas capturas da CI. Problemas encontrados e corrigidos:
+1. Fontes dos estilos ignoradas (títulos, contadores e mira no tamanho do texto): `option_add("*Font")` anulava os estilos.
+2. Em 150%, a janela passava da área de trabalho e o rodapé com a tecla de emergência ficava escondido.
+3. Mostrador da mira desalinhado; sub-abas da calibração cortadas em 125%; status da janela cortado.
+4. Histórico com nomes internos; números da mira antigos exibidos depois de parar; opções repetidas na calculadora.
+
+## Resultados
+
+Preenchido com a compilação final abaixo.
+
+## Limitações que dependem do jogo real
+
+- Reconhecimento das telas, botões e marcadores (modelos capturados pelo usuário).
+- Leitura de ângulo, vento e turno; tempo de carga da barra de força; teclas de virar (andam um pouco no DDTank).
+- Precisão real da mira (as tabelas são de versões antigas; a calibração com disparos reais é necessária).
+- Navegação até uma instância e uma execução completa; comportamento do jogo com várias etapas e recompensas.
+- Regras do servidor sobre automação (site bloqueado na pesquisa).
+- Escalas de exibição reais de um usuário (a CI simula 125% e 150% pelo Tk numa tela 1920×1080 em 100%).

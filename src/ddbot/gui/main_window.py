@@ -152,7 +152,7 @@ class MainWindow:
         self.banner = StatusBanner(t, self.th)
         self.banner.grid(row=0, column=0, columnspan=2, sticky="we")
 
-        play = Panel(t, self.th, "O que jogar")
+        play = Panel(t, self.th, "O que jogar", pad="m")
         play.grid(row=1, column=0, sticky="nsew", pady=(gap, 0), padx=(0, gap))
         b = play.body
         seg = ttk.Frame(b, style="Surface.TFrame")
@@ -169,12 +169,11 @@ class MainWindow:
         self.btn_goto_calib = ttk.Button(b, text="Capturar opções do jogo", command=self._goto_options)
         self.btn_goto_calib.grid(row=3, column=0, sticky="w", pady=(px(6), 0))
 
-        ttk.Label(b, text="Quantas vezes", style="Strong.TLabel").grid(row=4, column=0, sticky="w",
-                                                                         pady=(px(16), px(4)))
         runs = ttk.Frame(b, style="Surface.TFrame")
-        runs.grid(row=5, column=0, sticky="w")
+        runs.grid(row=5, column=0, sticky="w", pady=(px(14), 0))
         self.run_mode = tk.StringVar(value="uma")
         self.run_count = tk.IntVar(value=5)
+        ttk.Label(runs, text="Quantas vezes", style="Strong.TLabel").pack(side="left", padx=(0, px(14)))
         ttk.Radiobutton(runs, text="Uma vez", value="uma", variable=self.run_mode,
                         style="Surface.TRadiobutton").pack(side="left")
         ttk.Radiobutton(runs, text="Repetir", value="qtd", variable=self.run_mode,
@@ -187,7 +186,7 @@ class MainWindow:
                         style="Surface.TRadiobutton").pack(side="left", padx=(px(16), 0))
 
         actions = ttk.Frame(b, style="Surface.TFrame")
-        actions.grid(row=6, column=0, sticky="w", pady=(px(20), 0))
+        actions.grid(row=6, column=0, sticky="w", pady=(px(16), 0))
         self.btn_start = ttk.Button(actions, text="Iniciar  (F5)", style="Primary.TButton", command=self.start)
         self.btn_start.pack(side="left")
         self.btn_pause = ttk.Button(actions, text="Pausar  (F6)", command=self.toggle_pause)
@@ -198,7 +197,7 @@ class MainWindow:
         right = ttk.Frame(t)
         right.grid(row=1, column=1, sticky="nsew", pady=(gap, 0))
         right.columnconfigure(0, weight=1)
-        prog = Panel(right, self.th, "Progresso")
+        prog = Panel(right, self.th, "Progresso", pad="m")
         prog.grid(row=0, column=0, sticky="nsew")
         pb = prog.body
         self.lbl_progress = ttk.Label(pb, text="Nada em execução", style="Strong.TLabel")
@@ -213,7 +212,7 @@ class MainWindow:
             self.counters[k] = c
             pb.columnconfigure(i, weight=1)
 
-        aim = Panel(right, self.th, "Mira")
+        aim = Panel(right, self.th, "Mira", pad="m")
         aim.grid(row=1, column=0, sticky="nsew", pady=(gap, 0))
         ab = aim.body
         self.ro_angle = Readout(ab, self.th, "ângulo", "°")
@@ -227,8 +226,9 @@ class MainWindow:
                                     justify="left", wraplength=px(380))
         self.lbl_target.grid(row=1, column=0, columnspan=4, sticky="w", pady=(px(8), 0))
 
-        hist = Panel(t, self.th, "Histórico")
+        hist = Panel(t, self.th, "Histórico", pad="m")
         hist.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(gap, 0))
+        t.rowconfigure(2, weight=1, minsize=px(150))  # sempre algumas linhas visíveis
         hb = hist.body
         hb.rowconfigure(0, weight=1)
         self.tree_hist = ttk.Treeview(hb, columns=("hora", "tipo", "msg"), show="headings", height=4)

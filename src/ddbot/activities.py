@@ -524,7 +524,7 @@ class ActivityRunner:
                 self._sleep(min(self.POLL_S, 0.2))
             return True
         if state == "desconectado":
-            return self._fail("o cliente mostra desconexão: entre no jogo de novo e clique em Iniciar")
+            return self._fail("o jogo mostra a tela de desconexão")
         if state == "desconhecido":
             return self._handle_unknown(now, screen)
         self._unknown_since = None
