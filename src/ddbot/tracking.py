@@ -105,7 +105,9 @@ class TargetTracker:
         if t is None or t.last is None:
             return None
         last = t.last
-        turns = max(0, turn - last.turn)
+        if turn < last.turn:
+            return None  # contador de turno reiniciado: a posição guardada não vale
+        turns = turn - last.turn
         if t.visibility == Visibility.VISIBLE and turns == 0:
             return HiddenEstimate(last.x, last.y, 0.0, 0, "observação atual")
         step = self._typical_move(t)
@@ -115,7 +117,9 @@ class TargetTracker:
             recent = t.history[-3:]
             dx = (recent[-1].x - recent[0].x) / max(1, recent[-1].turn - recent[0].turn)
             drift = max(-step, min(step, dx)) * 0.5 * turns
-        radius = step * turns + 0.2
+        # o raio usa o deslocamento MÁXIMO por turno: parado enquanto visível não prova que
+        # continuou parado depois de sumir; a média observada só ajusta o centro
+        radius = self.max_move_per_turn * turns + 0.2
         return HiddenEstimate(last.x + drift, last.y, radius, turns,
                               f"última posição no turno {last.turn} + {turns} turno(s) de deslocamento possível")
 
@@ -127,6 +131,8 @@ class TargetTracker:
         if t.visibility == Visibility.VISIBLE and t.last.turn == turn:
             return TargetDecision(Decision.SHOOT, self.estimate(target_id, turn), "alvo visível")
         est = self.estimate(target_id, turn)
+        if est is None:
+            return TargetDecision(Decision.ASK_USER, None, "contagem de turnos reiniciada; aguardando o alvo")
         if len(t.history) < min_history:
             return TargetDecision(Decision.WAIT, est, "histórico insuficiente para estimar a região")
         if est.radius <= self.area_attack_radius and has_area_attack:

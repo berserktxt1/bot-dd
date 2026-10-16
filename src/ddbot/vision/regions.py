@@ -28,3 +28,12 @@ def crop(img: np.ndarray, roi) -> tuple[np.ndarray, Rect]:
         return img, (0, 0, w, h)
     x, y, w, h = frac_to_px(roi, img.shape)
     return img[y:y + h, x:x + w], (x, y, w, h)
+
+
+def valid_roi(roi) -> bool:
+    """ROI em frações dentro da imagem e com tamanho mínimo (0,5% de cada lado)."""
+    try:
+        x, y, w, h = (float(v) for v in roi)
+    except (TypeError, ValueError):
+        return False
+    return 0 <= x < 1 and 0 <= y < 1 and w >= 0.005 and h >= 0.005 and x + w <= 1.001 and y + h <= 1.001

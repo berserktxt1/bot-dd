@@ -54,9 +54,18 @@ def detect_option_tiles(img: np.ndarray, roi=None, min_frac=0.003, max_frac=0.25
         med = np.median(areas)
         kept = [r for r, a in zip(kept, areas) if 0.5 * med <= a <= 2.0 * med]
     kept = [(x + ox, y + oy, rw, rh) for x, y, rw, rh in kept]
-    row_h = np.median([r[3] for r in kept]) if kept else 1
-    kept.sort(key=lambda r: (round(r[1] / max(1.0, row_h * 0.5)), r[0]))
-    return kept
+    if not kept:
+        return kept
+    # ordem de leitura: agrupa em linhas quando o topo difere menos de meia altura
+    row_h = float(np.median([r[3] for r in kept]))
+    kept.sort(key=lambda r: r[1])
+    rows: list[list] = []
+    for r in kept:
+        if rows and abs(r[1] - rows[-1][0][1]) <= row_h / 2:
+            rows[-1].append(r)
+        else:
+            rows.append([r])
+    return [r for row in rows for r in sorted(row, key=lambda t: t[0])]
 
 
 def _inside(a, b, tol=2):

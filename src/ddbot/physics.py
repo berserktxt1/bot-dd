@@ -41,7 +41,7 @@ class PhysicsParams:
 
     @classmethod
     def load(cls, path: Path) -> "PhysicsParams":
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
         names = {f.name for f in fields(cls)}
         return cls(**{k: float(v) for k, v in data.get("params", data).items() if k in names})
 
@@ -49,7 +49,8 @@ class PhysicsParams:
         payload = {"params": asdict(self)}
         if extra:
             payload.update(extra)
-        Path(path).write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        from .util import atomic_write_text
+        atomic_write_text(path, json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 def _state(t, vx0, vy0, a, p: PhysicsParams):

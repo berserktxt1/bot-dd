@@ -11,10 +11,12 @@ import numpy as np
 
 from ..config import Config
 from .digits import DigitReader
-from .regions import crop, frac_to_px
+from .regions import crop, frac_to_px, valid_roi
 from .templates import TemplateLibrary, find_all
 
 log = logging.getLogger(__name__)
+
+MAX_WIND = 10.0  # o indicador do jogo mostra valores pequenos; acima disso é leitura errada
 
 # estados reconhecidos por modelos "estado_<nome>"
 STATES = ["batalha", "vitoria", "derrota", "recompensa", "etapa_concluida", "lobby",
@@ -56,6 +58,7 @@ class Snapshot:
     turn_confidence: float = 0.0
     wind: float | None = None           # + = soprando para a direita da tela
     wind_confidence: float = 0.0
+    wind_magnitude: float | None = None  # valor lido quando a direção não foi reconhecida
     angle: float | None = None
     angle_confidence: float = 0.0
     power: float | None = None          # 0-100 lido da barra
@@ -133,6 +136,9 @@ class Perception:
         if value is None:
             snap.warnings.append("vento não reconhecido (treine os dígitos do vento)")
             return
+        if abs(value) > MAX_WIND:
+            snap.warnings.append(f"vento lido fora da faixa ({value}); leitura descartada")
+            return
         direction, dconf = 0, 0.0
         left = self.templates.best("vento_esquerda", sub) if self.templates.has("vento_esquerda") else None
         right = self.templates.best("vento_direita", sub) if self.templates.has("vento_direita") else None
@@ -141,10 +147,11 @@ class Perception:
         if max(ls, rs) >= self.threshold() * 0.9 and abs(ls - rs) > 0.05:
             direction, dconf = (-1 if ls > rs else 1), max(ls, rs)
         if value == 0:
-            direction, dconf = 1, 1.0
+            direction, dconf = 1, conf
         if direction == 0:
-            snap.warnings.append("direção do vento incerta (capture as setas do vento)")
-            snap.wind, snap.wind_confidence = value, conf * 0.3
+            # sem o sentido não dá para usar o vento: um sinal chutado erra o dobro
+            snap.warnings.append(f"vento {value} com direção incerta (capture as setas do vento)")
+            snap.wind_magnitude = value
             return
         snap.wind, snap.wind_confidence = direction * value, min(conf, dconf)
 
@@ -177,7 +184,11 @@ class Perception:
                     found.append(Character(cents[i][0] + ox, cents[i][1] + oy, 0.75, kind, "cor"))
         elif self.templates.has(key):
             tpl = self.templates.get(key)[0]
-            for score, x, y, w, h in find_all(sub, tpl, self.threshold(), max_hits=1 if kind == "eu" else 8):
+            # escala do marcador pela melhor ocorrência (zoom/resolução diferentes da captura)
+            best = self.templates.best(key, sub)
+            scale = (best.rect[2] / tpl.shape[1]) if best and best.score >= self.threshold() else 1.0
+            for score, x, y, w, h in find_all(sub, tpl, self.threshold(), scale=scale,
+                                              max_hits=1 if kind == "eu" else 8):
                 found.append(Character(x + w / 2 + ox, y + h / 2 + oy, score, kind, "modelo"))
         return found
 
@@ -207,6 +218,9 @@ class Perception:
         for key in REGION_KEYS:
             roi = self.region(key)
             if roi:
+                if not valid_roi(roi):
+                    snap.warnings.append(f"região '{REGION_KEYS[key]}' inválida: selecione de novo em Calibração")
+                    continue
                 snap.regions_px[key] = frac_to_px(roi, img.shape)
         for step in (self.classify_state, self.read_turn, self.read_wind, self.read_angle,
                      self.read_power, self.locate_characters):
@@ -233,9 +247,12 @@ def power_fill(bar: np.ndarray, hsv_cfg=None) -> float | None:
     else:
         mask = ((hsv[..., 1] > 90) & (hsv[..., 2] > 90)).astype(np.uint8) * 255
     cols = (mask > 0).mean(axis=0) > 0.4
-    if not cols.any():
+    if not cols.any() or not cols[:max(1, len(cols) // 50 + 1)].any():
         return 0.0
-    return float((np.nonzero(cols)[0].max() + 1) / len(cols) * 100.0)
+    # trecho contínuo a partir da esquerda: marcas coloridas à direita não contam
+    gaps = np.nonzero(~cols)[0]
+    filled = int(gaps[0]) if len(gaps) else len(cols)
+    return float(filled / len(cols) * 100.0)
 
 
 def to_ruler(snap: Snapshot, target: Character, wind_screen: float | None):

@@ -87,7 +87,7 @@ def test_image_io_unicode_path(tmp_path):
     assert ArraySource(None).grab() is None
 
 
-def _scene(tmp_path, me=(200, 400), enemy=(700, 350)):
+def _scene(tmp_path, me=(200, 400), enemy=(700, 350), wind_text="3"):
     """Cena sintética: marcadores, número do ângulo, vento e indicador de turno."""
     rng = np.random.default_rng(5)
     frame = np.full((600, 1000, 3), 60, np.uint8)
@@ -98,7 +98,7 @@ def _scene(tmp_path, me=(200, 400), enemy=(700, 350)):
     frame[enemy[1] - 12:enemy[1] + 12, enemy[0] - 12:enemy[0] + 12] = en_tpl
     frame[20:40, 900:940] = turn_tpl
     frame[540:570, 20:110] = text_img("1234")
-    frame[10:40, 450:540] = text_img("12")
+    frame[10:40, 450:540] = text_img(wind_text)
     cfg = Config(data={"regions": {"angle": [0.02, 0.9, 0.09, 0.05], "wind": [0.45, 0.0167, 0.09, 0.05],
                                    "turn_indicator": [0.88, 0.02, 0.1, 0.06]}})
     lib = TemplateLibrary(tmp_path / "tpl")
@@ -121,8 +121,10 @@ def test_perception_scene(tmp_path):
     assert snap.unit_px == 100
     d, dy, wind_rel, direction = to_ruler(snap, p.target(snap), 1.5)
     assert abs(d - 5.0) < 0.05 and abs(dy - 0.5) < 0.05 and direction == 1 and wind_rel == 1.5
-    # vento sem setas capturadas: valor lido, direção incerta, confiança baixa
-    assert snap.wind == 12 and snap.wind_confidence < 0.5
+    # vento sem setas capturadas: o valor é lido, mas sem direção ele não é usado (um sinal
+    # chutado erraria o dobro do vento); fica registrado como magnitude e aviso
+    assert snap.wind is None and snap.wind_magnitude == 3
+    assert any("direção incerta" in w for w in snap.warnings)
 
 
 def test_target_left_flips_wind(tmp_path):
@@ -130,3 +132,58 @@ def test_target_left_flips_wind(tmp_path):
     snap = p.analyze(frame)
     d, dy, wind_rel, direction = to_ruler(snap, p.target(snap), 1.5)
     assert direction == -1 and wind_rel == -1.5
+
+
+def test_wind_out_of_range_discarded(tmp_path):
+    frame, p = _scene(tmp_path, wind_text="12")
+    snap = p.analyze(frame)
+    assert snap.wind is None and snap.wind_magnitude is None
+    assert any("fora da faixa" in w for w in snap.warnings)
+
+
+def test_digit_reader_rejects_noise(tmp_path):
+    r = DigitReader(tmp_path / "g.json")
+    r.learn(text_img("1234"), "1234")
+    r.learn(text_img("5678"), "5678")
+    noise = np.random.default_rng(3).integers(0, 255, (30, 90, 3), dtype=np.uint8)
+    value, conf = r.read(noise)
+    assert value is None
+
+
+def test_digit_file_corrupted_does_not_crash(tmp_path):
+    path = tmp_path / "g.json"
+    path.write_text("{quebrado", encoding="utf-8")
+    r = DigitReader(path)
+    assert r.glyphs == {} and not path.exists()
+
+
+def test_power_fill_ignores_marks_on_the_right():
+    bar = np.zeros((10, 100, 3), np.uint8)
+    bar[:, :30] = (0, 0, 255)
+    bar[:, 80:83] = (0, 255, 0)  # marca colorida da força anterior
+    assert abs(power_fill(bar) - 30) < 2
+
+
+def test_find_all_other_scale_via_perception(tmp_path):
+    frame, p = _scene(tmp_path)
+    big = cv2.resize(frame, None, fx=1.25, fy=1.25)
+    snap = p.analyze(big)
+    assert snap.me is not None and abs(snap.me.x - 250) < 5
+
+
+def test_template_names_cannot_escape(tmp_path):
+    lib = TemplateLibrary(tmp_path / "t")
+    import pytest
+    with pytest.raises(ValueError):
+        lib.add("../fora", np.zeros((5, 5, 3), np.uint8))
+    assert not (tmp_path / "fora").exists()
+
+
+def test_menu_rows_with_small_offsets():
+    img = np.full((600, 1000, 3), 40, np.uint8)
+    tops = [150, 165, 140]  # mesma linha com desalinhamento de alguns pixels
+    for c, y in enumerate(tops):
+        x = 120 + c * 250
+        cv2.rectangle(img, (x, y), (x + 180, y + 140), (90 + 40 * c, 140, 200), -1)
+    tiles = detect_option_tiles(img)
+    assert [t[0] for t in tiles] == sorted(t[0] for t in tiles)

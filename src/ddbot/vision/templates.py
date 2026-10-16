@@ -65,8 +65,9 @@ def find_all(region: np.ndarray, tpl: np.ndarray, threshold: float, scale=1.0, m
         if mx < threshold:
             break
         hits.append((float(mx), loc[0], loc[1], tw, th))
-        x0, y0 = max(0, loc[0] - tw // 2), max(0, loc[1] - th // 2)
-        res[y0:loc[1] + th // 2 + 1, x0:loc[0] + tw // 2 + 1] = -1
+        # suprime vizinhos em toda a largura/altura do modelo (evita duplicar o mesmo alvo)
+        x0, y0 = max(0, loc[0] - tw), max(0, loc[1] - th)
+        res[y0:loc[1] + th + 1, x0:loc[0] + tw + 1] = -1
     return hits
 
 
@@ -81,9 +82,16 @@ class TemplateLibrary:
     def keys(self) -> list[str]:
         return sorted(p.name for p in self.root.iterdir() if p.is_dir() and any(p.glob("*.png")))
 
+    def _dir(self, key: str) -> Path:
+        """Pasta do modelo; nomes com '..' ou barras não saem da biblioteca."""
+        d = (self.root / key).resolve()
+        if d.parent != self.root.resolve() or not key or key.startswith("."):
+            raise ValueError(f"nome de modelo inválido: {key!r}")
+        return d
+
     def get(self, key: str) -> list[np.ndarray]:
         if key not in self._cache:
-            d = self.root / key
+            d = self._dir(key)
             self._cache[key] = [load_image(p) for p in sorted(d.glob("*.png"))] if d.exists() else []
         return self._cache[key]
 
@@ -91,12 +99,12 @@ class TemplateLibrary:
         return bool(self.get(key))
 
     def add(self, key: str, img: np.ndarray) -> Path:
-        path = save_image(self.root / key / f"{int(time.time() * 1000)}.png", img)
+        path = save_image(self._dir(key) / f"{int(time.time() * 1000)}.png", img)
         self._cache.pop(key, None)
         return path
 
     def remove_key(self, key: str):
-        d = self.root / key
+        d = self._dir(key)
         if d.exists():
             for p in d.glob("*.png"):
                 p.unlink()

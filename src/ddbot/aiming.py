@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 
 from .knowledge import KnowledgeBase
-from .physics import PhysicsParams, landing_x, solve_force, trajectory
+from .physics import PhysicsParams, impact_time, landing_x, solve_force, trajectory
 
 
 @dataclass
@@ -66,6 +66,19 @@ class Recommendation:
         return self.best.hit_probability if self.best else 0.0
 
 
+def hit_half_width(target_width: float, blast_radius: float) -> float:
+    """Meia-largura em que um impacto conta como acerto (alvo + raio da explosão).
+
+    Usado pela mira, pela simulação e pela marcação manual: o mesmo critério em todo lugar.
+    """
+    return target_width / 2 + blast_radius
+
+
+def round_angle(a: float) -> int:
+    """Arredondamento comum (0,5 sobe); ``round`` do Python arredonda para o par."""
+    return int(math.floor(a + 0.5))
+
+
 def _phi(z):
     return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
 
@@ -88,9 +101,10 @@ class Aimer:
     def _correction(self, method, angle, force, ctx):
         if self.calibrator is None:
             return 0.0, 0.0, 0
-        return self.calibrator.predict_offset(method, angle, force, ctx.wind, ctx.dy, ctx.distance)
+        return self.calibrator.predict_offset(method, angle, force, ctx.wind, ctx.dy, ctx.distance,
+                                              weapon=ctx.weapon.name)
 
-    def _sigma(self, angle, force, ctx, p, extra_sigma):
+    def _sigma(self, angle, force, ctx, p, extra_sigma, n_obs=0):
         """Propaga incertezas (força, vento, medição, modelo) para o ponto de impacto."""
         a, f, w, dy = float(angle), float(force), ctx.wind, ctx.dy
         x0 = float(landing_x(a, f, w, dy, p))
@@ -100,7 +114,9 @@ class Aimer:
         dxdy = (float(landing_x(a, f, w, dy + 0.2, p)) - x0) / 0.2
         if not all(np.isfinite([dxdf, dxdw, dxdy])):
             return float("inf")
-        var = ((dxdf * self.FORCE_EXEC_SIGMA) ** 2 + (dxdf * self.model_sigma_force) ** 2
+        # com disparos observados o erro do modelo já está na correção (e no sigma dela)
+        model_sigma = self.model_sigma_force * (0.4 if n_obs >= 5 else 1.0)
+        var = ((dxdf * self.FORCE_EXEC_SIGMA) ** 2 + (dxdf * model_sigma) ** 2
                + (dxdw * ctx.sigma_wind) ** 2 + (dxdy * ctx.sigma_dy) ** 2
                + ctx.sigma_distance ** 2 + extra_sigma ** 2)
         return math.sqrt(var)
@@ -108,7 +124,11 @@ class Aimer:
     def _blocked(self, angle, force, ctx, p, x_end):
         if ctx.terrain is None or len(ctx.terrain) < 2:
             return False
-        pts = trajectory(angle, force, ctx.wind, p, n=300)
+        # só até o impacto na altura do alvo: depois disso (vento contra) a curva volta para trás
+        t_hit = float(impact_time(angle, force, ctx.wind, ctx.dy, p))
+        if not np.isfinite(t_hit):
+            return False
+        pts = trajectory(angle, force, ctx.wind, p, t_max=t_hit, n=300)
         tx, ty = ctx.terrain[:, 0], ctx.terrain[:, 1]
         margin = ctx.target_width / 2 + 0.1
         sel = (pts[:, 0] > 0.3) & (pts[:, 0] < x_end - margin)
@@ -118,7 +138,7 @@ class Aimer:
         return bool(np.any(pts[sel, 1] < ground))
 
     def _evaluate(self, method, angle, force, ctx, p, basis, documented=False):
-        angle_exec = int(round(angle))
+        angle_exec = round_angle(angle)
         if not (ctx.angle_min <= angle_exec <= ctx.angle_max) or not (0 < force <= 100):
             return None
         offset, extra_sigma, n_obs = self._correction(method, angle_exec, force, ctx)
@@ -141,8 +161,8 @@ class Aimer:
         pred = float(landing_x(angle_exec + ctx.weapon.angle_offset, force, ctx.wind, ctx.dy, p)) + offset
         if not np.isfinite(pred):
             return None
-        sigma = self._sigma(angle_exec + ctx.weapon.angle_offset, force, ctx, p, extra_sigma)
-        half = ctx.target_width / 2 + ctx.weapon.blast_radius
+        sigma = self._sigma(angle_exec + ctx.weapon.angle_offset, force, ctx, p, extra_sigma, n_obs)
+        half = hit_half_width(ctx.target_width, ctx.weapon.blast_radius)
         bias = pred - ctx.distance
         prob = _phi((half - bias) / sigma) - _phi((-half - bias) / sigma) if np.isfinite(sigma) else 0.0
         blocked = self._blocked(angle_exec + ctx.weapon.angle_offset, force, ctx, p, pred - offset)
@@ -195,10 +215,20 @@ class Aimer:
             forces = solve_force(angles + ctx.weapon.angle_offset, ctx.distance, ctx.wind, ctx.dy, p)
             # avalia só alguns ângulos promissores para manter rápido
             valid = [(a, f) for a, f in zip(angles, forces) if np.isfinite(f) and 0 < f <= 100]
-            for a, f in valid[:: max(1, len(valid) // 16)]:
-                c = self._evaluate("fisica", a, f, ctx, p, ["busca no modelo físico"])
-                if c:
-                    out.append(c)
+            sampled = valid[:: max(1, len(valid) // 16)]
+            phys = [c for c in (self._evaluate("fisica", a, f, ctx, p, ["busca no modelo físico"])
+                                for a, f in sampled) if c]
+            if phys:
+                # refina em volta do melhor ângulo amostrado (a amostragem pode pular o ótimo)
+                best = max(phys, key=lambda c: c.hit_probability)
+                done = {c.angle for c in phys}
+                by_angle = {int(a): f for a, f in valid}
+                for a in range(best.angle - 3, best.angle + 4):
+                    if a not in done and a in by_angle:
+                        c = self._evaluate("fisica", a, by_angle[a], ctx, p, ["busca no modelo físico"])
+                        if c:
+                            phys.append(c)
+            out += phys
         out.sort(key=lambda c: c.hit_probability, reverse=True)
         return out
 

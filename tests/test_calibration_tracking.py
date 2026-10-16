@@ -29,7 +29,7 @@ def test_offset_learns_systematic_error(tmp_path, params):
     off, sigma, n = cal.predict_offset("a65", 65, 56, 0, 0, 10)
     assert n == 12 and off == pytest.approx(0.8, abs=0.15) and sigma < 0.3
     st = cal.stats()
-    assert st["disparos"] == 12 and "a65" in st["modelos"]
+    assert st["disparos"] == 12 and "padrao|a65" in st["modelos"]
 
 
 def test_refit_recovers_speed(tmp_path, params):

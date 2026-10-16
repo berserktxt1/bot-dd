@@ -66,18 +66,32 @@ class DigitReader:
         self.path = Path(path)
         self.glyphs: dict[str, list[np.ndarray]] = {}
         if self.path.exists():
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
-            self.glyphs = {k: [np.array(v, dtype=np.float32) for v in vs] for k, vs in raw.items()}
+            try:
+                raw = json.loads(self.path.read_text(encoding="utf-8-sig"))
+                self.glyphs = {k: [np.array(v, dtype=np.float32).reshape(GLYPH_SIZE[::-1]) for v in vs]
+                               for k, vs in raw.items()}
+            except (OSError, ValueError, TypeError):
+                # arquivo corrompido: guarda e recomeça o treino em vez de impedir o programa de abrir
+                try:
+                    self.path.replace(self.path.with_suffix(".corrompido.json"))
+                except OSError:
+                    pass
+                self.glyphs = {}
 
     @property
     def trained(self) -> bool:
         return sum(1 for k in self.glyphs if k.isdigit()) >= 3
 
+    MIN_CONFIDENCE = 0.3
+
     def learn(self, img: np.ndarray, text: str) -> bool:
-        text = text.strip().replace(",", ".").replace("-", "")
+        text = text.strip().replace(",", ".")
         glyphs = segment(img)
         if len(glyphs) != len(text):
-            return False
+            # o cliente pode não desenhar o sinal: tenta sem ele
+            text = text.replace("-", "")
+            if len(glyphs) != len(text):
+                return False
         for ch, g in zip(text, glyphs):
             self.glyphs.setdefault(ch, []).append(g)
             self.glyphs[ch] = self.glyphs[ch][-8:]
@@ -86,8 +100,8 @@ class DigitReader:
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps({k: [g.round(3).tolist() for g in v] for k, v in self.glyphs.items()}),
-                             encoding="utf-8")
+        from ..util import atomic_write_text
+        atomic_write_text(self.path, json.dumps({k: [g.round(3).tolist() for g in v] for k, v in self.glyphs.items()}))
 
     def read(self, img: np.ndarray) -> tuple[float | None, float]:
         """Retorna (valor, confiança 0-1)."""
@@ -106,11 +120,13 @@ class DigitReader:
             chars.append(best_ch)
             scores.append(best_s)
         text = "".join(chars).strip(".")
-        if not text or text.count(".") > 1:
+        if not text or text.count(".") > 1 or "-" in text[1:]:
             return None, 0.0
         try:
             value = float(text)
         except ValueError:
             return None, 0.0
-        conf = float(min(scores)) if scores else 0.0
-        return value, max(0.0, (conf - 0.6) / 0.4)
+        conf = max(0.0, (float(min(scores)) - 0.6) / 0.4) if scores else 0.0
+        if conf < self.MIN_CONFIDENCE:
+            return None, conf  # parecido demais com ruído: melhor não ler nada do que ler errado
+        return value, conf

@@ -14,7 +14,7 @@ import json
 import sqlite3
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -58,7 +58,7 @@ class ShotStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
-        self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
+        self._conn = sqlite3.connect(str(self.path), check_same_thread=False, timeout=10)
         self._conn.execute(SCHEMA)
         self._conn.commit()
 
@@ -79,24 +79,23 @@ class ShotStore:
                                (impact_x, None if hit is None else int(hit), note, shot_id))
             self._conn.commit()
 
-    def all(self, source: str | None = None, limit: int | None = None) -> list[ShotRecord]:
-        q = "SELECT id,timestamp,angle,force,wind,distance,dy,impact_x,hit,method,weapon,predicted_x,source,mode,note FROM shots"
-        args: list = []
-        if source:
-            q += " WHERE source=?"
-            args.append(source)
-        q += " ORDER BY id DESC"
-        if limit:
-            q += f" LIMIT {int(limit)}"
+    COLS = "id,timestamp,angle,force,wind,distance,dy,impact_x,hit,method,weapon,predicted_x,source,mode,note"
+
+    def _query(self, where: str, args: list, suffix: str = "") -> list[ShotRecord]:
         with self._lock:
-            rows = self._conn.execute(q, args).fetchall()
-        out = []
-        for r in rows:
-            out.append(ShotRecord(id=r[0], timestamp=r[1], angle=r[2], force=r[3], wind=r[4],
-                                  distance=r[5], dy=r[6], impact_x=r[7],
-                                  hit=None if r[8] is None else bool(r[8]), method=r[9], weapon=r[10],
-                                  predicted_x=r[11], source=r[12], mode=r[13], note=r[14] or ""))
-        return out
+            rows = self._conn.execute(f"SELECT {self.COLS} FROM shots{where}{suffix}", args).fetchall()
+        return [ShotRecord(id=r[0], timestamp=r[1], angle=r[2], force=r[3], wind=r[4], distance=r[5], dy=r[6],
+                           impact_x=r[7], hit=None if r[8] is None else bool(r[8]), method=r[9], weapon=r[10],
+                           predicted_x=r[11], source=r[12], mode=r[13], note=r[14] or "") for r in rows]
+
+    def all(self, source: str | None = None, limit: int | None = None) -> list[ShotRecord]:
+        where, args = ("", []) if not source else (" WHERE source=?", [source])
+        suffix = " ORDER BY id DESC" + (f" LIMIT {int(limit)}" if limit else "")
+        return self._query(where, args, suffix)
+
+    def get(self, shot_id: int) -> ShotRecord | None:
+        rows = self._query(" WHERE id=?", [int(shot_id)])
+        return rows[0] if rows else None
 
     def clear(self, source: str | None = None):
         with self._lock:
@@ -111,24 +110,43 @@ class ShotStore:
             self._conn.close()
 
 
-def _features(distance, wind, dy):
-    return np.array([1.0, distance / 10.0, wind, dy], dtype=float)
+def _features(distance, wind, dy, angle):
+    return np.array([1.0, distance / 10.0, wind, dy, angle / 90.0], dtype=float)
 
 
 class Calibrator:
-    """Mantém o modelo de correção e as estatísticas de precisão."""
+    """Mantém o modelo de correção e as estatísticas de precisão.
+
+    O erro de cada disparo é ``impacto_real - previsto``, calculado com a arma e o ângulo
+    efetivos daquele disparo. Há um modelo por (arma, método) e, para métodos com poucos
+    disparos, um modelo geral da arma que só corrige o viés (sem inclinação), para não
+    aplicar a tendência de uma trajetória (ex.: tiro alto) a outra (ex.: 20°).
+    """
 
     MIN_SHOTS_OFFSET = 3
     MIN_SHOTS_REFIT = 15
     RIDGE = 2.0
 
-    def __init__(self, store: ShotStore, params: PhysicsParams, sources=("observado",)):
+    def __init__(self, store: ShotStore, params: PhysicsParams, sources=("observado",), weapon_lookup=None):
         self.store = store
         self.params = params
         self.sources = sources
-        self._models: dict[str, tuple[np.ndarray, float, int]] = {}
+        self.weapon_lookup = weapon_lookup  # nome -> Weapon (force_scale, drag_scale, angle_offset)
+        self._models: dict[str, tuple] = {}
         self._lock = threading.Lock()
         self.rebuild()
+
+    # ------------------------------------------------------------------ util
+    def _effective(self, weapon_name: str, params: PhysicsParams | None = None):
+        p = params or self.params
+        w = self.weapon_lookup(weapon_name) if self.weapon_lookup else None
+        if w is None:
+            return p, 0.0
+        return replace(p, speed_k=p.speed_k * w.force_scale, drag=p.drag * w.drag_scale), float(w.angle_offset)
+
+    def predict_x(self, rec: "ShotRecord", params: PhysicsParams | None = None) -> float:
+        p, off = self._effective(rec.weapon, params)
+        return float(landing_x(rec.angle + off, rec.force, rec.wind, rec.dy, p))
 
     def _usable(self) -> list[ShotRecord]:
         recs = []
@@ -136,47 +154,59 @@ class Calibrator:
             recs += [r for r in self.store.all(source=s) if r.impact_x is not None]
         return recs
 
+    @staticmethod
+    def _fit(X, y, bias_only=False):
+        R = Calibrator.RIDGE * np.eye(X.shape[1])
+        R[0, 0] = Calibrator.RIDGE * 0.25  # o viés constante é o que mais aprende
+        if bias_only:
+            X = X[:, :1]
+            R = R[:1, :1]
+        A = X.T @ X + R
+        coef = np.linalg.solve(A, X.T @ y)
+        resid = y - X @ coef
+        dof = max(1, len(y) - X.shape[1])
+        s2 = float(np.sum(resid ** 2) / dof)
+        return coef, s2, np.linalg.inv(A), bias_only
+
     def rebuild(self):
         recs = self._usable()
-        groups: dict[str, list[ShotRecord]] = {"*": recs}
+        groups: dict[str, list[ShotRecord]] = {}
         for r in recs:
-            groups.setdefault(r.method, []).append(r)
+            groups.setdefault(f"{r.weapon}|*", []).append(r)
+            groups.setdefault(f"{r.weapon}|{r.method}", []).append(r)
         models = {}
         for key, rows in groups.items():
             if len(rows) < self.MIN_SHOTS_OFFSET:
                 continue
-            X = np.array([_features(r.distance, r.wind, r.dy) for r in rows])
-            pred = landing_x([r.angle for r in rows], [r.force for r in rows],
-                             [r.wind for r in rows], [r.dy for r in rows], self.params)
-            y = np.array([r.impact_x for r in rows]) - pred
+            X = np.array([_features(r.distance, r.wind, r.dy, r.angle) for r in rows])
+            y = np.array([r.impact_x - self.predict_x(r) for r in rows])
             ok = np.isfinite(y)
             X, y = X[ok], y[ok]
             if len(y) < self.MIN_SHOTS_OFFSET:
                 continue
-            reg = self.RIDGE * np.eye(X.shape[1])
-            reg[0, 0] = self.RIDGE * 0.25  # o viés constante é o que mais aprende
-            coef = np.linalg.solve(X.T @ X + reg, X.T @ y)
-            resid = y - X @ coef
-            dof = max(1, len(y) - 1)
-            sigma = float(np.sqrt(np.sum(resid ** 2) / dof))
-            models[key] = (coef, sigma, len(y))
+            coef, s2, cov, bias_only = self._fit(X, y, bias_only=key.endswith("|*") or len(y) < 8)
+            models[key] = (coef, s2, cov, bias_only, len(y))
         with self._lock:
             self._models = models
 
-    def predict_offset(self, method, angle, force, wind, dy, distance):
+    def predict_offset(self, method, angle, force, wind, dy, distance, weapon="padrao"):
         """Retorna (erro_previsto, sigma_extra, n_disparos)."""
         with self._lock:
-            model = self._models.get(method) or self._models.get("*")
+            model = self._models.get(f"{weapon}|{method}") or self._models.get(f"{weapon}|*")
         if model is None:
             return 0.0, 0.0, 0
-        coef, sigma, n = model
-        offset = float(_features(distance, wind, dy) @ coef)
-        # incerteza decresce com mais dados; limitada para não paralisar a mira
-        return offset, min(sigma, 1.0) / max(1.0, np.sqrt(n / 5)), n
+        coef, s2, cov, bias_only, n = model
+        x = _features(distance, wind, dy, angle)
+        if bias_only:
+            x = x[:1]
+        offset = float(x @ coef)
+        # incerteza preditiva: ruído por disparo + incerteza dos coeficientes (não some com n grande)
+        sigma = float(np.sqrt(max(0.0, s2) * (1.0 + float(x @ cov @ x))))
+        return offset, min(sigma, 1.5), n
 
     def record(self, rec: ShotRecord) -> int:
         if rec.predicted_x is None:
-            rec.predicted_x = float(landing_x(rec.angle, rec.force, rec.wind, rec.dy, self.params))
+            rec.predicted_x = self.predict_x(rec)
         shot_id = self.store.add(rec)
         if rec.impact_x is not None:
             self.rebuild()
@@ -191,39 +221,58 @@ class Calibrator:
         for s in self.sources:
             recs += self.store.all(source=s)
         judged = [r for r in recs if r.hit is not None]
-        measured = [r for r in recs if r.impact_x is not None and r.predicted_x is not None]
-        errs = np.array([r.impact_x - r.distance for r in measured]) if measured else np.array([])
+        measured = [r for r in recs if r.impact_x is not None]
+        to_target = np.array([r.impact_x - r.distance for r in measured]) if measured else np.array([])
+        to_pred = np.array([r.impact_x - r.predicted_x for r in measured if r.predicted_x is not None])
+        with self._lock:
+            models = {k: {"n": v[4], "sigma": round(float(np.sqrt(v[1])), 3)} for k, v in self._models.items()}
         return {
             "disparos": len(recs),
             "avaliados": len(judged),
             "acertos": sum(1 for r in judged if r.hit),
             "taxa_acerto": (sum(1 for r in judged if r.hit) / len(judged)) if judged else None,
-            "erro_medio": float(np.mean(errs)) if len(errs) else None,
-            "erro_abs_medio": float(np.mean(np.abs(errs))) if len(errs) else None,
-            "modelos": {k: {"n": v[2], "sigma": round(v[1], 3)} for k, v in self._models.items()},
+            "erro_medio": float(np.mean(to_target)) if len(to_target) else None,       # impacto - alvo
+            "erro_abs_medio": float(np.mean(np.abs(to_target))) if len(to_target) else None,
+            "erro_previsao_abs_medio": float(np.mean(np.abs(to_pred))) if len(to_pred) else None,
+            "modelos": models,
         }
 
-    def refit_params(self, table_rows=None, max_iter=400) -> tuple[PhysicsParams, dict] | None:
-        """Reajusta as constantes físicas com os impactos observados."""
-        from .optim import nelder_mead
+    # limites físicos dos parâmetros reajustados (speed_k, drag, wind_k, launch_h)
+    BOUNDS = ((1e-3, 1.0), (0.0, 1.0), (0.0, 0.5), (0.0, 1.5))
 
-        recs = self._usable()
+    def refit_params(self, table_rows=None, max_iter=400) -> tuple[PhysicsParams, dict] | None:
+        """Reajusta as constantes físicas com os impactos observados.
+
+        ``table_rows`` (ângulo, distância, força) das tabelas documentadas entram com peso
+        pequeno para o modelo não "esquecer" o que já se sabia com poucos disparos.
+        """
+        from .optim import nelder_mead
+        from .physics import solve_force
+
+        recs = [r for r in self._usable() if r.weapon == "padrao" or self.weapon_lookup]
         if len(recs) < self.MIN_SHOTS_REFIT:
             return None
-        a = np.array([r.angle for r in recs]); f = np.array([r.force for r in recs])
-        w = np.array([r.wind for r in recs]); dy = np.array([r.dy for r in recs])
-        x = np.array([r.impact_x for r in recs])
         base = self.params
+        x = np.array([r.impact_x for r in recs])
+        rows = list(table_rows or [])
 
         def loss(vec):
-            if vec[0] <= 0 or vec[1] < 0:
-                return 1e9
+            for v, (lo, hi) in zip(vec, self.BOUNDS):
+                if not lo <= v <= hi:
+                    return 1e9
             p = base.with_vector(vec)
-            pred = landing_x(a, f, w, dy, p)
-            err = np.nan_to_num(pred - x, nan=20.0)
-            # regularização: não se afastar demais do modelo documentado
-            prior = np.sum(((vec - base.to_vector()) / (np.abs(base.to_vector()) + 1e-3)) ** 2)
-            return float(np.mean(err ** 2) + 0.05 * prior)
+            pred = np.array([self.predict_x(r, p) for r in recs])
+            err = pred - x
+            err = np.where(np.isfinite(err), err, 5.0)  # tiro que "não chega" conta como erro grande
+            # regularização em escala absoluta (parâmetros pequenos não ficam congelados)
+            scale = np.array([0.02, 0.02, 0.01, 0.1])
+            prior = np.sum(((vec - base.to_vector()) / scale) ** 2)
+            total = float(np.mean(err ** 2) + 0.01 * prior)
+            if rows:
+                a = np.array([r[0] for r in rows]); d = np.array([r[1] for r in rows]); f = np.array([r[2] for r in rows])
+                fe = np.nan_to_num(solve_force(a, d, 0.0, 0.0, p, f_max=130.0) - f, nan=20.0)
+                total += 0.002 * float(np.mean(fe ** 2))
+            return total
 
         before = loss(base.to_vector())
         vec, after = nelder_mead(loss, base.to_vector(), max_iter=max_iter)

@@ -29,6 +29,9 @@ class TableMethod:
             return None
         if distance < 1:  # extrapola até d=0 com força 0 proporcional
             return float(self.forces[0] * distance)
+        if distance > d[-1]:  # até meia unidade além da tabela, pela inclinação do fim
+            slope = self.forces[-1] - self.forces[-2]
+            return float(self.forces[-1] + slope * (distance - d[-1]))
         return float(np.interp(distance, d, self.forces))
 
     def angle_for(self, wind: float) -> float:
@@ -55,9 +58,9 @@ class KnowledgeBase:
     def __init__(self, data_dir: Path):
         self.data_dir = Path(data_dir)
         kdir = self.data_dir / "knowledge"
-        self.tables_raw = json.loads((kdir / "angle_tables.json").read_text(encoding="utf-8"))
-        self.sources = json.loads((kdir / "sources.json").read_text(encoding="utf-8"))["sources"]
-        self.mechanics = json.loads((kdir / "mechanics.json").read_text(encoding="utf-8"))["mechanics"]
+        self.tables_raw = json.loads((kdir / "angle_tables.json").read_text(encoding="utf-8-sig"))
+        self.sources = json.loads((kdir / "sources.json").read_text(encoding="utf-8-sig"))["sources"]
+        self.mechanics = json.loads((kdir / "mechanics.json").read_text(encoding="utf-8-sig"))["mechanics"]
         self.table_methods: dict[str, TableMethod] = {}
         self.formula_methods: dict[str, FormulaMethod] = {}
         for key, m in self.tables_raw["methods"].items():
