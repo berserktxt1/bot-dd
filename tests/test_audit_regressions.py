@@ -71,21 +71,81 @@ def test_visual_power_never_holds_past_timed_estimate(tmp_path):
     store.close()
 
 
-def test_actor_refuses_click_when_window_resized(tmp_path):
+class Desktop:
+    """Área de trabalho simulada: qual janela está em cada ponto da tela.
+
+    Antes o teste consultava o Windows de verdade (WindowFromPoint) com uma janela de jogo
+    falsa: passava na CI (o ponto caía fora da tela pequena do runner) e falhava num PC com
+    1080p (havia outra janela real ali). Agora o cenário é explícito.
+    """
+
+    GAME, OTHER = 1, 2
+
+    def __init__(self, info):
+        self.info = info
+        self.covered: tuple | None = None   # (x0, y0, x1, y1) coberto por OUTRA janela
+        self.screen = (0, 0, 1920, 1080)
+
+    def window_at(self, x, y):
+        sx0, sy0, sx1, sy1 = self.screen
+        if not (sx0 <= x < sx1 and sy0 <= y < sy1):
+            return 0  # fora de qualquer monitor
+        if self.covered and self.covered[0] <= x < self.covered[2] and self.covered[1] <= y < self.covered[3]:
+            return self.OTHER
+        i = self.info
+        if i.left <= x < i.left + i.width and i.top <= y < i.top + i.height:
+            return self.GAME
+        return self.OTHER
+
+    @staticmethod
+    def root_of(hwnd):
+        return hwnd
+
+
+def _actor_on_desktop(tmp_path):
     from ddbot.game_io import GameActor
     game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
 
     class Info:
-        left, top, width, height = 500, 300, 800, 600  # janela mudou de tamanho
+        left, top, width, height = 500, 300, 1000, 600
     game.info = Info()
-    game.hwnd = 1
-    frame = game.grab()
-    actor = GameActor(inp, game, lib, cfg)
+    game.hwnd = Desktop.GAME
+    desk = Desktop(Info)
+    actor = GameActor(inp, game, lib, cfg, window_at=desk.window_at, root_of=desk.root_of)
+    return game, Info, desk, actor, store
+
+
+def test_actor_refuses_click_when_window_resized(tmp_path):
+    """Geometria errada recusa; janela no tamanho certo, ativa e desobstruída permite."""
+    game, Info, desk, actor, store = _actor_on_desktop(tmp_path)
+    frame = game.grab()                      # quadro de 1000x600
+    Info.width, Info.height = 800, 600       # a janela mudou de tamanho depois da leitura
     assert actor.click("botao_iniciar", frame) is False
     assert not any(e[0] == "click" for e in game.events)
-    Info.width, Info.height = 1000, 600
+    Info.width, Info.height = 1000, 600      # tamanho igual ao do quadro
     assert actor.click("botao_iniciar", frame) is True
+    assert ("click", 500 + 490, 300 + 515) in game.events
     assert actor.click("botao_iniciar", frame) is None  # adiado, não "não encontrado"
+    store.close()
+
+
+def test_actor_refuses_click_under_other_window(tmp_path):
+    game, Info, desk, actor, store = _actor_on_desktop(tmp_path)
+    frame = game.grab()
+    desk.covered = (900, 780, 1100, 900)     # outra janela sobre o botão (990, 815)
+    assert actor.click("botao_iniciar", frame) is False
+    desk.covered = None
+    assert actor.click("botao_iniciar", frame) is True
+    store.close()
+
+
+def test_actor_refuses_click_off_screen(tmp_path):
+    """Jogo parcialmente fora do monitor: o ponto não tem janela e o clique não cairia no jogo."""
+    game, Info, desk, actor, store = _actor_on_desktop(tmp_path)
+    frame = game.grab()
+    desk.screen = (0, 0, 900, 700)           # monitor menor: o botão (990, 815) fica fora
+    assert actor.click("botao_iniciar", frame) is False
+    assert not any(e[0] == "click" for e in game.events)
     store.close()
 
 

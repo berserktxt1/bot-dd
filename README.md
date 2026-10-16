@@ -14,9 +14,15 @@ atira, avança as etapas, reconhece vitória e derrota e recomeça até completa
 
 ### 1. Abrir
 
-1. Baixe o arquivo **`DDClassicoBot.zip`** e extraia em uma pasta (botão direito → *Extrair tudo*).
-2. Abra a pasta `DDClassicoBot` e clique duas vezes em **`DDClassicoBot.exe`**.
-   Não precisa instalar Python nem nenhum outro programa.
+Baixe na página de **Releases** do repositório no GitHub. Há dois formatos:
+
+- **`DDClassicoBot.zip`** (recomendado): extraia numa pasta (botão direito → *Extrair tudo*), abra a pasta
+  `DDClassicoBot` e clique duas vezes em **`DDClassicoBot.exe`**. Esse `.exe` precisa da pasta `_internal` ao
+  lado dele: não o tire da pasta.
+- **`DDClassicoBot.exe`** (arquivo único): roda sozinho, sem pasta nenhuma. Coloque-o numa pasta só para ele,
+  porque ele cria a pasta `dados` ao lado de si. Abre alguns segundos mais devagar.
+
+Não precisa instalar Python nem nenhum outro programa.
 3. Se o Windows mostrar "O Windows protegeu o computador", clique em *Mais informações* → *Executar assim mesmo*
    (o executável não tem assinatura digital).
 
@@ -112,8 +118,11 @@ arquivo antigo como `config.corrompido-<data>.json`.
 - Código em `src/ddbot`, testes em `tests`, documentação em `docs`.
 - **Compilar no Windows:** instale o Python 3.12 64 bits e clique duas vezes em **`build_windows.bat`**. O script
   cria um ambiente isolado, instala `requirements.txt` e `requirements-dev.txt`, roda os testes e gera:
-  - `release\DDClassicoBot\DDClassicoBot.exe`
-  - `release\DDClassicoBot.zip`
+  - `release\DDClassicoBot\DDClassicoBot.exe` (pasta) e `release\DDClassicoBot.zip`
+  - `release\DDClassicoBot.exe` (arquivo único)
+- **Publicar uma versão:** atualize `src/ddbot/__init__.py` e `packaging/version_info.txt`, faça o merge na `main`
+  e envie uma tag `vX.Y.Z` (`git tag v0.2.1 && git push origin v0.2.1`). A CI compila, testa os dois executáveis
+  e cria a Release com o ZIP, o `.exe`, `SHA256SUMS.txt`, `build-info.json` e os relatórios de teste.
 - **CI:** `.github/workflows/windows-build.yml` testa no Linux e no Windows, compila, extrai o ZIP numa pasta sem
   Python, roda o autoteste e o teste de interface do `.exe` e publica o ZIP como artefato.
 - **Rodar do código-fonte:** `pip install -r requirements.txt` e `python -m ddbot` (com `PYTHONPATH=src`).
