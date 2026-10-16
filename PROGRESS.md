@@ -102,9 +102,33 @@ Revisão pelas capturas da CI. Problemas encontrados e corrigidos:
 3. Mostrador da mira desalinhado; sub-abas da calibração cortadas em 125%; status da janela cortado.
 4. Histórico com nomes internos; números da mira antigos exibidos depois de parar; opções repetidas na calculadora.
 
+Na segunda e na terceira rodada de capturas foram corrigidos:
+- o histórico espremido em 150% (Progresso e Mira viraram um só painel, "Andamento");
+- a mensagem de desconexão repetida;
+- o título "Pausado: pausado pelo usuário".
+
+Na última rodada (CI 38959754545), o auditor automático de layout não encontrou nenhum texto cortado nem nenhum elemento fora da janela em 100%, 125% e 150%.
+
 ## Resultados
 
-Preenchido com a compilação final abaixo.
+| Verificação | Resultado |
+|---|---|
+| pytest no Linux (dev) | 150 aprovados, 1 pulado (interface: sem tkinter neste Linux) |
+| pytest na CI Linux com Xvfb | aprovado, incluindo o teste de interface |
+| pytest na CI Windows | 145 de 145 aprovados, 0 pulados, incluindo o teste de interface real |
+| `.exe` extraído do ZIP, sem Python no PATH: `--selftest` | OK (recursos, mira, visão, fluxo simulado, tecla global pynput) |
+| `.exe`: `--gui-smoke` | OK nos 16 pontos: demonstração, iniciar, faixa de estado, pausar (leituras param), retomar, abas, calculadora, parar sem travar, histórico, emergência. Atraso máximo da interface: 306 ms |
+| `.exe` com a pasta do programa não gravável | OK: dados em `%LOCALAPPDATA%\DDClassicoBot` |
+| ZIP | separadores `/`, sem `dados/` pessoais, SHA-256 publicado junto |
+| Lint (pyflakes) | sem avisos |
+| Simulação de precisão (15 batalhas, "jogo" com constantes diferentes do modelo) | sem calibração 35% de acerto; com calibração 85% (medido antes da auditoria; a auditoria não mudou o modelo físico) |
+
+As CIs que falharam durante a auditoria, e por quê:
+- **38953455994:** um teste com tolerância de tempo apertada demais para o relógio do Windows. Corrigido o teste; a trava do bot estava certa.
+- **38953966244:** `$args` é uma variável automática do PowerShell, então o exe abria sem argumentos. Corrigido o workflow.
+- **38954781477:** negar escrita com `icacls` impedia o Windows de criar o processo. A pasta não gravável passou a ser simulada de outro jeito.
+
+A compilação final é a da CI da `main` (ver a mensagem de entrega).
 
 ## Limitações que dependem do jogo real
 

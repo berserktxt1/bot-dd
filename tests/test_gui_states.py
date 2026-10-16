@@ -89,3 +89,8 @@ def test_options_deduplicated():
     cands = [N(method="fisica")] * 6 + [N(method="a65"), N(method="high")]
     out = pick_options(cands)
     assert [c.method for c in out] == ["fisica", "fisica", "a65", "high"]
+
+
+def test_paused_title_not_repeated():
+    b = describe(snap(alive=True, status=RunStatus.PAUSED, reason="pausado pelo usuário"))
+    assert b.title == "Pausado pelo usuário"

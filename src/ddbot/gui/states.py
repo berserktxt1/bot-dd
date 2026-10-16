@@ -87,7 +87,9 @@ def describe(s: UiSnapshot) -> Banner:
     running = s.alive and s.status in (RunStatus.RUNNING, RunStatus.PAUSED)
     if running and s.status == RunStatus.PAUSED:
         tip = advice(s.reason)
-        return Banner("paused", f"Pausado: {s.reason}" if s.reason else "Pausado",
+        title = ("Pausado" if not s.reason else s.reason[:1].upper() + s.reason[1:]
+                 if s.reason.lower().startswith("pausado") else f"Pausado: {s.reason}")
+        return Banner("paused", title,
                       tip or "Clique em Retomar para continuar ou em Parar para encerrar.")
     if running:
         progress = (f"{s.completed} de {s.runs} concluída(s)." if s.runs
