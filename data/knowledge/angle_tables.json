@@ -1,0 +1,168 @@
+{
+  "_doc": "Tabelas documentadas na internet (NÃO observadas no cliente). Distância em 'unidades de régua': a largura visível da tela dividida em 10 partes. Força 0-100. Vento: positivo = a favor do disparo. Estas tabelas assumem alvo na mesma altura e terreno livre.",
+  "units": {
+    "distance": "tela/10",
+    "force": "0-100",
+    "wind": "valor exibido no indicador"
+  },
+  "methods": {
+    "a30": {
+      "nome": "Ângulo 30",
+      "base_angle": 30,
+      "wind_angle_factor": 1.0,
+      "source": "ddtankdicaset_2013",
+      "force_by_distance": [
+        14.0,
+        20.0,
+        24.7,
+        28.7,
+        32.3,
+        35.7,
+        38.8,
+        41.8,
+        44.7,
+        47.5,
+        50.2,
+        52.8,
+        55.3,
+        57.9,
+        60.3,
+        62.7,
+        65.7,
+        67.5,
+        69.8,
+        72.1
+      ]
+    },
+    "a50": {
+      "nome": "Ângulo 50",
+      "base_angle": 50,
+      "wind_angle_factor": 2.0,
+      "source": "ddtankdicaset_2013",
+      "force_by_distance": [
+        14.1,
+        20.1,
+        24.8,
+        28.8,
+        32.5,
+        35.9,
+        39.0,
+        42.0,
+        44.9,
+        48.3,
+        50.5,
+        53.0,
+        55.5,
+        58.0,
+        60.5,
+        63.0,
+        65.5,
+        68.0,
+        70.0,
+        72.5
+      ]
+    },
+    "a65": {
+      "nome": "Ângulo 65",
+      "base_angle": 65,
+      "wind_angle_factor": 2.0,
+      "source": "ddtankdicaset_2013;techtudo_65_2015",
+      "force_by_distance": [
+        13.0,
+        21.0,
+        26.0,
+        31.5,
+        37.0,
+        41.0,
+        44.0,
+        48.5,
+        53.0,
+        56.0,
+        58.0,
+        61.0,
+        64.0,
+        67.0,
+        70.0,
+        73.0,
+        76.0,
+        79.0,
+        82.0,
+        85.0
+      ],
+      "alternativas": {
+        "52pojie_cn": [
+          12,
+          21,
+          27,
+          33,
+          37,
+          42,
+          46,
+          50,
+          54,
+          57,
+          60,
+          63,
+          66,
+          69,
+          72,
+          76,
+          78,
+          81,
+          84,
+          87
+        ]
+      },
+      "observacao": "A versão chinesa difere 1-2 pontos: tabelas variam por servidor; calibrar no DDClássico."
+    },
+    "a20": {
+      "nome": "Ângulo 20",
+      "base_angle": 20,
+      "wind_angle_factor": 0.0,
+      "source": "techtudo_lab_2013;ddcalc_guia",
+      "force_by_distance": [
+        10,
+        19,
+        25,
+        30,
+        36,
+        40,
+        44,
+        48,
+        51,
+        54,
+        57,
+        60,
+        63,
+        66,
+        69,
+        72,
+        74,
+        76,
+        78,
+        80
+      ],
+      "observacao": "Tabela do TechTudo 2013 (Laboratório de Combate). Fontes dizem que o vento não altera o ângulo de 20; o modelo físico ainda corrige a força pelo vento e pela altura."
+    },
+    "high": {
+      "nome": "Tiro alto (full)",
+      "fixed_force": 95,
+      "angle_formula": "90 - d + 2*vento",
+      "source": "ddtankdicaset_2013",
+      "valid_distance": [
+        1,
+        30
+      ]
+    },
+    "medium": {
+      "nome": "Tiro médio",
+      "fixed_force": 60,
+      "angle_formula": "90 - 2*d + 2*vento",
+      "source": "ddtankdicaset_2013",
+      "valid_distance": [
+        1,
+        15
+      ]
+    }
+  }
+}

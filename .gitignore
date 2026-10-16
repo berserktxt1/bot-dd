@@ -3,3 +3,17 @@
 node_modules/
 __pycache__/
 *.log
+dados/
+*.sqlite3
+build/
+dist/
+release/
+
+.venv-build/
+*.spec.bak
+test-results/
+zipcheck/
+rocheck/
+screenshots/
+shots-home-*/
+*.tmp

@@ -1,0 +1,160 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "release/**", "hotfix/**"]
+  pull_request:
+  workflow_dispatch:
+
+# o token só lê o repositório; nenhum segredo é usado
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint
+        run: python -m pyflakes src tools tests
+      - name: Testes (Linux + Xvfb)
+        run: xvfb-run -a python -m pytest -q tests -rs
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CI: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12.10"
+          architecture: x64
+
+      - name: Dependências
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Testes (código-fonte, inclui interface)
+        run: python -m pytest -q tests -rs --junitxml=test-results/pytest-windows.xml
+
+      - name: Compilar (build_windows.bat)
+        shell: cmd
+        run: build_windows.bat --sem-testes
+
+      - name: Conferir arquivos do pacote
+        shell: pwsh
+        run: |
+          $need = @(
+            "release/DDClassicoBot/DDClassicoBot.exe",
+            "release/DDClassicoBot.zip",
+            "release/DDClassicoBot/LEIA-ME.md",
+            "release/DDClassicoBot/COMO-USAR.txt",
+            "release/DDClassicoBot/_internal/data/knowledge/angle_tables.json",
+            "release/DDClassicoBot/_internal/data/knowledge/model_params.json",
+            "release/DDClassicoBot/_internal/config/default_config.json"
+          )
+          foreach ($f in $need) { if (-not (Test-Path $f)) { Write-Error "faltando: $f"; exit 1 } else { Write-Host "ok: $f" } }
+          Get-Item release/DDClassicoBot.zip | Select-Object Name, Length
+          # nomes com "/" e sem a pasta pessoal 'dados' dentro do pacote
+          python -c "import zipfile; n = zipfile.ZipFile('release/DDClassicoBot.zip').namelist(); bad = [x for x in n if chr(92) in x]; assert not bad, bad[:3]; assert 'DDClassicoBot/DDClassicoBot.exe' in n; assert not any(x.startswith('DDClassicoBot/dados/') for x in n), 'dados pessoais no ZIP'; print(len(n), 'arquivos no ZIP')"
+          if ($LASTEXITCODE -ne 0) { Write-Error "ZIP inválido"; exit 1 }
+          (Get-FileHash release/DDClassicoBot.zip -Algorithm SHA256).Hash | Out-File -Encoding ascii release/DDClassicoBot.zip.sha256
+          Get-Content release/DDClassicoBot.zip.sha256
+
+      - name: Testar o .exe compilado (autoteste, interface e pasta somente leitura)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force test-results | Out-Null
+          # ($args é variável automática do PowerShell: não usar como nome de parâmetro)
+          function Run-Exe($exe, [string[]]$argList, $timeoutMs) {
+            $p = Start-Process $exe -ArgumentList $argList -PassThru
+            if (-not $p.WaitForExit($timeoutMs)) { $p.Kill($true); Write-Error "o exe travou ($($argList -join ' '))"; exit 1 }
+            return $p.ExitCode
+          }
+          # cópia extraída do ZIP: simula outro computador sem Python no PATH
+          Expand-Archive release/DDClassicoBot.zip -DestinationPath zipcheck -Force
+          $exe = (Resolve-Path "zipcheck/DDClassicoBot/DDClassicoBot.exe").Path
+          $env:PATH = "C:\Windows\System32;C:\Windows"
+          $env:DDBOT_SELFTEST_OUT = "$PWD/test-results/exe-selftest.json"
+          $code = Run-Exe $exe "--selftest" 180000
+          Get-Content $env:DDBOT_SELFTEST_OUT
+          if ($code -ne 0) { Write-Error "autoteste do exe falhou ($code)"; exit 1 }
+          if (Test-Path "zipcheck/DDClassicoBot/dados") { Write-Error "o autoteste não deveria criar dados ao lado do exe"; exit 1 }
+          $env:DDBOT_SMOKE_OUT = "$PWD/test-results/exe-gui-smoke.json"
+          $code = Run-Exe $exe @("--gui-smoke","8") 120000
+          Get-Content $env:DDBOT_SMOKE_OUT
+          if ($code -ne 0) { Write-Error "teste de interface do exe falhou ($code)"; exit 1 }
+          if (-not (Test-Path "zipcheck/DDClassicoBot/dados/config.json")) { Write-Error "dados/config.json não criado"; exit 1 }
+          # sem como gravar ao lado do exe (ex.: Arquivos de Programas): usa %LOCALAPPDATA%.
+          # Simulado com um ARQUIVO chamado 'dados' (impede criar a pasta); negar escrita com icacls
+          # também impede o Windows de iniciar o processo no runner.
+          Expand-Archive release/DDClassicoBot.zip -DestinationPath rocheck -Force
+          Set-Content -Path rocheck/DDClassicoBot/dados -Value "bloqueio"
+          $env:DDBOT_SMOKE_OUT = "$PWD/test-results/exe-gui-smoke-readonly.json"
+          $code = Run-Exe (Resolve-Path "rocheck/DDClassicoBot/DDClassicoBot.exe").Path @("--gui-smoke","8") 120000
+          if ($code -ne 0) { Write-Error "exe em pasta somente leitura falhou ($code)"; exit 1 }
+          if (-not (Test-Path "$env:LOCALAPPDATA/DDClassicoBot/config.json")) { Write-Error "fallback para LOCALAPPDATA não criou a configuração"; exit 1 }
+          Remove-Item Env:DDBOT_SMOKE_OUT, Env:DDBOT_SELFTEST_OUT
+
+      - name: Capturas da interface (100%, 125%, 150%)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop } catch { Write-Host "resolução mantida: $_" }
+          Add-Type -AssemblyName System.Windows.Forms
+          Write-Host "tela: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+          $exe = (Resolve-Path "zipcheck/DDClassicoBot/DDClassicoBot.exe").Path
+          New-Item -ItemType Directory -Force screenshots | Out-Null
+          foreach ($scale in @("1.0","1.25","1.5")) {
+            $env:DDBOT_UI_SCALE = $scale
+            $env:DDBOT_HOME = "$PWD/shots-home-$scale"
+            $p = Start-Process $exe -ArgumentList @("--screenshots", "$PWD/screenshots") -PassThru
+            if (-not $p.WaitForExit(420000)) { $p.Kill($true); Write-Host "capturas travaram em $scale" }
+          }
+          Get-ChildItem screenshots | Select-Object Name, Length
+
+      - name: Relatório de módulos ausentes do PyInstaller
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force test-results | Out-Null
+          if (Test-Path build/DDClassicoBot/warn-DDClassicoBot.txt) {
+            Copy-Item build/DDClassicoBot/warn-DDClassicoBot.txt test-results/
+            Select-String -Path build/DDClassicoBot/warn-DDClassicoBot.txt -Pattern "ddbot|pynput" | ForEach-Object { Write-Host $_ }
+          }
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: DDClassicoBot-windows
+          path: |
+            release/DDClassicoBot.zip
+            release/DDClassicoBot.zip.sha256
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        if: always()
+        with:
+          name: relatorios-de-teste
+          path: test-results/
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        if: always()
+        with:
+          name: capturas-da-interface
+          path: screenshots/
+          if-no-files-found: warn

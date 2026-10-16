@@ -1,0 +1,104 @@
+{
+  "_doc": "Fontes públicas consultadas em 2026-10-15. 'aplicabilidade' indica o quanto a informação deve ser confiada no DDClássico. Nenhuma fonte é específica e oficial do DDClássico; todas precisam de validação no cliente.",
+  "sources": [
+    {
+      "id": "ddtankdicaset_2013",
+      "titulo": "DDTank, Dicas e Tutoriais: Estratégia de Ângulos",
+      "url": "http://ddtankdicaset.blogspot.com/2013/03/estrategia-de-angulos.html",
+      "data": "2013-03",
+      "conteudo": "Tabelas de força 30°, 50°, 65° (distância 1-20); fórmulas de vento 30 (±1x), 50/65 (±2x), tiro médio (força 60, 90-2d) e tiro alto (força 95, 90-d).",
+      "aplicabilidade": "media",
+      "observacoes": "Versão antiga do DDTank. Notação de sinal do vento ambígua no texto; os exemplos indicam 'vento a favor soma ao ângulo'."
+    },
+    {
+      "id": "webpixel5_2013",
+      "titulo": "[Tutorial] Jogando com os ângulos de 20, 30, 50 e 65°",
+      "url": "https://webpixel5.forumeiros.com/t4-tutorial-jogando-com-os-angulos-de-20-30-50-e-65",
+      "data": "2013-01-28",
+      "conteudo": "Mesmas fórmulas de vento de 30/50/65. Tabelas apenas em imagens (não extraídas).",
+      "aplicabilidade": "media",
+      "observacoes": "Confirma exemplos: 50° dist 20 vento 2,5 → 55 (a favor) / 45 (contra)."
+    },
+    {
+      "id": "techtudo_65_2015",
+      "titulo": "DDtank: aprenda como jogar usando o ângulo de 65 graus nas partidas",
+      "url": "https://www.techtudo.com.br/noticias/2015/05/ddtank-aprenda-como-jogar-usando-o-angulo-de-65-graus-nas-partidas.ghtml",
+      "data": "2015-05-26",
+      "conteudo": "Tabela de força 65° idêntica à de ddtankdicaset; distância = tela dividida em 10 partes; cada 0,5 de vento = 1 grau.",
+      "aplicabilidade": "media",
+      "observacoes": "Não trata diferença de altura."
+    },
+    {
+      "id": "ddcalc_guia",
+      "titulo": "Guia ~ DDCalc",
+      "url": "http://ddcalc.blogspot.com/p/guia.html",
+      "data": "desconhecida",
+      "conteudo": "Afirma que o vento não influencia o ângulo 20; distância é a ensinada no Laboratório de Combate. Tabela de 20° somente em imagem.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Tabela de 20° não extraída: o bot estima pelo modelo físico e exige calibração."
+    },
+    {
+      "id": "caderno_de_tiro",
+      "titulo": "caderno-de-tiro (GitHub)",
+      "url": "https://github.com/caderno-de-tiro/caderno-de-tiro.github.io",
+      "data": "consultado 2026-10-15",
+      "conteudo": "Modelo físico para 'DDTank Classic': gravidade + arrasto linear (-kv) + vento como aceleração horizontal constante; vx = força·cos, vy = força·sen; passo de integração 0,04 s; RMSE 1,08 de força nas 80 células (20/30/50/65°). Gravidade/arrasto variam por mapa; massa/arrasto por munição.",
+      "aplicabilidade": "alta (estrutura do modelo), constantes não publicadas",
+      "observacoes": "É a base do modelo físico deste projeto; as constantes foram reajustadas às tabelas públicas por tools/fit_model.py."
+    },
+    {
+      "id": "ddtank5_rules",
+      "titulo": "Regras de conduta • DDTank Brasil 5.5",
+      "url": "https://ddtank5.com.br/rules",
+      "data": "consultado 2026-10-15",
+      "conteudo": "Proíbe software 'alheio ao jogo' e exploração de bugs; irregularidades julgadas caso a caso.",
+      "aplicabilidade": "nenhuma direta (outro servidor)",
+      "observacoes": "Indica que servidores privados costumam punir programas de terceiros. As regras do DDClássico (ddclassico.com) não puderam ser lidas (HTTP 403)."
+    },
+    {
+      "id": "techtudo_lab_2013",
+      "titulo": "DDTank: veja como completar tarefas do Laboratório de Combate",
+      "url": "https://www.techtudo.com.br/noticias/2013/05/ddtank-veja-como-completar-tarefas-do-laboratorio-de-combate.ghtml",
+      "data": "2013-05",
+      "conteudo": "Tabela de força 20° (d 1-20) e 65°; 20° sem correção de vento.",
+      "aplicabilidade": "media",
+      "observacoes": "Versão antiga do DDTank; precisa de calibração."
+    },
+    {
+      "id": "ddladora",
+      "titulo": "website-ddladora (calculadora Full Angle)",
+      "url": "https://github.com/Yagasaki7K/website-ddladora",
+      "data": "consultado 2026-10-16",
+      "conteudo": "Tiro alto: força 95, ângulo 90 - d ± 2·vento; d 0-20 em passos de 0,5.",
+      "aplicabilidade": "media",
+      "observacoes": "README declara MIT sem arquivo LICENSE; só a fórmula foi usada."
+    },
+    {
+      "id": "boomshot_formulas",
+      "titulo": "BoomShot FORMULAS.md",
+      "url": "https://github.com/chramos/BoomShot/blob/main/FORMULAS.md",
+      "data": "consultado 2026-10-16",
+      "conteudo": "Tiro médio (60, 90-2d±2v), alto (95, 90-d±2v); física gravidade+arrasto+vento.",
+      "aplicabilidade": "media (constantes do clone não valem para o jogo)",
+      "observacoes": "Sem licença: nenhum código copiado."
+    },
+    {
+      "id": "qozi_onhook",
+      "titulo": "qozi/ddtank-onhook",
+      "url": "https://github.com/qozi/ddtank-onhook",
+      "data": "consultado 2026-10-16",
+      "conteudo": "Bot de instâncias (cliente chinês): estados por templates, força por leitura da barra, passar turno quando falha.",
+      "aplicabilidade": "ideias de arquitetura",
+      "observacoes": "Sem licença: só ideias, nenhum código."
+    },
+    {
+      "id": "mobilegamer_ddclassico_2026",
+      "titulo": "DDTank Clássico (Mobile Gamer Brasil)",
+      "url": "https://www.mobilegamer.com.br/2026/08/ddtank-classico.html",
+      "data": "2026-08",
+      "conteudo": "Lançamento 29/08/2026; PvE (instâncias), PvP, ranqueadas, crossplay.",
+      "aplicabilidade": "contexto",
+      "observacoes": "Sem lista de instâncias, armas ou regras."
+    }
+  ]
+}

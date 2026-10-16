@@ -1,0 +1,375 @@
+"""Regressões dos defeitos encontrados na auditoria de 2026-10-16 (um teste por defeito)."""
+import json
+import time
+from dataclasses import replace
+
+import numpy as np
+import pytest
+
+from ddbot.aiming import Aimer, ShotContext, Weapon, hit_half_width, round_angle
+from ddbot.automation.input import InputController, RecordingBackend
+from ddbot.automation.safety import Aborted, KillSwitch
+from ddbot.calibration import Calibrator, ShotRecord, ShotStore
+from ddbot.config import Config
+from ddbot.physics import landing_x
+from ddbot.tracking import TargetTracker
+from test_integration import build
+
+
+# ------------------------------------------------------------------ disparo
+def test_angle_not_confirmed_aborts(tmp_path):
+    """Ângulo na tela não converge: não dispara (antes confiava na contagem)."""
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
+    from ddbot.game_io import KeyboardShooter
+    game.key = lambda key, up: RecordingBackend.key(game, key, up)  # setas não mudam o ângulo exibido
+    sh = KeyboardShooter(inp, view, cfg)
+    with pytest.raises(Aborted):
+        sh.set_angle(40, 30)
+    store.close()
+
+
+def test_turn_ended_during_adjust_cancels_shot(tmp_path):
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
+    from ddbot.combat import BattleObservation
+    from ddbot.game_io import KeyboardShooter
+    sh = KeyboardShooter(inp, view, cfg)
+    game.turn_tpl[:] = 0  # o indicador de turno some
+    with pytest.raises(Aborted):
+        sh.shoot(32, 40, 1, BattleObservation(True, True, current_angle=30))
+    assert not any(e[1] == "space" for e in game.events if e[0] == "key")
+    store.close()
+
+
+def test_facing_reconfirmed_after_battle_reset(tmp_path):
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
+    from ddbot.game_io import KeyboardShooter
+    sh = KeyboardShooter(inp, view, cfg)
+    sh.face(-1)
+    sh.face(-1)
+    sh.reset()
+    sh.face(-1)
+    lefts = [e for e in game.events if e == ("key", "left", False)]
+    assert len(lefts) == 2
+
+
+def test_visual_power_never_holds_past_timed_estimate(tmp_path):
+    """Barra não lida durante a carga: solta no tempo estimado, não segura até 100%."""
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path, power_mode="visual")
+    from ddbot.game_io import KeyboardShooter
+    game.full_time = 2.0  # barra realista (a do jogo leva ~4 s); com 0,5 s, 15 ms do Windows = 3 pontos
+    cfg.set("automation.power_full_time_s", 2.0)
+    sh = KeyboardShooter(inp, view, cfg)
+    first = {"done": False}
+
+    def read_power(frame, snap):
+        snap.power = 0.0 if not first["done"] else None
+        first["done"] = True
+    per.read_power = read_power
+    sh.charge_and_fire(40.0)
+    # trava: tempo estimado (40) + 10% + 50 ms = ~46,5; nunca perto de 100
+    assert game.released_power is not None and 38 < game.released_power < 50
+    store.close()
+
+
+def test_actor_refuses_click_when_window_resized(tmp_path):
+    from ddbot.game_io import GameActor
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
+
+    class Info:
+        left, top, width, height = 500, 300, 800, 600  # janela mudou de tamanho
+    game.info = Info()
+    game.hwnd = 1
+    frame = game.grab()
+    actor = GameActor(inp, game, lib, cfg)
+    assert actor.click("botao_iniciar", frame) is False
+    assert not any(e[0] == "click" for e in game.events)
+    Info.width, Info.height = 1000, 600
+    assert actor.click("botao_iniciar", frame) is True
+    assert actor.click("botao_iniciar", frame) is None  # adiado, não "não encontrado"
+    store.close()
+
+
+def test_cancel_interrupts_between_keys():
+    k = KillSwitch()
+    be = RecordingBackend()
+    state = {"why": None}
+    inp = InputController(k, be, cancel_check=lambda: state["why"], key_delay_s=0.001)
+    inp.tap("up", 3)
+    state["why"] = "pausa"
+    from ddbot.automation.safety import Cancelled
+    with pytest.raises(Cancelled):
+        inp.tap("up", 3)
+    assert be.events[-1] == ("key", "up", True)
+
+
+# ------------------------------------------------------------------ mira
+def test_flat_terrain_does_not_block_high_shots_with_headwind(kb, params):
+    aimer = Aimer(kb, params)
+    flat = np.array([[0, 0.0], [40, 0.0]])
+    for d, w in ((3, -2), (5, -3), (4, -2)):
+        rec = aimer.recommend(ShotContext(distance=d, wind=w, terrain=flat))
+        assert not any(c.blocked for c in rec.candidates), (d, w)
+
+
+def test_round_angle_half_up():
+    assert round_angle(30.5) == 31 and round_angle(31.5) == 32 and round_angle(29.49) == 29
+
+
+def test_table_extrapolates_half_unit(kb):
+    a50 = kb.table_methods["a50"]
+    assert a50.force_for(20.4) > a50.force_for(20) + 0.5
+
+
+def test_weapon_correction_not_applied_twice(tmp_path, kb, params):
+    """Arma com força ×1,1 e disparos perfeitos: a correção aprendida deve ser ~0."""
+    w = Weapon(name="forte", force_scale=1.1)
+    cal = Calibrator(ShotStore(tmp_path / "w.sqlite3"), params,
+                     weapon_lookup=lambda n: w if n == "forte" else Weapon())
+    pw = replace(params, speed_k=params.speed_k * 1.1)
+    for d in (4, 6, 8, 10, 12, 14, 5, 7, 9, 11):
+        f = 30 + 2.5 * d
+        cal.record(ShotRecord(angle=65, force=f, wind=0, distance=d, method="a65", weapon="forte",
+                              impact_x=float(landing_x(65, f, 0, 0, pw))))
+    off, sigma, n = cal.predict_offset("a65", 65, 50, 0, 0, 8, weapon="forte")
+    assert n == 10 and abs(off) < 0.05
+
+
+def test_general_correction_only_shifts_bias(tmp_path, params):
+    cal = Calibrator(ShotStore(tmp_path / "b.sqlite3"), params)
+    for d in (4, 8, 12, 16):
+        f = 30 + 3 * d
+        cal.record(ShotRecord(angle=65, force=f, wind=0, distance=d, method="a65",
+                              impact_x=float(landing_x(65, f, 0, 0, params)) + 0.5))
+    # outro método, sem dados próprios: usa só o viés geral (sem inclinação do a65)
+    off_near, _, _ = cal.predict_offset("a20", 20, 40, 0, 0, 2)
+    off_far, _, _ = cal.predict_offset("a20", 20, 80, 0, 0, 18)
+    assert off_near == pytest.approx(off_far)
+
+
+def test_predictive_sigma_matches_noise(tmp_path, params):
+    rng = np.random.default_rng(5)
+    cal = Calibrator(ShotStore(tmp_path / "s.sqlite3"), params)
+    for _ in range(10):
+        d = rng.uniform(4, 16)
+        f = 30 + 3 * d
+        cal.store.add(ShotRecord(angle=65, force=f, wind=0, distance=d, method="a65",
+                                 impact_x=float(landing_x(65, f, 0, 0, params)) + rng.normal(0, 0.3)))
+    cal.rebuild()
+    _, sigma, n = cal.predict_offset("a65", 65, 56, 0, 0, 10)
+    assert n == 10 and sigma > 0.2  # antes: ~0,2 dividido por √(n/5), subestimado
+
+
+def test_refit_keeps_parameters_physical(tmp_path, kb, params):
+    cal = Calibrator(ShotStore(tmp_path / "r.sqlite3"), params)
+    rng = np.random.default_rng(2)
+    for _ in range(20):
+        a, f = rng.uniform(30, 80), rng.uniform(30, 90)
+        cal.store.add(ShotRecord(angle=a, force=f, wind=rng.uniform(-2, 2), distance=5,
+                                 impact_x=float(rng.uniform(0, 3))))  # dados ruins de propósito
+    rows = [(a, d, f) for a, d, f, _ in kb.documented_cells()]
+    new, info = cal.refit_params(table_rows=rows, max_iter=150)
+    for v, (lo, hi) in zip(new.to_vector(), Calibrator.BOUNDS):
+        assert lo <= v <= hi
+    assert new.wind_k >= 0
+
+
+def test_hit_criterion_single_definition():
+    assert hit_half_width(0.35, 0.25) == pytest.approx(0.425)
+
+
+# ------------------------------------------------------------------ rastreamento
+def test_hidden_radius_uses_max_move():
+    tr = TargetTracker(max_move_per_turn=1.5, max_uncertainty=2.5)
+    tr.observe("x", 5, 0, 1)
+    tr.observe("x", 5, 0, 2)  # parado enquanto visível
+    tr.mark_hidden("x", 3)
+    assert tr.estimate("x", 3).radius == pytest.approx(1.7)
+
+
+def test_turn_counter_reset_is_not_current_position():
+    tr = TargetTracker()
+    tr.observe("x", 5, 0, 10)
+    tr.observe("x", 5, 0, 11)
+    tr.mark_hidden("x", 2)
+    assert tr.estimate("x", 2) is None
+
+
+# ------------------------------------------------------------- configuração
+@pytest.mark.parametrize("content", ["﻿{}", "", "{quebrado", "[1, 2]", '"texto"'])
+def test_bad_config_file_falls_back(tmp_path, content):
+    path = tmp_path / "config.json"
+    path.write_text(content, encoding="utf-8")
+    c = Config(path)
+    assert c.get("thresholds.template") == 0.8
+    if content.strip("﻿") not in ("{}",):
+        assert c.problems and list(tmp_path.glob("config.corrompido-*.json"))
+
+
+def test_wrong_types_replaced_by_defaults(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"capture": 5, "thresholds": {"template": "abc"},
+                                "safety": {"emergency_hotkey": None}}), encoding="utf-8")
+    c = Config(path)
+    assert c.get("capture.fps") == 4 and c.get("thresholds.template") == 0.8
+    assert c.get("safety.emergency_hotkey", "<f12>") == "<f12>"  # vazio não derruba a interface
+    assert len(c.problems) == 2
+
+
+def test_validate_values_ranges():
+    assert Config.validate_values({"thresholds.template": 2.0})
+    assert not Config.validate_values({"thresholds.template": 0.8})
+
+
+def test_config_save_is_atomic(tmp_path):
+    c = Config(tmp_path / "config.json")
+    c.set("instances.max_minutes", 30)
+    c.save()
+    assert json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))["instances"]["max_minutes"] == 30
+    assert not list(tmp_path.glob(".config.json.*.tmp"))
+
+
+# --------------------------------------------------------------- persistência
+def test_knowledge_updated_only_if_untouched(tmp_path, monkeypatch):
+    from ddbot import paths as P
+    res = tmp_path / "res"
+    (res / "data" / "knowledge").mkdir(parents=True)
+    (res / "data" / "instances").mkdir(parents=True)
+    src = res / "data" / "knowledge" / "angle_tables.json"
+    src.write_text('{"v": 1}', encoding="utf-8")
+    monkeypatch.setattr(P, "resource_root", lambda: res)
+    home = tmp_path / "home"
+    P.Paths(home)
+    user = home / "knowledge" / "angle_tables.json"
+    src.write_text('{"v": 2}', encoding="utf-8")  # versão nova do programa
+    P.Paths(home)
+    assert json.loads(user.read_text()) == {"v": 2}
+    user.write_text('{"v": "meu"}', encoding="utf-8")  # editado pelo usuário
+    src.write_text('{"v": 3}', encoding="utf-8")
+    P.Paths(home)
+    assert json.loads(user.read_text()) == {"v": "meu"}
+
+
+def test_corrupted_model_params_restored(home):
+    from ddbot.service import BotService
+    svc = BotService(home, start_hotkey=False)
+    svc.close()
+    (home / "knowledge" / "model_params.json").write_text("{", encoding="utf-8")
+    svc = BotService(home, start_hotkey=False)
+    try:
+        assert svc.params.speed_k > 0
+        assert any("modelo físico" in n for n in svc.startup_notes)
+    finally:
+        svc.close()
+
+
+def test_activity_name_collision_gets_suffix(home):
+    from ddbot.service import BotService
+    svc = BotService(home, start_hotkey=False)
+    try:
+        img = np.random.default_rng(0).integers(0, 255, (20, 20, 3), dtype=np.uint8)
+        a = svc.create_activity_from_image(img, "Labirinto!", "instancia", "pve")
+        b = svc.create_activity_from_image(img, "Labirinto?", "instancia", "pve")
+        assert a.key != b.key
+        assert len(svc.templates.get(a.flow["menu_instancias"][0].target)) == 1
+        assert len(svc.templates.get(b.flow["menu_instancias"][0].target)) == 1
+    finally:
+        svc.close()
+
+
+def test_captures_are_limited(home, monkeypatch):
+    from ddbot import service as S
+    from ddbot.service import BotService
+    monkeypatch.setattr(S, "MAX_CAPTURES", 5)
+    svc = BotService(home, start_hotkey=False)
+    try:
+        img = np.zeros((4, 4, 3), np.uint8)
+        for _ in range(9):
+            svc.save_capture(img)
+            time.sleep(0.002)
+        assert len(list(svc.paths.captures.glob("*.png"))) == 5
+    finally:
+        svc.close()
+
+
+def test_home_path_masked_in_logs(home):
+    import logging
+    from pathlib import Path
+    from ddbot.service import BotService
+    svc = BotService(home, start_hotkey=False)
+    try:
+        logging.getLogger("teste").warning("arquivo em %s", Path.home() / "segredo")
+        for h in logging.getLogger().handlers:
+            h.flush()
+        text = (svc.paths.logs / "ddbot.log").read_text(encoding="utf-8")
+        assert str(Path.home()) + "/segredo" not in text and "%USERPROFILE%" in text
+    finally:
+        svc.close()
+
+
+def test_real_start_blocked_without_hotkey(home):
+    from ddbot.activities import activity_from_option
+    from ddbot.capture import ArraySource
+    from ddbot.service import BotService
+    svc = BotService(home, start_hotkey=False)
+    try:
+        svc.hotkey, svc.hotkey_ok = object(), False
+        svc.set_source(ArraySource(np.zeros((10, 10, 3), np.uint8)))
+        ok, why = svc.start(activity_from_option("instancia_x", "X"), 1, simulated=False)
+        assert not ok and "emergência" in why
+    finally:
+        svc.hotkey = None
+        svc.close()
+
+
+def test_controls_test_refused_while_running(home):
+    from ddbot.activities import activity_from_option
+    from ddbot.capture import ArraySource
+    from ddbot.service import BotService
+    svc = BotService(home, start_hotkey=False)
+    try:
+        assert svc.start(activity_from_option("instancia_teste", "T"), 0, simulated=True)[0]
+        svc.set_source(ArraySource(np.zeros((10, 10, 3), np.uint8)))
+        with pytest.raises(RuntimeError):
+            svc.test_controls()
+    finally:
+        svc.close()
+
+
+def test_window_capture_releases_all_threads():
+    import threading
+
+    from ddbot.capture import WindowCapture
+    cap = WindowCapture(0)
+
+    class Fake:
+        closed = 0
+
+        def close(self):
+            Fake.closed += 1
+    import ddbot.capture as C
+    orig = C.WindowCapture._sct
+
+    def fake_sct(self):
+        sct = getattr(self._local, "sct", None)
+        if sct is None:
+            sct = Fake()
+            self._local.sct = sct
+            with self._lock:
+                self._all[id(sct)] = sct
+        return sct
+    C.WindowCapture._sct = fake_sct
+    try:
+        def work(release):
+            cap._sct()
+            if release:
+                cap.release_thread()
+        ts = [threading.Thread(target=work, args=(i % 2 == 0,)) for i in range(6)]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        assert cap.open_instances == 3
+        cap.close()
+        assert cap.open_instances == 0 and Fake.closed == 6
+    finally:
+        C.WindowCapture._sct = orig

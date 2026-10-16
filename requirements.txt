@@ -1,0 +1,7 @@
+# Dependências do aplicativo (Windows 10/11 64 bits, Python 3.12). Versões fixas: build reproduzível.
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+mss==10.2.0
+pillow==12.3.0
+pynput==1.8.2
+six==1.17.0
