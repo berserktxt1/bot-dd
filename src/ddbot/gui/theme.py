@@ -61,7 +61,7 @@ class Theme:
             "strong": tkfont.Font(root, family=body, size=10, weight="bold"),
             "section": tkfont.Font(root, family=display, size=12, weight="bold"),
             "banner": tkfont.Font(root, family=display, size=14, weight="bold"),
-            "readout": tkfont.Font(root, family=display, size=26, weight="bold"),
+            "readout": tkfont.Font(root, family=display, size=24, weight="bold"),
             "count": tkfont.Font(root, family=display, size=20, weight="bold"),
             "button": tkfont.Font(root, family=body, size=10, weight="bold"),
             "mono": tkfont.Font(root, family=_family(["Consolas", "DejaVu Sans Mono"], "TkFixedFont"), size=9),

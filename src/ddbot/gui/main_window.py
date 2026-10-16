@@ -194,16 +194,18 @@ class MainWindow:
         self.btn_stop = ttk.Button(actions, text="Parar  (F8)", style="Danger.TButton", command=self.stop)
         self.btn_stop.pack(side="left", padx=(px(10), 0))
 
-        right = ttk.Frame(t)
-        right.grid(row=1, column=1, sticky="nsew", pady=(gap, 0))
-        right.columnconfigure(0, weight=1)
-        prog = Panel(right, self.th, "Progresso", pad="m")
-        prog.grid(row=0, column=0, sticky="nsew")
+        # andamento: progresso e mira num painel só (em telas baixas cada painel a mais
+        # custa espaço do histórico)
+        prog = Panel(t, self.th, None, pad="m")
+        prog.grid(row=1, column=1, sticky="nsew", pady=(gap, 0))
         pb = prog.body
-        self.lbl_progress = ttk.Label(pb, text="Nada em execução", style="Strong.TLabel")
-        self.lbl_progress.grid(row=0, column=0, columnspan=4, sticky="w")
+        head = ttk.Frame(pb, style="Surface.TFrame")
+        head.grid(row=0, column=0, columnspan=4, sticky="we")
+        ttk.Label(head, text="Andamento", style="SurfaceSection.TLabel").pack(side="left")
+        self.lbl_progress = ttk.Label(head, text="Nada em execução", style="Strong.TLabel")
+        self.lbl_progress.pack(side="right")
         self.progress = ttk.Progressbar(pb, mode="determinate")
-        self.progress.grid(row=1, column=0, columnspan=4, sticky="we", pady=(px(6), px(12)))
+        self.progress.grid(row=1, column=0, columnspan=4, sticky="we", pady=(px(8), px(8)))
         self.counters = {}
         for i, (k, label) in enumerate((("concluidas", "concluídas"), ("vitorias", "vitórias"),
                                         ("derrotas", "derrotas"), ("batalhas", "batalhas"))):
@@ -211,27 +213,27 @@ class MainWindow:
             c.grid(row=2, column=i, sticky="w", padx=(0, px(14)))
             self.counters[k] = c
             pb.columnconfigure(i, weight=1)
-
-        aim = Panel(right, self.th, "Mira", pad="m")
-        aim.grid(row=1, column=0, sticky="nsew", pady=(gap, 0))
-        ab = aim.body
+        ttk.Separator(pb).grid(row=3, column=0, columnspan=4, sticky="we", pady=px(10))
+        ab = ttk.Frame(pb, style="Surface.TFrame")
+        ab.grid(row=4, column=0, columnspan=4, sticky="we")
+        ttk.Label(ab, text="Mira", style="Strong.TLabel").grid(row=0, column=0, columnspan=3, sticky="w")
         self.ro_angle = Readout(ab, self.th, "ângulo", "°")
         self.ro_force = Readout(ab, self.th, "força")
         self.ro_wind = Readout(ab, self.th, "vento")
         for i, ro in enumerate((self.ro_angle, self.ro_force, self.ro_wind)):
-            ro.grid(row=0, column=i, sticky="w", padx=(0, px(32)))
+            ro.grid(row=1, column=i, sticky="w", padx=(0, px(32)))
             ab.columnconfigure(i, weight=0)
         ab.columnconfigure(3, weight=1)  # sobra de espaço à direita: os três números ficam juntos
         self.lbl_target = ttk.Label(ab, text="Os valores aparecem durante o combate.", style="SurfaceMuted.TLabel",
                                     justify="left", wraplength=px(380))
-        self.lbl_target.grid(row=1, column=0, columnspan=4, sticky="w", pady=(px(8), 0))
+        self.lbl_target.grid(row=2, column=0, columnspan=4, sticky="w", pady=(px(4), 0))
 
         hist = Panel(t, self.th, "Histórico", pad="m")
         hist.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(gap, 0))
-        t.rowconfigure(2, weight=1, minsize=px(150))  # sempre algumas linhas visíveis
+        t.rowconfigure(2, weight=1, minsize=px(110))  # ao menos algumas linhas visíveis
         hb = hist.body
         hb.rowconfigure(0, weight=1)
-        self.tree_hist = ttk.Treeview(hb, columns=("hora", "tipo", "msg"), show="headings", height=4)
+        self.tree_hist = ttk.Treeview(hb, columns=("hora", "tipo", "msg"), show="headings", height=3)
         for col, text, w in (("hora", "Hora", 76), ("tipo", "Tipo", 110), ("msg", "O que aconteceu", 760)):
             self.tree_hist.heading(col, text=text, anchor="w")
             self.tree_hist.column(col, width=px(w), stretch=col == "msg", anchor="w")
