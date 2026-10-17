@@ -36,6 +36,7 @@ class Banner:
 # orientação para os motivos mais comuns de pausa/erro (trecho do motivo -> o que fazer)
 ADVICE = [
     ("regras do servidor", "Abra Configurações, leia o aviso e marque a autorização."),
+    ("falta calibrar", "Abra a aba Calibração, capture a tela do jogo e salve cada item da lista (uma vez só)."),
     ("selecione a janela", "Abra o DDClássico pelo launcher e clique em Detectar jogo, no topo."),
     ("confirme a janela", "Clique em Detectar jogo e confira na prévia se é a tela do jogo."),
     ("launcher está aberto", "Entre no jogo pelo launcher. O bot conecta sozinho quando o jogo abrir."),

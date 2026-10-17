@@ -120,6 +120,7 @@ class Theme:
         st.configure("Count.TLabel", background=SURFACE, foreground=INK, font=f["count"])
         st.configure("Strong.TLabel", background=SURFACE, font=f["strong"])
         st.configure("Error.TLabel", foreground="#B3261E", font=f["strong"])
+        st.configure("SurfaceError.TLabel", background=SURFACE, foreground="#B3261E", font=f["strong"])
         # botões: secundário, principal e crítico
         pad = (px(14), px(7))
         st.configure("TButton", background=SURFACE, foreground=INK, bordercolor=LINE, lightcolor=SURFACE,

@@ -82,6 +82,8 @@ class MainWindow:
         self.nb = ttk.Notebook(root)
         self._build_notice()
         self.nb.pack(fill="both", expand=True, padx=px(12), pady=(0, px(4)))
+        # voltar ao Início depois de calibrar atualiza o que ainda falta
+        self.nb.bind("<<NotebookTabChanged>>", lambda e: self._describe() if hasattr(self, "lbl_ready") else None)
         self.tab_home = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
         self.tab_calib = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
         self.tab_diag = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
@@ -177,8 +179,10 @@ class MainWindow:
         self._chosen: dict[str, str] = {}  # atividade escolhida em cada seção (instância / partida)
         self.lbl_desc = ttk.Label(b, text="", style="SurfaceMuted.TLabel", justify="left", wraplength=px(480))
         self.lbl_desc.grid(row=2, column=0, sticky="we")
+        self.lbl_ready = ttk.Label(b, text="", style="SurfaceMuted.TLabel", justify="left", wraplength=px(480))
+        self.lbl_ready.grid(row=3, column=0, sticky="we", pady=(px(6), 0))
         self.btn_goto_calib = ttk.Button(b, text="Capturar opções do jogo", command=self._goto_options)
-        self.btn_goto_calib.grid(row=3, column=0, sticky="w", pady=(px(6), 0))
+        self.btn_goto_calib.grid(row=4, column=0, sticky="w", pady=(px(6), 0))
 
         runs = ttk.Frame(b, style="Surface.TFrame")
         runs.grid(row=5, column=0, sticky="w", pady=(px(14), 0))
@@ -633,10 +637,8 @@ class MainWindow:
             idx = self._kind_keys.index(keep) if keep in self._kind_keys else 0
             self.cb_act.current(idx)
             self._chosen[kind] = self._kind_keys[idx]
-            self.btn_goto_calib.grid_remove()
         else:
             self.cb_act.set("")
-            self.btn_goto_calib.grid()
         self._describe()
         self._update_buttons()
 
@@ -659,6 +661,7 @@ class MainWindow:
 
     def _describe(self):
         d = self.selected_activity()
+        self._show_readiness(d)
         if d is None:
             what = "instância" if self.area.get() == "instancia" else "partida"
             demo = "" if self.simulated.get() else " Para testar o programa sem o jogo, ligue o modo demonstração."
@@ -672,6 +675,31 @@ class MainWindow:
             return
         auto = "O bot joga sozinho." if d.auto_allowed else "Envolve outros jogadores: o bot não joga sozinho."
         self.lbl_desc.configure(text=f"{d.description} {auto}")
+
+    def _show_readiness(self, d):
+        """Diz antes de iniciar o que falta calibrar para a atividade rodar sozinha no jogo."""
+        if d is None:
+            self.lbl_ready.configure(text="", style="SurfaceMuted.TLabel")
+            self.btn_goto_calib.configure(text="Capturar opções do jogo", command=self._goto_options)
+            self.btn_goto_calib.grid()
+            return
+        if d.key.startswith(DEMO_KEY) or self.simulated.get():
+            self.lbl_ready.configure(text="")
+            self.btn_goto_calib.grid_remove()
+            return
+        from ..readiness import summary
+        missing = summary(self.svc.readiness(d), limit=6)
+        if missing:
+            self.lbl_ready.configure(text=f"Para jogar sozinho, falta calibrar: {missing}.",
+                                     style="SurfaceError.TLabel")
+            self.btn_goto_calib.configure(text="Ir para a Calibração", command=self._goto_calibration)
+            self.btn_goto_calib.grid()
+        else:
+            self.lbl_ready.configure(text="✓ Calibração completa para esta atividade.", style="SurfaceMuted.TLabel")
+            self.btn_goto_calib.grid_remove()
+
+    def _goto_calibration(self):
+        self.nb.select(self.tab_calib)
 
     def _goto_options(self):
         self.nb.select(self.tab_calib)

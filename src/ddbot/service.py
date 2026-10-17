@@ -214,20 +214,6 @@ class BotService:
             old.close()
         self.push_event("aviso", f"janela do jogo desconectada: {why}")
 
-    def window_at_point(self, x: int, y: int) -> winapi.WindowInfo | None:
-        """A janela (ou área interna grande) sob o ponto clicado pelo usuário."""
-        h = winapi.window_at(x, y)
-        if not h:
-            return None
-        info = winapi.window_info(h)
-        # sobe das áreas pequenas (botões) até uma área onde a batalha caiba
-        from .detection import big_enough
-        seen = 0
-        while info is not None and info.parent and not big_enough(info) and seen < 16:
-            info = winapi.window_info(info.parent)
-            seen += 1
-        return info
-
     def select_window(self, info: winapi.WindowInfo):
         if self.runner and self.runner.alive:
             raise RuntimeError("pare a rotina antes de trocar de janela")
@@ -297,6 +283,12 @@ class BotService:
     def delete_activity(self, d: ActivityDef):
         if d.path and d.path.exists():
             d.path.unlink()
+
+    def readiness(self, d: ActivityDef):
+        """O que falta calibrar para ``d`` rodar sozinha no jogo real (lista vazia = nada)."""
+        from .readiness import check
+        return check(d, self.templates.has, self.config, self.perception.angle_reader.trained,
+                     self.perception.wind_reader.trained)
 
     # ------------------------------------------------------------ armas
     def weapon_by_name(self, name: str) -> Weapon:
@@ -412,6 +404,11 @@ class BotService:
         ok, why = runner.check_allowed()
         if not ok:
             return False, why
+        if not simulated:
+            from .readiness import summary
+            missing = summary(self.readiness(d))
+            if missing:
+                return False, f"falta calibrar para jogar sozinho: {missing}"
         if not simulated and self.window is not None:
             winapi.set_foreground(self.window.hwnd)
             deadline = time.monotonic() + 2.0
