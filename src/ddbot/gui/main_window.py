@@ -1195,6 +1195,11 @@ class MainWindow:
 
 
 # ============================================================ inicialização
+def winapi_is_windows() -> bool:
+    from .. import winapi
+    return winapi.IS_WINDOWS
+
+
 def _smoke(app: MainWindow, seconds: float, report: dict, done):
     """Exercita a interface sem o jogo: demonstração, iniciar, pausar, retomar, parar e emergência."""
     root = app.root
@@ -1265,7 +1270,8 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
         app.open_detect()
         root.update()
         report["estado_durante_detectar"] = root.state()
-        check("detectar_minimiza_principal", root.state() == "iconic")
+        if winapi_is_windows():  # sem gerenciador de janelas (Xvfb) minimizar não é verificável
+            check("detectar_minimiza_principal", root.state() == "iconic")
         check("detectar_janela_aberta", app.detect_dialog is not None and app.detect_dialog.winfo_exists())
 
     def s_detect_close():

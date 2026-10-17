@@ -14,6 +14,7 @@ Estados mostrados:
 """
 from __future__ import annotations
 
+import os
 import queue
 import threading
 import time
@@ -99,6 +100,10 @@ class DetectDialog(tk.Toplevel):
     # ------------------------------------------------------- janela principal
     def _hide_main(self):
         """A janela principal sai da frente enquanto o usuário procura o jogo (volta ao fechar)."""
+        if not winapi.IS_WINDOWS and os.environ.get("DDBOT_HEADLESS"):
+            # teste automático no Linux (Xvfb sem gerenciador de janelas): minimizar não tem efeito
+            # e o Tk fica esperando a resposta do gerenciador; o programa é para Windows
+            return
         try:
             self.app.root.iconify()
             self._main_hidden = True

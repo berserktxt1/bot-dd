@@ -65,7 +65,8 @@ resolução e a sua versão do jogo, e nada é inventado. Com o jogo aberto, dei
      recompensa.
    - **Marcadores:** o marcador do seu personagem, de um inimigo, o indicador de turno e as setas do vento.
    - **Números:** selecione o ângulo e o vento, digite o valor que aparece e clique em *Aprender*. Repita com
-     valores diferentes até cobrir os dígitos de 0 a 9.
+     valores diferentes até cobrir os dígitos de 0 a 9. No vento, selecione **só os números** (sem a seta): o
+     sentido vem das setas salvas em Modelos, procuradas ao lado dos números.
 3. **Opções do menu.** Abra no jogo o menu de instâncias (ou de partidas), capture e clique em *Detectar opções*.
    Escolha cada opção na lista, dê um nome, escolha o tipo e a categoria e clique em *Criar atividade*. É assim que
    a lista do Início é montada: só aparece o que o seu jogo realmente mostra.
@@ -78,7 +79,9 @@ resolução e a sua versão do jogo, e nada é inventado. Com o jogo aberto, dei
 
 Na aba **Início**:
 
-1. Em **O que jogar**, escolha **Instâncias** ou **Partidas automáticas** e a atividade na lista.
+1. Em **O que jogar**, escolha **Instâncias** ou **Partidas automáticas** e a atividade na lista. Logo abaixo
+   aparece o que ainda falta calibrar para essa atividade rodar sozinha (por exemplo "tela Lobby, números do
+   vento"), com um atalho para a Calibração. Enquanto faltar algo, Iniciar no jogo é recusado com essa lista.
 2. Em **Quantas vezes**, escolha **Uma vez**, **Repetir N vezes** ou **Até eu parar**.
 3. Clique em **Iniciar** (ou F5). **Pausar/Retomar** é o mesmo botão (F6). **Parar** encerra a rotina (F8).
 4. **Parada de emergência: tecla F12** (configurável), a qualquer momento, mesmo com o jogo em foco. O rodapé
