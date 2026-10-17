@@ -50,9 +50,29 @@ posição vista e espera quando a incerteza é grande; não trata habilidades e 
 fatores configuráveis por arma; as probabilidades de acerto só passam a significar algo depois de
 disparos reais registrados.
 
-### Resultados (preenchidos com a CI)
+### Resultados confirmados (CI 38987570650, commit `c53d980`, branch `release/0.3.0`)
 
-RESULTADOS_030
+| Onde | Resultado |
+|---|---|
+| Linux (Xvfb) | 210 aprovados, 3 pulados (só Windows) |
+| Windows, código-fonte | 213 de 213 aprovados, 0 pulados; inclui o teste de interface e os 3 testes com janelas e processos reais |
+| Detecção com janelas reais (Windows da CI) | launcher de teste sozinho → "é o launcher" → espera; o launcher abre o jogo num processo filho → conectado sozinho, launcher reconhecido, captura é a do jogo; jogo coberto por outra janela → a captura nunca traz a janela da frente |
+| `.exe` da pasta (ZIP extraído, sem Python no PATH) | autoteste OK; interface OK (atraso máximo 103 ms), incluindo Detectar jogo minimizando e restaurando a janela principal |
+| `.exe` em pasta sem permissão de escrita | interface OK, dados em `%LOCALAPPDATA%\JonFlow` |
+| `.exe` de arquivo único | autoteste OK; interface OK (atraso máximo 88 ms) |
+| Capturas da interface (100%, 125%, 150%) | sem texto cortado nem área fora da janela; inclui a janela Detectar jogo (procurando, escolher, confirmar) |
+| Linux sem gerenciador de janelas | minimizar não é verificável no Xvfb: conferido só no Windows |
+
+Desempenho medido no ambiente de desenvolvimento: recomendação de mira 89 ms (antes 266 ms); classificação
+da tela com 11 modelos 0,16 s a 1000×600 (antes 1,3 s) e 0,46 s a 1080p (antes 4,6 s).
+
+### O que foi simulado (e não prova o jogo real)
+
+- Demonstração: cliente simulado com lobby, menus, sala, batalha, resultado e falhas (pop-up, tela
+  desconhecida, desconexão, perda de foco, clique ignorado). Testadas uma partida, três seguidas, repetição
+  contínua até parar, uma instância completa, pausa, retomada e emergência.
+- Detecção: janelas e processos de teste no Windows (`tests/fixtures/fake_window.py`), não o launcher real.
+- Visão e mira: imagens sintéticas e tabelas da comunidade, não capturas do DDClássico.
 
 ### O que ainda depende do seu computador
 
