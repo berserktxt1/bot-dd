@@ -1,6 +1,6 @@
 @echo off
 rem ===================================================================
-rem  Gera release\DDClassicoBot\DDClassicoBot.exe e release\DDClassicoBot.zip
+rem  Gera release\JonFlow\JonFlow.exe e release\JonFlow.zip
 rem  Requisitos (so para quem vai COMPILAR): Python 3.12 64 bits.
 rem  Uso: clique duas vezes neste arquivo ou rode "build_windows.bat".
 rem       "build_windows.bat --sem-testes" pula os testes.
@@ -45,40 +45,40 @@ if /i not "%1"=="--sem-testes" (
 )
 
 echo [4/5] Compilando com PyInstaller...
-%PY% -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\DDClassicoBot.spec
+%PY% -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\JonFlow.spec
 if errorlevel 1 goto :erro
 echo      ... e a versao em arquivo unico
-%PY% -m PyInstaller --noconfirm --clean --distpath dist-unico --workpath build-unico packaging\DDClassicoBot-arquivo-unico.spec
+%PY% -m PyInstaller --noconfirm --clean --distpath dist-unico --workpath build-unico packaging\JonFlow-arquivo-unico.spec
 if errorlevel 1 goto :erro
 
 echo [5/5] Montando release...
 if exist release rmdir /s /q release
 if exist release (
-    echo A pasta release esta em uso: feche o DDClassicoBot.exe aberto dela e rode de novo.
+    echo A pasta release esta em uso: feche o JonFlow.exe aberto dela e rode de novo.
     goto :erro
 )
 mkdir release
 if errorlevel 1 goto :erro
-xcopy /e /i /q dist\DDClassicoBot release\DDClassicoBot >nul
+xcopy /e /i /q dist\JonFlow release\JonFlow >nul
 if errorlevel 1 goto :erro
-copy /y README.md release\DDClassicoBot\LEIA-ME.md >nul
+copy /y README.md release\JonFlow\LEIA-ME.md >nul
 if errorlevel 1 goto :erro
-copy /y docs\USO.txt release\DDClassicoBot\COMO-USAR.txt >nul
+copy /y docs\USO.txt release\JonFlow\COMO-USAR.txt >nul
 if errorlevel 1 goto :erro
-if exist release\DDClassicoBot\dados (
+if exist release\JonFlow\dados (
     echo Encontrei dados pessoais dentro do pacote; abortando.
     goto :erro
 )
-%PY% -m zipfile -c release\DDClassicoBot.zip release\DDClassicoBot
+%PY% -m zipfile -c release\JonFlow.zip release\JonFlow
 if errorlevel 1 goto :erro
-copy /y dist-unico\DDClassicoBot.exe release\DDClassicoBot.exe >nul
+copy /y dist-unico\JonFlow.exe release\JonFlow.exe >nul
 if errorlevel 1 goto :erro
 
 echo.
 echo Pronto:
-echo   %CD%\release\DDClassicoBot\DDClassicoBot.exe
-echo   %CD%\release\DDClassicoBot.zip
-echo   %CD%\release\DDClassicoBot.exe  (arquivo unico, roda sozinho)
+echo   %CD%\release\JonFlow\JonFlow.exe
+echo   %CD%\release\JonFlow.zip
+echo   %CD%\release\JonFlow.exe  (arquivo unico, roda sozinho)
 endlocal
 exit /b 0
 

@@ -23,6 +23,7 @@ from ..vision.menu import detect_option_tiles, find_known_options
 from ..vision.perception import REGION_KEYS, STATE_LABELS, STATES, draw_overlay
 from ..vision.regions import crop, px_to_frac
 from . import theme as T
+from .logo import load_logo
 from .states import UiSnapshot, advice, describe, humanize, method_label, pick_options
 from .widgets import Counter, ImageCanvas, Panel, Readout, ScrollFrame, StatusBanner
 
@@ -63,7 +64,13 @@ class MainWindow:
         self._tiles: list = []
         self._closing = False
         self._notice_after = None
-        root.title(f"DDClássico Bot {__version__}")
+        root.title(f"JonFlow {__version__}")
+        self._logo = load_logo(root, px(30))
+        if self._logo is not None:
+            try:
+                root.iconphoto(True, load_logo(root, 64) or self._logo)
+            except tk.TclError:
+                pass
         from .. import winapi
         area = winapi.work_area()
         ax, ay, aw, ah = area or (0, 0, root.winfo_screenwidth(), root.winfo_screenheight() - px(48))
@@ -102,11 +109,17 @@ class MainWindow:
         px = self.th.px
         top = ttk.Frame(self.root, padding=(px(16), px(12), px(16), px(8)))
         top.pack(fill="x")
-        ttk.Label(top, text="DDClássico Bot", style="Section.TLabel").pack(side="left", padx=(0, px(24)))
-        ttk.Label(top, text="Jogo").pack(side="left")
+        if self._logo is not None:
+            ttk.Label(top, image=self._logo).pack(side="left", padx=(0, px(8)))
+        ttk.Label(top, text="JonFlow", style="Section.TLabel").pack(side="left")
+        ttk.Label(top, text="bot para DDTank", style="Muted.TLabel").pack(side="left", padx=(px(6), px(24)))
+        ttk.Label(top, text="Jogo:").pack(side="left")
         self.lbl_window = ttk.Label(top, text="procurando...")
         self.lbl_window.pack(side="left", padx=(px(8), px(12)))
-        ttk.Button(top, text="Identificar janela", command=self.open_window_wizard).pack(side="left")
+        self.btn_detect = ttk.Button(top, text="Detectar jogo", style="Primary.TButton", command=self.open_detect)
+        self.btn_detect.pack(side="left")
+        self.detect_dialog = None
+        self._minimized_for_run = False
         ttk.Checkbutton(top, text="Modo demonstração", variable=self.simulated,
                         command=self._toggle_demo).pack(side="right")
         self.window_state = ""
@@ -160,7 +173,8 @@ class MainWindow:
                             command=self._fill_activity_list).pack(side="left", padx=(0, px(4)))
         self.cb_act = ttk.Combobox(b, state="readonly", font=self.th.fonts["body"])
         self.cb_act.grid(row=1, column=0, sticky="we", pady=(px(12), px(4)))
-        self.cb_act.bind("<<ComboboxSelected>>", lambda e: self._describe())
+        self.cb_act.bind("<<ComboboxSelected>>", lambda e: self._on_activity_selected())
+        self._chosen: dict[str, str] = {}  # atividade escolhida em cada seção (instância / partida)
         self.lbl_desc = ttk.Label(b, text="", style="SurfaceMuted.TLabel", justify="left", wraplength=px(480))
         self.lbl_desc.grid(row=2, column=0, sticky="we")
         self.btn_goto_calib = ttk.Button(b, text="Capturar opções do jogo", command=self._goto_options)
@@ -178,6 +192,7 @@ class MainWindow:
         self.sp_runs = ttk.Spinbox(runs, from_=1, to=999, textvariable=self.run_count, width=5,
                                    command=lambda: self.run_mode.set("qtd"))
         self.sp_runs.pack(side="left")
+        self.sp_runs.bind("<KeyRelease>", lambda e: self.run_mode.set("qtd"))
         ttk.Label(runs, text="vezes", style="Surface.TLabel").pack(side="left", padx=(px(4), 0))
         ttk.Radiobutton(runs, text="Até eu parar", value="cont", variable=self.run_mode,
                         style="Surface.TRadiobutton").pack(side="left", padx=(px(16), 0))
@@ -525,8 +540,8 @@ class MainWindow:
         self.notice(text, error)
 
     def refresh_windows(self):
-        """Procura o jogo pelo perfil salvo (em thread: consultar processos leva alguns ms)."""
-        if self._locating:
+        """Procura o jogo (em thread: consultar janelas e processos leva alguns ms)."""
+        if self._locating or self.detect_dialog is not None:
             return
         self._locating = True
 
@@ -548,21 +563,50 @@ class MainWindow:
         if exc is not None or found is None:
             self.lbl_window.configure(text="erro ao procurar a janela")
             return
-        self.window_state = found.state
-        if found.state == "jogo" and self.svc.window is not None:
-            w = self.svc.window
-            self.lbl_window.configure(text=f"conectado ({w.exe or 'janela'}, {w.width}×{w.height})")
-        else:
-            self.lbl_window.configure(text=found.message.lower())
+        state = found.state
+        if state == "jogo" and not found.confident and self.svc.window is None:
+            state = "confirmar"
+        self.window_state = state
+        self._show_window_label()
 
-    def open_window_wizard(self):
-        from .window_wizard import WindowWizard
-        WindowWizard(self, self.svc, on_saved=self._wizard_saved)
+    def _show_window_label(self):
+        w = self.svc.window
+        if w is not None:
+            title = (w.title or w.exe or "janela").strip()
+            if len(title) > 40:
+                title = title[:39] + "…"
+            self.lbl_window.configure(text=f"conectado: {title} ({w.width}×{w.height})")
+            self.btn_detect.configure(style="TButton")
+            return
+        self.btn_detect.configure(style="Primary.TButton")
+        self.lbl_window.configure(text={
+            "launcher_sem_jogo": "launcher aberto, aguardando o jogo",
+            "confirmar": "encontrado; clique em Detectar jogo para confirmar",
+            "escolher": "mais de uma janela possível; clique em Detectar jogo",
+            "nada": "não encontrado",
+        }.get(self.window_state, "procurando..."))
 
-    def _wizard_saved(self):
-        self.svc.window = None
+    def open_detect(self):
+        if self.detect_dialog is not None:
+            try:
+                self.detect_dialog.deiconify()
+                self.detect_dialog.lift()
+                return
+            except tk.TclError:
+                self.detect_dialog = None
+        if self.svc.runner and self.svc.runner.alive:
+            self.notice("Pare a rotina antes de detectar o jogo de novo.", True)
+            return
+        from .detect_dialog import DetectDialog
+        self.detect_dialog = DetectDialog(self, self.svc, on_done=self._detect_done)
+
+    def _detect_done(self):
+        self.detect_dialog = None
+        self.window_state = "jogo" if self.svc.window is not None else self.window_state
+        self._show_window_label()
+        if self.svc.window is not None:
+            self.notice("Jogo conectado. O JonFlow reencontra essa janela sozinho nas próximas vezes.")
         self.refresh_windows()
-        self.notice("Janela do jogo identificada. O bot vai reencontrá-la sozinho daqui para frente.")
 
     def _toggle_demo(self):
         self.refresh_activities()
@@ -579,17 +623,29 @@ class MainWindow:
         self._fill_activity_list()
 
     def _fill_activity_list(self):
+        """Lista da seção escolhida, mantendo a atividade que o usuário escolheu nela antes."""
         kind = self.area.get()
         items = [d for d in self.activities.values() if d.kind == kind]
         self._kind_keys = [d.key for d in items]
         self.cb_act["values"] = [self._label(d) for d in items]
         if items:
-            self.cb_act.current(0)
+            keep = self._chosen.get(kind)
+            idx = self._kind_keys.index(keep) if keep in self._kind_keys else 0
+            self.cb_act.current(idx)
+            self._chosen[kind] = self._kind_keys[idx]
             self.btn_goto_calib.grid_remove()
         else:
             self.cb_act.set("")
             self.btn_goto_calib.grid()
         self._describe()
+        self._update_buttons()
+
+    def _on_activity_selected(self):
+        d = self.selected_activity()
+        if d is not None:
+            self._chosen[self.area.get()] = d.key
+        self._describe()
+        self._update_buttons()
 
     def _label(self, d: ActivityDef):
         if d.key.startswith(DEMO_KEY):
@@ -605,8 +661,14 @@ class MainWindow:
         d = self.selected_activity()
         if d is None:
             what = "instância" if self.area.get() == "instancia" else "partida"
-            self.lbl_desc.configure(text=f"Nenhuma {what} capturada ainda. Abra o menu no jogo e capture as opções "
-                                    "para escolher aqui.")
+            demo = "" if self.simulated.get() else " Para testar o programa sem o jogo, ligue o modo demonstração."
+            self.lbl_desc.configure(text=f"Nenhuma {what} capturada ainda. Com o jogo conectado, abra o menu de "
+                                    f"{what}s no jogo e clique em Capturar opções do jogo.{demo}")
+            return
+        if d.key.startswith(DEMO_KEY):
+            self.lbl_desc.configure(text="Simulação para testar o programa: lobby, menu, sala, batalha e resultado "
+                                    "acontecem num jogo de mentira. Nada é enviado ao DDClássico e os resultados não "
+                                    "são do jogo real.")
             return
         auto = "O bot joga sozinho." if d.auto_allowed else "Envolve outros jogadores: o bot não joga sozinho."
         self.lbl_desc.configure(text=f"{d.description} {auto}")
@@ -642,6 +704,10 @@ class MainWindow:
             self.notice(f"Não foi possível iniciar: {why}. {tip}".strip(), True)
             if not headless():
                 messagebox.showwarning("Não foi possível iniciar", f"{why}\n\n{tip}".strip())
+        elif not simulated and self.svc.config.get("ui.minimize_during_run", True):
+            # a janela do JonFlow não pode ficar por cima do jogo (captura e cliques); volta ao pausar ou terminar
+            self._minimized_for_run = True
+            self.root.iconify()
         self.progress.configure(value=0)
         self._update_buttons()
 
@@ -661,7 +727,17 @@ class MainWindow:
     def _update_buttons(self):
         st = self.svc.status
         running = self.svc.runner is not None and self.svc.runner.alive
-        self.btn_start.state(["disabled"] if running else ["!disabled"])
+        d = self.selected_activity()
+        ready = d is not None and (d.auto_allowed or d.key.startswith(DEMO_KEY))
+        self.btn_start.state(["disabled"] if running or not ready else ["!disabled"])
+        if self._minimized_for_run and (not running or st != RunStatus.RUNNING):
+            # pausou (precisa de você), terminou ou falhou: a janela volta para mostrar o motivo
+            self._minimized_for_run = False
+            try:
+                self.root.deiconify()
+                self.root.lift()
+            except tk.TclError:
+                pass
         self.btn_pause.state(["!disabled"] if running else ["disabled"])
         paused = st == RunStatus.PAUSED
         self.btn_pause.configure(text="Retomar  (F6)" if paused else "Pausar  (F6)",
@@ -1152,6 +1228,31 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
         check("historico", len(app.tree_hist.get_children()) > 0)
         report["contadores"] = app.svc.runner.counters.as_dict() if app.svc.runner else None
 
+    def s_detect_open():
+        report["estado_antes_detectar"] = root.state()
+        app.open_detect()
+        root.update()
+        report["estado_durante_detectar"] = root.state()
+        check("detectar_minimiza_principal", root.state() == "iconic")
+        check("detectar_janela_aberta", app.detect_dialog is not None and app.detect_dialog.winfo_exists())
+
+    def s_detect_close():
+        app.detect_dialog.close()
+        root.update()
+        report["estado_depois_detectar"] = root.state()
+        check("detectar_restaura_principal", root.state() == "normal" and app.detect_dialog is None)
+        check("estado_preservado", app.simulated.get() and app.selected_activity() is not None)
+
+    def s_kinds():
+        app.area.set("partida")
+        app._fill_activity_list()
+        d = app.selected_activity()
+        check("partida_demo_listada", d is not None and d.kind == "partida")
+        check("iniciar_habilitado_com_atividade", app.btn_start.instate(["!disabled"]))
+        app.area.set("instancia")
+        app._fill_activity_list()
+        check("instancia_continua_escolhida", (app.selected_activity() or d).kind == "instancia")
+
     def s_emergency():
         app.run_mode.set("cont")
         app.btn_start.invoke()
@@ -1171,7 +1272,10 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
     at(span * 0.46, s_resume)
     at(span * 0.55, s_tabs)
     at(span * 0.65, s_stop)
+    at(span * 0.70, s_detect_open)
+    at(span * 0.76, s_detect_close)
     at(span * 0.80, s_stopped)
+    at(span * 0.82, s_kinds)
     at(span * 0.85, s_emergency)
 
     lags = []
@@ -1193,7 +1297,7 @@ def _install_error_hooks(root: tk.Tk):
         log.error("erro na interface", exc_info=(exc_type, exc, tb))
         if not headless():
             try:
-                messagebox.showerror("DDClássico Bot", f"Ocorreu um erro: {exc}\n\nOs detalhes estão no Registro "
+                messagebox.showerror("JonFlow", f"Ocorreu um erro: {exc}\n\nOs detalhes estão no Registro "
                                      "técnico e no arquivo dados\\logs\\ddbot.log.")
             except tk.TclError:
                 pass
@@ -1216,7 +1320,7 @@ def run_gui(home: Path | None = None, smoke_seconds: float = 0.0, screenshots: P
             try:
                 r = tk.Tk()
                 r.withdraw()
-                messagebox.showerror("DDClássico Bot", f"O programa não conseguiu iniciar: {exc}\n\n"
+                messagebox.showerror("JonFlow", f"O programa não conseguiu iniciar: {exc}\n\n"
                                      "Verifique se a pasta do programa permite gravar arquivos.")
                 r.destroy()
             except Exception:
@@ -1231,7 +1335,7 @@ def run_gui(home: Path | None = None, smoke_seconds: float = 0.0, screenshots: P
         if smoke_out:
             Path(smoke_out).write_text(json.dumps({"erro": f"interface: {exc}"}), encoding="utf-8")
         if not automated:
-            messagebox.showerror("DDClássico Bot", f"Erro ao montar a interface: {exc}")
+            messagebox.showerror("JonFlow", f"Erro ao montar a interface: {exc}")
         svc.close()
         root.destroy()
         return 1

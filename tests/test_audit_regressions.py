@@ -433,3 +433,15 @@ def test_window_capture_releases_all_threads():
         assert cap.open_instances == 0 and Fake.closed == 6
     finally:
         C.WindowCapture._sct = orig
+
+
+def test_legacy_localappdata_folder_kept(tmp_path, monkeypatch):
+    """Quem usava o DDClássico Bot com dados em %LOCALAPPDATA% continua com os mesmos dados no JonFlow."""
+    from ddbot import paths as P
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    assert P._fallback_dir() == tmp_path / "JonFlow"
+    (tmp_path / "DDClassicoBot").mkdir()
+    (tmp_path / "DDClassicoBot" / "config.json").write_text("{}", encoding="utf-8")
+    assert P._fallback_dir() == tmp_path / "DDClassicoBot"
+    (tmp_path / "JonFlow").mkdir()
+    assert P._fallback_dir() == tmp_path / "JonFlow"

@@ -133,6 +133,7 @@ class Calibrator:
         self.sources = sources
         self.weapon_lookup = weapon_lookup  # nome -> Weapon (force_scale, drag_scale, angle_offset)
         self._models: dict[str, tuple] = {}
+        self._pred_cache: dict[tuple, float] = {}
         self._lock = threading.Lock()
         self.rebuild()
 
@@ -147,6 +148,21 @@ class Calibrator:
     def predict_x(self, rec: "ShotRecord", params: PhysicsParams | None = None) -> float:
         p, off = self._effective(rec.weapon, params)
         return float(landing_x(rec.angle + off, rec.force, rec.wind, rec.dy, p))
+
+    def _predicted(self, rec: "ShotRecord") -> float:
+        """``predict_x`` com o modelo atual, memorizado: o histórico não é recalculado a cada disparo.
+
+        A chave inclui os parâmetros efetivos (modelo e arma): reajustar o modelo ou mudar a arma
+        recalcula naturalmente.
+        """
+        p, off = self._effective(rec.weapon)
+        key = (rec.angle, rec.force, rec.wind, rec.dy, off, tuple(p.to_vector()))
+        v = self._pred_cache.get(key)
+        if v is None:
+            if len(self._pred_cache) > 50_000:
+                self._pred_cache.clear()
+            v = self._pred_cache[key] = float(landing_x(rec.angle + off, rec.force, rec.wind, rec.dy, p))
+        return v
 
     def _usable(self) -> list[ShotRecord]:
         recs = []
@@ -179,7 +195,7 @@ class Calibrator:
             if len(rows) < self.MIN_SHOTS_OFFSET:
                 continue
             X = np.array([_features(r.distance, r.wind, r.dy, r.angle) for r in rows])
-            y = np.array([r.impact_x - self.predict_x(r) for r in rows])
+            y = np.array([r.impact_x - self._predicted(r) for r in rows])
             ok = np.isfinite(y)
             X, y = X[ok], y[ok]
             if len(y) < self.MIN_SHOTS_OFFSET:

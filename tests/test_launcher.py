@@ -3,8 +3,8 @@ import pytest
 
 from ddbot.automation.input import InputController, RecordingBackend
 from ddbot.automation.safety import FocusLost, KillSwitch
-from ddbot.game_window import (GAME, LAUNCHER_ONLY, NO_PROFILE, NOTHING, GameWindowProfile, WindowRule, keyboard_ok,
-                               locate, rank_candidates, validate_choice)
+from ddbot.game_window import (GAME, LAUNCHER_ONLY, GameWindowProfile, WindowRule, keyboard_ok, rank_candidates,
+                               validate_choice)
 from ddbot.winapi import WindowInfo
 
 
@@ -22,46 +22,10 @@ def profile(game_rule, launcher_rule=WindowRule("LauncherX.exe", "LauncherWnd"))
     return GameWindowProfile(game_rule, launcher_rule)
 
 
-def test_separate_process_game_found_and_launcher_never_chosen():
-    p = profile(WindowRule("ClienteJogo.exe", "GameWnd"))
-    found = locate(p, [LAUNCHER, LAUNCHER_PANEL, SEPARATE_GAME])
-    assert found.state == GAME and found.game.hwnd == 200 and found.launcher.hwnd == 100
-
-
-def test_title_change_does_not_matter():
-    p = profile(WindowRule("ClienteJogo.exe", "GameWnd"))
-    renamed = win(201, "ClienteJogo.exe", "GameWnd", "Título totalmente outro", 1000, 600)
-    assert locate(p, [LAUNCHER, renamed]).game.hwnd == 201
-
-
-def test_embedded_game_found_inside_launcher():
-    p = profile(WindowRule("LauncherX.exe", "RenderArea", child=True))
-    found = locate(p, [LAUNCHER, LAUNCHER_PANEL, EMBEDDED_GAME])
-    assert found.state == GAME and found.game.hwnd == 102
-
-
-def test_launcher_open_game_not_started():
-    p = profile(WindowRule("ClienteJogo.exe", "GameWnd"))
-    found = locate(p, [LAUNCHER, LAUNCHER_PANEL])
-    assert found.state == LAUNCHER_ONLY and found.game is None and "ainda não iniciou" in found.message
-
-
-def test_nothing_open_and_no_profile():
-    p = profile(WindowRule("ClienteJogo.exe", "GameWnd"))
-    assert locate(p, []).state == NOTHING
-    assert locate(GameWindowProfile(), [LAUNCHER]).state == NO_PROFILE
-
-
 def test_rule_matching_main_vs_child():
     # a regra do jogo embutido não pode casar com a janela principal do launcher (mesmo programa)
     rule = WindowRule("LauncherX.exe", "", child=True)
     assert not rule.matches(LAUNCHER) and rule.matches(EMBEDDED_GAME)
-
-
-def test_largest_game_window_chosen():
-    p = profile(WindowRule("ClienteJogo.exe", "GameWnd"))
-    small = win(300, "ClienteJogo.exe", "GameWnd", w=400, h=300)
-    assert locate(p, [small, SEPARATE_GAME]).game.hwnd == 200
 
 
 def test_wizard_choice_validation():
@@ -163,10 +127,26 @@ def test_auto_connect_when_game_appears(svc):
     assert found.state == GAME and svc.window.hwnd == 200 and svc.source.hwnd == 200
 
 
-def test_save_profile_rejects_launcher_as_game(svc):
-    assert svc.save_profile(LAUNCHER, LAUNCHER)
-    assert svc.save_profile(EMBEDDED_GAME, LAUNCHER) is None
+def test_confirm_rejects_launcher_as_game(svc):
+    assert svc.confirm_game(LAUNCHER, LAUNCHER)
+    assert svc.confirm_game(EMBEDDED_GAME, LAUNCHER) is None
     assert svc.profile.game.child and svc.profile.game.cls == "RenderArea"
+    assert svc.window.hwnd == EMBEDDED_GAME.hwnd
+
+
+def test_launcher_panel_not_taken_as_game_after_confirmation(svc):
+    """Com o jogo confirmado em outro programa, a área interna do launcher não vira o jogo."""
+    svc.inventory = lambda: [LAUNCHER, LAUNCHER_PANEL]
+    found = svc.auto_connect()
+    assert found.state == LAUNCHER_ONLY and svc.window is None
+
+
+def test_mark_launcher_then_wait(svc):
+    svc.config.set("window.profile", {})
+    svc.inventory = lambda: [LAUNCHER]
+    svc.mark_launcher(LAUNCHER)
+    assert svc.profile.launcher.exe == "LauncherX.exe" and svc.profile.game is None
+    assert svc.auto_connect().state == LAUNCHER_ONLY
 
 
 def test_resume_rebinds_when_game_reopened(svc, monkeypatch):
@@ -189,8 +169,8 @@ def test_banner_launcher_waiting():
     from ddbot.gui.states import UiSnapshot, describe
     b = describe(UiSnapshot(has_window=False, demo=False, activity_name="X", window_state=LAUNCHER_ONLY))
     assert "aguardando o jogo" in b.title
-    b = describe(UiSnapshot(has_window=False, demo=False, activity_name="X", window_state=NO_PROFILE))
-    assert "Identifique" in b.title
+    b = describe(UiSnapshot(has_window=False, demo=False, activity_name="X", window_state="nada"))
+    assert "Detectar jogo" in b.detail
 
 
 def test_profile_roundtrip(tmp_path):

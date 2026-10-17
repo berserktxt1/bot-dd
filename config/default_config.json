@@ -3,9 +3,7 @@
     "title_keywords": [
       "DDTank",
       "DDClássico",
-      "DDClassico",
-      "Clássico",
-      "Classico"
+      "DDClassico"
     ]
   },
   "capture": {
@@ -95,7 +93,8 @@
     "runs": 1
   },
   "ui": {
-    "language": "pt-BR"
+    "language": "pt-BR",
+    "minimize_during_run": true
   },
   "_leia_me": "Configuração inicial. Edite pela tela Configurações do aplicativo. O modo automático só funciona depois de confirmar as regras do servidor."
 }

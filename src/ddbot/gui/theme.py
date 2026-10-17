@@ -1,4 +1,4 @@
-"""Sistema visual do DDClássico Bot: cores, tipografia, espaçamento e estilos ttk.
+"""Sistema visual do JonFlow: cores, tipografia, espaçamento e estilos ttk.
 
 Direção: painel de instrumento de pontaria. Fundo frio e neutro, um azul-aço para a
 ação principal, latão só nos números da mira e cores de estado sempre acompanhadas

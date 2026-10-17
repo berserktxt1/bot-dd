@@ -13,8 +13,9 @@ from .util import atomic_write_text
 log = logging.getLogger(__name__)
 
 DEFAULTS: dict = {
-    # palavras só para SUGERIR candidatos no assistente; o jogo é reconhecido pelo perfil salvo
-    "window": {"title_keywords": ["DDTank", "DDClássico", "DDClassico", "Clássico", "Classico"], "profile": {}},
+    # palavras que dizem ao "Detectar jogo" onde começar a procurar (launcher ou jogo); o resto vem dos
+    # processos e do perfil confirmado. "Clássico" sozinho casaria com janelas que nada têm a ver com o jogo.
+    "window": {"title_keywords": ["DDTank", "DDClássico", "DDClassico"], "profile": {}},
     "capture": {"fps": 4},
     "ruler": {"units_per_screen": 10, "playfield": [0.0, 0.0, 1.0, 1.0]},
     "regions": {},
@@ -47,7 +48,7 @@ DEFAULTS: dict = {
     "instances": {"selected": None, "max_attempts": 3, "max_defeats": 2, "max_minutes": 60,
                   "unknown_state_timeout_s": 20, "action_timeout_s": 60,
                   "battle_timeout_s": 900, "runs": 1},
-    "ui": {"language": "pt-BR"},
+    "ui": {"language": "pt-BR", "minimize_during_run": True},
 }
 
 # faixas aceitas (mín, máx) para os valores que o usuário edita

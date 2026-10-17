@@ -1,6 +1,9 @@
-# DDClássico Bot
+<p align="center"><img src="assets/jonflow-logo.png" alt="JonFlow, bot para DDTank" width="440"></p>
 
-Aplicativo para Windows 10/11 (64 bits) que joga **partidas e instâncias PvE do DDClássico sozinho**. Você escolhe
+# JonFlow
+
+**JonFlow** (antes chamado *DDClássico Bot*) é um aplicativo para Windows 10/11 (64 bits) que joga **partidas e
+instâncias PvE do DDTank no servidor DDClássico sozinho**. Você escolhe
 a atividade, clica em **Iniciar** e o bot navega pelos menus, entra na atividade, reconhece os turnos, mira e
 atira, avança as etapas, reconhece vitória e derrota e recomeça até completar a quantidade configurada.
 
@@ -16,33 +19,42 @@ atira, avança as etapas, reconhece vitória e derrota e recomeça até completa
 
 Baixe na página de **Releases** do repositório no GitHub. Há dois formatos:
 
-- **`DDClassicoBot.zip`** (recomendado): extraia numa pasta (botão direito → *Extrair tudo*), abra a pasta
-  `DDClassicoBot` e clique duas vezes em **`DDClassicoBot.exe`**. Esse `.exe` precisa da pasta `_internal` ao
+- **`JonFlow.zip`** (recomendado): extraia numa pasta (botão direito → *Extrair tudo*), abra a pasta
+  `JonFlow` e clique duas vezes em **`JonFlow.exe`**. Esse `.exe` precisa da pasta `_internal` ao
   lado dele: não o tire da pasta.
-- **`DDClassicoBot.exe`** (arquivo único): roda sozinho, sem pasta nenhuma. Coloque-o numa pasta só para ele,
+- **`JonFlow.exe`** (arquivo único): roda sozinho, sem pasta nenhuma. Coloque-o numa pasta só para ele,
   porque ele cria a pasta `dados` ao lado de si. Abre alguns segundos mais devagar.
 
 Não precisa instalar Python nem nenhum outro programa.
 3. Se o Windows mostrar "O Windows protegeu o computador", clique em *Mais informações* → *Executar assim mesmo*
    (o executável não tem assinatura digital).
 
-Quer conhecer a tela antes de configurar o jogo? Ligue **Modo demonstração** no canto superior direito e clique em
-**Iniciar**. Nesse modo nada é enviado ao jogo.
+Quer conhecer a tela antes de configurar o jogo? Ligue **Modo demonstração** no canto superior direito: aparecem
+uma instância e uma partida de demonstração. Clique em **Iniciar**. Nesse modo nada é enviado ao jogo, e os
+resultados são de um jogo simulado, não do DDClássico.
+
+Quem já usava o *DDClássico Bot*: substitua os arquivos e mantenha a pasta `dados`. Se os dados estavam em
+`%LOCALAPPDATA%\DDClassicoBot`, o JonFlow continua usando essa pasta.
 
 ### 2. Primeira configuração (uma vez só)
 
 O bot "enxerga" o jogo por imagens que **você captura do seu próprio cliente**. Por isso funciona com a sua
 resolução e a sua versão do jogo, e nada é inventado. Com o jogo aberto, deixe a janela num tamanho fixo e:
 
-1. **Identifique a janela do jogo** (uma vez só). Abra o DDClássico pelo launcher, entre no jogo e clique em
-   **Identificar janela**, no topo. O bot lista as janelas abertas, com o programa e uma prévia da captura:
-   - escolha a janela onde a batalha aparece e clique em **Este é o jogo**. Se o jogo aparece *dentro* do
-     launcher, escolha a janela **interna** que mostra só o jogo;
-   - escolha a janela do launcher e clique em **Este é o launcher**;
-   - clique em **Salvar**.
+1. **Detectar jogo.** Abra o DDClássico pelo launcher e clique em **Detectar jogo**, no topo. A janela do JonFlow
+   se minimiza para não cobrir o launcher nem o jogo, e o bot procura sozinho:
+   - se o jogo já está aberto, ele conecta e mostra uma **prévia** para você conferir;
+   - se só o launcher está aberto, ele avisa e **espera**: entre no jogo pelo launcher e ele conecta sozinho quando
+     a janela do jogo aparecer (em outra janela ou dentro do próprio launcher);
+   - se não tiver certeza, pergunta com a prévia na tela: **Sim, é o jogo** ou **Não, é o launcher**;
+   - se houver mais de uma janela possível, mostra a lista com prévia para você escolher;
+   - se não achar, use **Mostrar onde está o jogo**: a tela escurece e você clica sobre a janela do jogo (o clique
+     não chega ao jogo; Esc cancela).
 
-   Daí em diante o bot reencontra o jogo sozinho, mesmo quando você fecha e abre de novo pelo launcher. Se o
-   launcher estiver aberto e o jogo ainda não, a faixa do Início mostra "Launcher aberto, aguardando o jogo".
+   Ao fechar, a janela do JonFlow volta como estava. Daí em diante o bot reencontra o jogo sozinho, mesmo quando
+   você fecha e abre de novo pelo launcher. As pistas que ele usa: qual processo abriu qual (o launcher abre o
+   jogo), a janela que aparece durante a espera, a área interna onde o jogo é desenhado, o programa confirmado da
+   última vez e as palavras "DDTank" e "DDClássico" no título (editáveis em `window.title_keywords`).
 2. Aba **Calibração** → *Capturar tela do jogo*. Arraste o mouse sobre a imagem para selecionar e salve:
    - **Regiões:** número do ângulo, indicador de vento, barra de força, indicador de turno e a área de jogo
      (a "régua" de 10 partes da tela).
@@ -91,6 +103,9 @@ A faixa colorida no alto diz o que o bot está fazendo e, quando ele precisa de 
   botão **X** (modelo "fechar"); nunca aperta teclas às cegas. Se não conseguir, **pausa**, mostra o motivo e o que
   fazer, e salva a imagem em `dados\capturas`.
 - Se você trocar de janela (Alt+Tab) ou minimizar o jogo, o bot **pausa** e espera você clicar em Retomar.
+- Ao iniciar uma rotina no jogo, a janela do JonFlow **se minimiza** para não ficar na frente do jogo, e volta
+  sozinha quando a rotina pausa, termina ou precisa de você. A imagem é pedida à própria janela do jogo; se o jogo
+  não permitir e outra janela estiver por cima dele, o bot não lê a janela errada: pausa e avisa.
 - **Nunca manda comandos ao launcher:** só clica se o ponto estiver sobre a área do jogo (não sobre um botão do
   launcher, mesmo que estejam na mesma janela) e só envia teclas se o foco do teclado estiver dentro do jogo. Se o
   foco estiver no launcher, ele pausa e pede para você clicar uma vez dentro do jogo.
@@ -107,12 +122,12 @@ busca física) com a probabilidade estimada de acerto.
 
 ### Onde ficam os dados
 
-Tudo fica na pasta **`dados`**, ao lado do `DDClassicoBot.exe`: configuração, imagens capturadas, atividades,
+Tudo fica na pasta **`dados`**, ao lado do `JonFlow.exe`: configuração, imagens capturadas, atividades,
 histórico de disparos e registros (`dados\logs\ddbot.log`). Se a pasta do programa não permitir gravar (por
-exemplo dentro de *Arquivos de Programas*), os dados vão para `%LOCALAPPDATA%\DDClassicoBot` e o aviso aparece no
+exemplo dentro de *Arquivos de Programas*), os dados vão para `%LOCALAPPDATA%\JonFlow` e o aviso aparece no
 Histórico. O caminho exato está na aba Configurações.
 
-Para levar para outro computador, copie a pasta `DDClassicoBot` inteira. Para atualizar o programa, substitua os
+Para levar para outro computador, copie a pasta `JonFlow` inteira. Para atualizar o programa, substitua os
 arquivos e **mantenha a pasta `dados`**: as tabelas novas entram sozinhas, a menos que você as tenha editado.
 
 > As capturas (`dados\capturas`, guardadas só as 200 mais recentes) podem mostrar seu nome no jogo e o chat.
@@ -126,13 +141,14 @@ arquivo antigo como `config.corrompido-<data>.json`.
 
 ## Para quem vai compilar ou manter
 
-- Código em `src/ddbot`, testes em `tests`, documentação em `docs`.
+- Código em `src/ddbot` (o pacote Python manteve o nome `ddbot`), testes em `tests`, documentação em `docs`,
+  logo e ícone em `assets` (`jonflow-icon.svg` é o original; os PNG e o `.ico` saem dele).
 - **Compilar no Windows:** instale o Python 3.12 64 bits e clique duas vezes em **`build_windows.bat`**. O script
   cria um ambiente isolado, instala `requirements.txt` e `requirements-dev.txt`, roda os testes e gera:
-  - `release\DDClassicoBot\DDClassicoBot.exe` (pasta) e `release\DDClassicoBot.zip`
-  - `release\DDClassicoBot.exe` (arquivo único)
+  - `release\JonFlow\JonFlow.exe` (pasta) e `release\JonFlow.zip`
+  - `release\JonFlow.exe` (arquivo único)
 - **Publicar uma versão:** atualize `src/ddbot/__init__.py` e `packaging/version_info.txt`, faça o merge na `main`
-  e envie uma tag `vX.Y.Z` (`git tag v0.2.1 && git push origin v0.2.1`). A CI compila, testa os dois executáveis
+  e envie uma tag `vX.Y.Z` (`git tag v0.3.0 && git push origin v0.3.0`). A CI compila, testa os dois executáveis
   e cria a Release com o ZIP, o `.exe`, `SHA256SUMS.txt`, `build-info.json` e os relatórios de teste.
 - **CI:** `.github/workflows/windows-build.yml` testa no Linux e no Windows, compila, extrai o ZIP numa pasta sem
   Python, roda o autoteste e o teste de interface do `.exe` e publica o ZIP como artefato.
@@ -142,6 +158,7 @@ arquivo antigo como `config.corrompido-<data>.json`.
   - `--gui-smoke S`: abre a interface e exercita Iniciar/Pausar/Retomar/Parar/Emergência em modo simulado.
 - **Testes:** `python -m pytest -q tests`. Detalhes em [`docs/TESTES.md`](docs/TESTES.md).
 - **Arquitetura:**
+  - jogo e launcher: `detection.py` (detectar jogo), `game_window.py` (perfil, foco), `winapi.py`;
   - percepção: `capture.py`, `vision/`;
   - decisão: `aiming.py`, `physics.py`, `calibration.py`, `tracking.py`, `combat.py`, `activities.py`;
   - execução: `automation/` (SendInput com travas);

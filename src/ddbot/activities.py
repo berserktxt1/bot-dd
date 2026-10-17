@@ -288,6 +288,7 @@ class RunLimits:
     confirm_reads: int = 2        # leituras iguais para aceitar uma tela nova
     click_retry_s: float = 5.0    # repete o último clique se a tela não mudou
     optional_wait_s: float = 1.5  # tempo procurando um botão opcional antes de pular
+    missing_warn_s: float = 5.0   # avisa (uma vez por tela) que um botão obrigatório não aparece
     focus_grace_s: float = 5.0    # sem foco por mais que isso: pausa
     max_consecutive_errors: int = 3
 
@@ -373,6 +374,7 @@ class ActivityRunner:
         self._last_click_idx: int | None = None
         self._last_click_at = 0.0
         self._action_first_try: float | None = None
+        self._missing_warned = False
         self._unknown_since: float | None = None
         self._nofocus_since: float | None = None
         self._recovery_attempts: dict[tuple, int] = {}
@@ -458,6 +460,7 @@ class ActivityRunner:
         self._visit_done_actions = 0
         self._last_click_idx = None
         self._action_first_try = None
+        self._missing_warned = False
 
     # -------------------------------------------------------------- limites
     def _limits_reached(self) -> str | None:
@@ -650,8 +653,14 @@ class ActivityRunner:
             else:
                 self._sleep(0.3)
             return True
-        if now - self._visit_started > self.limits.stuck_timeout_s / 2:
+        give_up = self.limits.stuck_timeout_s / 2
+        if now - self._visit_started > give_up:
             return self._recover(f"botão '{a.target}' não encontrado na tela '{state}'", screen)
+        if not self._missing_warned and now - self._action_first_try >= self.limits.missing_warn_s:
+            # não deixa o usuário olhando uma tela parada sem saber o motivo
+            self._missing_warned = True
+            left = max(1, round(give_up - (now - self._visit_started)))
+            self._emit("aviso", f"procurando {a.target} na tela {state}; se não aparecer em {left} s, o bot pausa")
         self._sleep(self.POLL_S)
         return True
 

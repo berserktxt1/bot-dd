@@ -89,9 +89,45 @@ def run_screenshots(app, out: Path, report: dict, done):
     def add(delay, fn):
         steps.append((delay, fn))
 
+    def snap_dialog(name):
+        dlg = app.detect_dialog
+        if dlg is None:
+            return
+        dlg.update_idletasks()
+        path = out / f"{tag}_{name}.png"
+        if _grab(dlg, path):
+            shots.append(path.name)
+        layout[name] = audit_layout(dlg)
+
+    def detect_steps():
+        from ..detection import CHOOSE, Candidate, Detection
+        from ..winapi import WindowInfo
+        app.open_detect()
+        report["principal_minimizada_ao_detectar"] = root.state() == "iconic"
+        root.after(1500, lambda: snap_dialog("01b_detectar_procurando"))
+
+        def choose():
+            dlg = app.detect_dialog
+            fake = [WindowInfo(1, "DDTank - servidor 1", 0, 0, 1000, 600, pid=1, exe="cliente.exe"),
+                    WindowInfo(2, "DDTank - servidor 2", 0, 0, 1000, 600, pid=2, exe="cliente.exe")]
+            dlg.mode = "procurando"
+            dlg._on_detection(Detection(CHOOSE, candidates=[Candidate(w, 50) for w in fake]))
+            root.after(800, lambda: (snap_dialog("01c_detectar_escolher"), confirm()))
+
+        def confirm():
+            dlg = app.detect_dialog
+            w = WindowInfo(3, "Launcher", 0, 0, 1100, 680, pid=3, exe="launcher.exe")
+            dlg.shown, dlg.mode = w, "confirmar"
+            dlg._render()
+            root.after(800, lambda: (snap_dialog("01d_detectar_confirmar"), dlg.close(),
+                                     report.__setitem__("principal_restaurada", root.state() == "normal")))
+        root.after(2500, choose)
+
     t = 0.5
     add(t, lambda: (app.nb.select(app.tab_home), snap("01_inicio_sem_jogo")))
-    t += 0.8
+    t += 0.6
+    add(t, detect_steps)
+    t += 5.5
     add(t, lambda: (app.simulated.set(True), app._toggle_demo(), app.run_mode.set("qtd"), app.run_count.set(3),
                     snap("02_pronto_demonstracao")))
     t += 0.8

@@ -205,7 +205,7 @@ def _single_instance(home: Path | None):
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="DDClassicoBot")
+    ap = argparse.ArgumentParser(prog="JonFlow")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--simulate", type=int, default=0)
     ap.add_argument("--gui-smoke", type=float, default=0.0)
@@ -236,7 +236,7 @@ def main(argv=None) -> int:
 
 
 def _already_open():
-    _print("O DDClássico Bot já está aberto.")
+    _print("O JonFlow já está aberto.")
     if os.environ.get("DDBOT_SMOKE_OUT") or os.environ.get("DDBOT_HEADLESS"):
         return
     try:
@@ -244,7 +244,7 @@ def _already_open():
         from tkinter import messagebox
         r = tk.Tk()
         r.withdraw()
-        messagebox.showinfo("DDClássico Bot", "O programa já está aberto. Procure a janela na barra de tarefas.")
+        messagebox.showinfo("JonFlow", "O programa já está aberto. Procure a janela na barra de tarefas.")
         r.destroy()
     except Exception:
         pass

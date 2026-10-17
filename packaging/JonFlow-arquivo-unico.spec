@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Gera dist-unico/DDClassicoBot.exe: um arquivo só, que roda sem a pasta _internal.
+# Gera dist-unico/JonFlow.exe: um arquivo só, que roda sem a pasta _internal.
 # Ao abrir, o PyInstaller extrai os recursos numa pasta temporária (início um pouco mais lento);
 # os dados do usuário ficam em 'dados' ao lado do .exe, como na versão em pasta.
 from pathlib import Path
@@ -11,6 +11,7 @@ datas = [
     (str(ROOT / "data" / "instances"), "data/instances"),
     (str(ROOT / "data" / "templates"), "data/templates"),
     (str(ROOT / "config" / "default_config.json"), "config"),
+    (str(ROOT / "assets" / "jonflow-icon.png"), "assets"),
 ]
 
 a = Analysis(
@@ -28,9 +29,10 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="DDClassicoBot",
+    name="JonFlow",
     console=False,
     upx=False,
     runtime_tmpdir=None,
     version=str(ROOT / "packaging" / "version_info.txt"),
+    icon=str(ROOT / "assets" / "jonflow.ico"),
 )
