@@ -181,6 +181,10 @@ class MainWindow:
         self.lbl_desc.grid(row=2, column=0, sticky="we")
         self.lbl_ready = ttk.Label(b, text="", style="SurfaceMuted.TLabel", justify="left", wraplength=px(480))
         self.lbl_ready.grid(row=3, column=0, sticky="we", pady=(px(6), 0))
+        self.lbl_ready.grid_remove()  # só ocupa espaço quando há o que dizer
+        # os textos acompanham a largura do painel (em telas baixas cada linha a mais tira espaço do histórico)
+        b.bind("<Configure>", lambda e: [w.configure(wraplength=max(px(240), e.width - px(8)))
+                                         for w in (self.lbl_desc, self.lbl_ready)], add="+")
         self.btn_goto_calib = ttk.Button(b, text="Capturar opções do jogo", command=self._goto_options)
         self.btn_goto_calib.grid(row=4, column=0, sticky="w", pady=(px(6), 0))
 
@@ -680,14 +684,15 @@ class MainWindow:
     def _show_readiness(self, d):
         """Diz antes de iniciar o que falta calibrar para a atividade rodar sozinha no jogo."""
         if d is None:
-            self.lbl_ready.configure(text="", style="SurfaceMuted.TLabel")
+            self.lbl_ready.grid_remove()
             self.btn_goto_calib.configure(text="Capturar opções do jogo", command=self._goto_options)
             self.btn_goto_calib.grid()
             return
         if d.key.startswith(DEMO_KEY) or self.simulated.get():
-            self.lbl_ready.configure(text="")
+            self.lbl_ready.grid_remove()
             self.btn_goto_calib.grid_remove()
             return
+        self.lbl_ready.grid()
         from ..readiness import summary
         missing = summary(self.svc.readiness(d), limit=6)
         if missing:
