@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1F5FAD"/>
+      <stop offset="1" stop-color="#0E1C33"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E9EEF4"/>
+      <stop offset="0.5" stop-color="#9AA8B8"/>
+      <stop offset="1" stop-color="#4C5A6B"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFE38A"/>
+      <stop offset="1" stop-color="#F0A500"/>
+    </linearGradient>
+    <radialGradient id="blast" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.35" stop-color="#FFE38A"/>
+      <stop offset="0.75" stop-color="#FF7A1A"/>
+      <stop offset="1" stop-color="#FF7A1A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)"/>
+  <!-- trajetória do disparo (arco de artilharia) -->
+  <path d="M112 150 Q 160 30 214 92" fill="none" stroke="url(#gold)" stroke-width="7"
+        stroke-linecap="round" stroke-dasharray="2 15"/>
+  <!-- projétil com brilho -->
+  <circle cx="214" cy="94" r="26" fill="url(#blast)"/>
+  <circle cx="214" cy="94" r="9" fill="#FFFFFF"/>
+  <!-- super arma: canhão grosso inclinado, com anéis e boca reforçada -->
+  <g transform="rotate(-48 92 176)">
+    <rect x="70" y="156" width="104" height="40" rx="12" fill="url(#metal)" stroke="#0E1C33" stroke-width="5"/>
+    <rect x="160" y="148" width="26" height="56" rx="8" fill="url(#gold)" stroke="#0E1C33" stroke-width="5"/>
+    <rect x="100" y="152" width="12" height="48" rx="4" fill="url(#gold)" stroke="#0E1C33" stroke-width="4"/>
+    <rect x="126" y="152" width="12" height="48" rx="4" fill="url(#gold)" stroke="#0E1C33" stroke-width="4"/>
+  </g>
+  <!-- base/tanque com esteira -->
+  <path d="M44 186 L 70 160 L 128 160 L 150 186 Z" fill="#2B4C7E" stroke="#0E1C33" stroke-width="5"
+        stroke-linejoin="round"/>
+  <circle cx="92" cy="166" r="20" fill="url(#gold)" stroke="#0E1C33" stroke-width="5"/>
+  <rect x="34" y="184" width="128" height="34" rx="17" fill="#22324A" stroke="#0E1C33" stroke-width="5"/>
+  <circle cx="54" cy="201" r="9" fill="url(#metal)"/>
+  <circle cx="82" cy="201" r="9" fill="url(#metal)"/>
+  <circle cx="110" cy="201" r="9" fill="url(#metal)"/>
+  <circle cx="138" cy="201" r="9" fill="url(#metal)"/>
+</svg>

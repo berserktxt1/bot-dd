@@ -1,4 +1,4 @@
-"""Sistema visual do DDClássico Bot: cores, tipografia, espaçamento e estilos ttk.
+"""Sistema visual do JonFlow: cores, tipografia, espaçamento e estilos ttk.
 
 Direção: painel de instrumento de pontaria. Fundo frio e neutro, um azul-aço para a
 ação principal, latão só nos números da mira e cores de estado sempre acompanhadas
@@ -120,6 +120,7 @@ class Theme:
         st.configure("Count.TLabel", background=SURFACE, foreground=INK, font=f["count"])
         st.configure("Strong.TLabel", background=SURFACE, font=f["strong"])
         st.configure("Error.TLabel", foreground="#B3261E", font=f["strong"])
+        st.configure("SurfaceError.TLabel", background=SURFACE, foreground="#B3261E", font=f["strong"])
         # botões: secundário, principal e crítico
         pad = (px(14), px(7))
         st.configure("TButton", background=SURFACE, foreground=INK, bordercolor=LINE, lightcolor=SURFACE,

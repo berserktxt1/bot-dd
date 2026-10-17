@@ -1,17 +1,21 @@
-DDClassico Bot - como usar (resumo)
-===================================
+JonFlow - bot para DDTank (DDClassico) - como usar (resumo)
+==========================================================
 
-1. Abra o jogo DDClassico no computador.
-2. Abra a pasta DDClassicoBot e clique duas vezes em DDClassicoBot.exe.
+1. Abra a pasta JonFlow e clique duas vezes em JonFlow.exe.
    (Nao precisa instalar Python nem nada.)
-3. No topo, escolha a janela do jogo e clique em Atualizar se ela nao aparecer.
-4. Primeira vez: aba "Calibracao" (veja LEIA-ME.md, secao "Primeira configuracao").
-5. Aba "Configuracoes": leia o aviso e marque a autorizacao do modo automatico.
-6. Aba "Inicio": escolha Instancias ou Partidas automaticas, a atividade, quantas vezes,
+2. Abra o DDClassico pelo launcher e clique em "Detectar jogo", no topo.
+   O JonFlow se minimiza e procura o jogo sozinho. Se so o launcher estiver aberto,
+   ele espera: entre no jogo pelo launcher e ele conecta quando o jogo aparecer.
+   Confira a previa e clique em Pronto (ou "Sim, e o jogo").
+3. Primeira vez: aba "Calibracao" (veja LEIA-ME.md, secao "Primeira configuracao").
+4. Aba "Configuracoes": leia o aviso e marque a autorizacao do modo automatico.
+5. Aba "Inicio": escolha Instancias ou Partidas automaticas, a atividade, quantas vezes,
    e clique em Iniciar (F5). Pausar/Retomar: F6. Parar: F8.
-7. Parada de emergencia: tecla F12 (configuravel), a qualquer momento, mesmo no jogo.
+   Durante a rotina o JonFlow fica minimizado e volta quando pausar ou terminar.
+6. Parada de emergencia: tecla F12 (configuravel), a qualquer momento, mesmo no jogo.
 
-Para conhecer a interface sem o jogo, ligue "Modo demonstracao" no canto superior direito.
+Para conhecer a interface sem o jogo, ligue "Modo demonstracao" no canto superior direito:
+aparecem uma instancia e uma partida simuladas (nada e enviado ao jogo).
 Os dados (configuracao, modelos capturados, historico de disparos) ficam na pasta
-"dados", ao lado do DDClassicoBot.exe. Para levar para outro computador, copie a
+"dados", ao lado do JonFlow.exe. Para levar para outro computador, copie a
 pasta inteira.

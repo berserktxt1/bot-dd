@@ -187,3 +187,94 @@ def test_menu_rows_with_small_offsets():
         cv2.rectangle(img, (x, y), (x + 180, y + 140), (90 + 40 * c, 140, 200), -1)
     tiles = detect_option_tiles(img)
     assert [t[0] for t in tiles] == sorted(t[0] for t in tiles)
+
+
+def test_learned_scale_and_late_template_still_found(tmp_path):
+    """Escala memorizada acelera as buscas, mas um modelo de outro tamanho ainda é achado."""
+    import cv2
+    from ddbot.vision.templates import FULL_EVERY, TemplateLibrary
+    rng = np.random.default_rng(5)
+    lib = TemplateLibrary(tmp_path)
+    a = rng.integers(0, 255, (40, 120, 3), dtype=np.uint8)
+    b = rng.integers(0, 255, (40, 120, 3), dtype=np.uint8)
+    lib.add("estado_a", a)
+    lib.add("estado_b", b)
+    frame = np.full((600, 1000, 3), 60, np.uint8)
+    frame[100:140, 100:220] = a                                     # escala 1,0
+    frame[300:350, 400:550] = cv2.resize(b, (150, 50))              # escala 1,25
+    assert lib.best("estado_a", frame).score > 0.95
+    found = [lib.best("estado_b", frame).score for _ in range(FULL_EVERY + 1)]
+    assert max(found) > 0.9  # achado na busca completa periódica
+    m = lib.best("estado_b", frame)
+    assert m.score > 0.9 and abs(m.rect[0] - 400) <= 2 and abs(m.rect[2] - 150) <= 4
+
+
+def test_marker_scale_uses_winning_sample(tmp_path):
+    """Dois tamanhos de amostra do marcador: o tamanho vem da amostra que venceu."""
+    import cv2
+    from ddbot.config import Config
+    from ddbot.vision.perception import Perception
+    from ddbot.vision.templates import TemplateLibrary
+    rng = np.random.default_rng(9)
+    big = rng.integers(0, 255, (44, 44, 3), dtype=np.uint8)
+    small = cv2.resize(rng.integers(0, 255, (30, 30, 3), dtype=np.uint8), (30, 30))
+    lib = TemplateLibrary(tmp_path)
+    lib.add("marcador_inimigo", big)
+    lib.add("marcador_inimigo", small)
+    frame = np.full((600, 1000, 3), 60, np.uint8)
+    frame[300:330, 600:630] = small
+    per = Perception(Config(data={}), lib, tmp_path)
+    found = per._locate(frame, "inimigo", "marcador_inimigo", {"mode": "template"})
+    assert found and abs(found[0].x - 615) < 3 and abs(found[0].y - 315) < 3
+
+
+def test_wind_arrow_outside_digit_region_gives_direction(tmp_path):
+    """Região do vento só com os números; a seta ao lado ainda dá o sentido, sem inverter duas vezes."""
+    import cv2
+    from ddbot.config import Config
+    from ddbot.vision.perception import Perception, Snapshot
+    from ddbot.vision.templates import TemplateLibrary
+
+    def digits(t, w=70):
+        img = np.zeros((30, w, 3), np.uint8)
+        cv2.putText(img, t, (4, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        return img
+    rng = np.random.default_rng(2)
+    arrow_l = rng.integers(0, 255, (24, 24, 3), dtype=np.uint8)
+    arrow_r = rng.integers(0, 255, (24, 24, 3), dtype=np.uint8)
+    lib = TemplateLibrary(tmp_path)
+    lib.add("vento_esquerda", arrow_l)
+    lib.add("vento_direita", arrow_r)
+    cfg = Config(data={"regions": {"wind": [0.5, 0.05, 0.07, 0.05]}})  # 70x30 em 1000x600
+    per = Perception(cfg, lib, tmp_path)
+    for t in ("12", "34", "5.6", "7.8", "90"):
+        assert per.wind_reader.learn(digits(t), t)
+    frame = np.zeros((600, 1000, 3), np.uint8)
+    frame[30:60, 500:570] = digits("2.5")
+    frame[33:57, 470:494] = arrow_l          # seta à esquerda, fora da região dos números
+    snap = Snapshot(width=1000, height=600)
+    per.read_wind(frame, snap)
+    assert snap.wind == -2.5
+    frame[33:57, 470:494] = arrow_r
+    snap = Snapshot(width=1000, height=600)
+    per.read_wind(frame, snap)
+    assert snap.wind == 2.5
+
+
+def test_victory_banner_over_battle_wins(tmp_path):
+    from ddbot.config import Config
+    from ddbot.vision.perception import Perception, Snapshot
+    from ddbot.vision.templates import TemplateLibrary
+    rng = np.random.default_rng(4)
+    hud = rng.integers(0, 255, (40, 120, 3), dtype=np.uint8)
+    win = rng.integers(0, 255, (40, 120, 3), dtype=np.uint8)
+    lib = TemplateLibrary(tmp_path)
+    lib.add("estado_batalha", hud)
+    lib.add("estado_vitoria", win)
+    frame = np.full((600, 1000, 3), 60, np.uint8)
+    frame[500:540, 100:220] = hud                     # painel da batalha, intacto
+    noisy = np.clip(win.astype(int) + rng.integers(-40, 40, win.shape), 0, 255).astype(np.uint8)
+    frame[200:240, 440:560] = noisy                   # faixa de vitória, um pouco menos nítida
+    snap = Snapshot(width=1000, height=600)
+    Perception(Config(data={}), lib, tmp_path).classify_state(frame, snap)
+    assert snap.state == "vitoria"

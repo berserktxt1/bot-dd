@@ -1,3 +1,3 @@
-"""DDClássico Bot — captura, análise, mira assistida e automação opcional."""
-__version__ = "0.2.1"
-APP_NAME = "DDClassicoBot"
+"""JonFlow — bot para DDTank (DDClássico): captura, análise, mira assistida e automação opcional."""
+__version__ = "0.3.0"
+APP_NAME = "JonFlow"

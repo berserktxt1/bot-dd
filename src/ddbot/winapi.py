@@ -258,6 +258,111 @@ if IS_WINDOWS:
         h = user32.WindowFromPoint(wintypes.POINT(int(x), int(y)))
         return int(h) if h else 0
 
+    # ------------------------------------------------------- processos (só leitura)
+    class PROCESSENTRY32W(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
+                    ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", wintypes.DWORD),
+                    ("cntThreads", wintypes.DWORD), ("th32ParentProcessID", wintypes.DWORD),
+                    ("pcPriClassBase", ctypes.c_long), ("dwFlags", wintypes.DWORD),
+                    ("szExeFile", ctypes.c_wchar * 260)]
+
+    kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+
+    def process_parents() -> dict[int, int]:
+        """pid -> pid do processo que o abriu (lista de processos do Windows; nada é aberto)."""
+        out: dict[int, int] = {}
+        snap = kernel32.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+        if not snap or snap == wintypes.HANDLE(-1).value:
+            return out
+        try:
+            e = PROCESSENTRY32W(dwSize=ctypes.sizeof(PROCESSENTRY32W))
+            ok = kernel32.Process32FirstW(snap, ctypes.byref(e))
+            while ok:
+                out[int(e.th32ProcessID)] = int(e.th32ParentProcessID)
+                ok = kernel32.Process32NextW(snap, ctypes.byref(e))
+        finally:
+            kernel32.CloseHandle(snap)
+        return out
+
+    # ------------------------------------------------- captura pela própria janela
+    gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
+    user32.GetDC.argtypes = [wintypes.HWND]
+    user32.GetDC.restype = wintypes.HDC
+    user32.ReleaseDC.argtypes = [wintypes.HWND, wintypes.HDC]
+    user32.PrintWindow.argtypes = [wintypes.HWND, wintypes.HDC, wintypes.UINT]
+    gdi32.CreateCompatibleDC.argtypes = [wintypes.HDC]
+    gdi32.CreateCompatibleDC.restype = wintypes.HDC
+    gdi32.CreateCompatibleBitmap.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int]
+    gdi32.CreateCompatibleBitmap.restype = wintypes.HBITMAP
+    gdi32.SelectObject.argtypes = [wintypes.HDC, wintypes.HGDIOBJ]
+    gdi32.SelectObject.restype = wintypes.HGDIOBJ
+    gdi32.DeleteObject.argtypes = [wintypes.HGDIOBJ]
+    gdi32.DeleteDC.argtypes = [wintypes.HDC]
+    gdi32.GetDIBits.argtypes = [wintypes.HDC, wintypes.HBITMAP, wintypes.UINT, wintypes.UINT, ctypes.c_void_p,
+                                ctypes.c_void_p, wintypes.UINT]
+
+    class BITMAPINFOHEADER(ctypes.Structure):
+        _fields_ = [("biSize", wintypes.DWORD), ("biWidth", ctypes.c_long), ("biHeight", ctypes.c_long),
+                    ("biPlanes", wintypes.WORD), ("biBitCount", wintypes.WORD), ("biCompression", wintypes.DWORD),
+                    ("biSizeImage", wintypes.DWORD), ("biXPelsPerMeter", ctypes.c_long),
+                    ("biYPelsPerMeter", ctypes.c_long), ("biClrUsed", wintypes.DWORD),
+                    ("biClrImportant", wintypes.DWORD)]
+
+    def print_window(hwnd, width: int, height: int):
+        """Imagem BGRA da área cliente pedida à própria janela (funciona com ela coberta por outra).
+
+        Usa PrintWindow com PW_CLIENTONLY | PW_RENDERFULLCONTENT. Devolve None se o Windows recusar;
+        alguns jogos devolvem imagem preta (quem chama confere).
+        """
+        import numpy as np
+        if width <= 0 or height <= 0:
+            return None
+        hdc = user32.GetDC(hwnd)
+        if not hdc:
+            return None
+        mem = gdi32.CreateCompatibleDC(hdc)
+        bmp = gdi32.CreateCompatibleBitmap(hdc, width, height)
+        old = gdi32.SelectObject(mem, bmp)
+        try:
+            if not user32.PrintWindow(hwnd, mem, 0x1 | 0x2):
+                return None
+            bih = BITMAPINFOHEADER(ctypes.sizeof(BITMAPINFOHEADER), width, -height, 1, 32, 0, 0, 0, 0, 0, 0)
+            buf = np.empty((height, width, 4), dtype=np.uint8)
+            if gdi32.GetDIBits(mem, bmp, 0, height, buf.ctypes.data, ctypes.byref(bih), 0) != height:
+                return None
+            return buf
+        finally:
+            gdi32.SelectObject(mem, old)
+            gdi32.DeleteObject(bmp)
+            gdi32.DeleteDC(mem)
+            user32.ReleaseDC(hwnd, hdc)
+
+    # ------------------------------------------------- escolher a janela com um clique
+    user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
+    user32.GetAsyncKeyState.restype = ctypes.c_short
+    user32.GetCursorPos.argtypes = [ctypes.POINTER(wintypes.POINT)]
+
+    def cursor_pos() -> tuple[int, int]:
+        pt = wintypes.POINT()
+        user32.GetCursorPos(ctypes.byref(pt))
+        return pt.x, pt.y
+
+    def key_down(vk: int) -> bool:
+        """Estado físico de uma tecla/botão (só leitura; usado para escolher a janela com um clique)."""
+        return bool(user32.GetAsyncKeyState(vk) & 0x8000)
+
+    def own_pid() -> int:
+        return int(kernel32.GetCurrentProcessId())
+
+    def virtual_screen() -> tuple[int, int, int, int] | None:
+        """Retângulo que cobre todos os monitores: x, y, largura, altura."""
+        m = user32.GetSystemMetrics
+        w, h = m(78), m(79)  # SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN
+        return (m(76), m(77), w, h) if w and h else None
+
 else:  # Linux/macOS: só para desenvolvimento e testes
     def list_windows(min_size: int = 100) -> list[WindowInfo]:
         return []
@@ -296,6 +401,25 @@ else:  # Linux/macOS: só para desenvolvimento e testes
 
     def window_at(x: int, y: int) -> int:
         return 0
+
+    def process_parents() -> dict[int, int]:
+        return {}
+
+    def print_window(hwnd, width: int, height: int):
+        return None
+
+    def cursor_pos() -> tuple[int, int]:
+        return 0, 0
+
+    def key_down(vk: int) -> bool:
+        return False
+
+    def own_pid() -> int:
+        import os
+        return os.getpid()
+
+    def virtual_screen():
+        return None
 
     def send_key(key: str, up: bool):
         raise RuntimeError("Envio de teclas só é suportado no Windows")

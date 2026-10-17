@@ -1,9 +1,87 @@
 # Andamento
 
-Última atualização: 2026-10-16. Versão 0.2.1.
+Última atualização: 2026-10-16. Versão 0.3.0 (**JonFlow**, antes *DDClássico Bot*).
 
-> **Nada foi testado no cliente real do DDClássico.** Todos os resultados abaixo vêm de testes unitários,
-> simulações, imagens sintéticas e da execução do `.exe` no Windows da CI (sem o jogo).
+> **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
+> testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
+> execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Versão 0.3.0
+
+### Problemas relatados e causas encontradas
+
+| Problema | Causa real | Correção |
+|---|---|---|
+| Partida de demonstração parava no lobby | O cliente simulado só tinha o caminho lobby → menu de **instâncias**. O clique em "abrir partidas" falhava em silêncio e o bot só reclamaria depois de 30 s. | Caminho lobby → menu de partidas → sala no simulador; opção certa por tipo; aviso em 5 s quando um botão obrigatório não aparece. |
+| Escolher entre "Launcher" e "Jogo" confundia e não resolvia | A identificação dependia do usuário saber qual janela é qual. | **Detectar jogo** (`detection.py`): parentesco de processos (o launcher abre o jogo, inclusive por um processo intermediário sem janela), janela que aparece durante a espera, área interna onde o jogo é desenhado, perfil confirmado e palavras-chave só como ponto de partida. Escolhe sozinho com evidência forte; senão pergunta com prévia ("É o jogo" / "É o launcher" / "Não é esta") ou mostra a lista. |
+| A janela do bot ficava na frente e impedia a seleção | O assistente era uma janela por cima da principal, e a prévia e a captura copiavam a **tela** (MSS): o que estava na frente do jogo, inclusive o próprio bot, era o que aparecia. | A janela principal minimiza ao detectar e volta ao fechar; camada "Mostrar onde está o jogo" (o clique fica na camada, não chega ao jogo; Esc cancela); captura pedida à própria janela (`PrintWindow`); se o jogo não permitir, a cópia da tela só é usada com a área do jogo descoberta. Durante a rotina real a janela do bot minimiza e volta ao pausar/terminar. |
+| Partidas e Instâncias difíceis de usar | A lista voltava sempre ao primeiro item ao trocar de seção; Iniciar ficava ativo sem atividade; sem calibração a rotina real começava, lia tudo como "tela desconhecida" e pausava sem dizer o que faltava. | Escolha mantida por seção; Iniciar só com atividade válida; orientação quando a lista está vazia; **verificação de calibração** (`readiness.py`): o Início lista o que falta (telas, botões, ângulo, vento, setas, turno, marcadores) e Iniciar no jogo real é recusado com essa lista. |
+| Nome | — | **JonFlow**, com logo e ícone próprios (canhão de artilharia com o disparo em arco, no estilo DDTank; a logo oficial do DDTank é marca registrada e não foi copiada). Dados antigos em `%LOCALAPPDATA%\DDClassicoBot` continuam sendo usados. |
+
+### Auditoria do jogo automático (combate, visão, mira)
+
+Revisão sistemática de `combat.py`, `game_io.py`, `automation/`, `vision/`, `capture.py`, `aiming.py`,
+`physics.py`, `calibration.py` e `tracking.py`. Cada defeito confirmado ganhou teste de regressão.
+
+| Área | Defeito | Efeito no jogo | Correção |
+|---|---|---|---|
+| Combate | Um quadro de explosão lido como "vitória" zerava o turno | Segundo disparo no mesmo turno | Fim de batalha só com leituras seguidas; intervalo mínimo mantido |
+| Combate | Alvo seguido morto/sumido com outro inimigo visível | Batalha travada até o tempo máximo (900 s) | Troca para um inimigo visível depois de ~2 s, com histórico novo |
+| Combate | Barra de força ilegível (lê 0) no modo visual | Todo disparo ~10% forte | Sem leitura boa, solta pelo tempo |
+| Combate | Falha de captura durante a carga | Disparo fraco e não registrado | Falha conta como leitura perdida; segue pelo tempo |
+| Combate | Leituras de ângulo que nunca coincidem eram aceitas | Ângulo errado | Sem confirmação, não atira |
+| Combate | 3 leituras ruins no começo do turno (câmera) | Turno perdido | Só desiste após 3 leituras **e** 5 s |
+| Visão | Seta do vento precisava estar na região dos números | Vento nunca lido (ou dígitos impossíveis de treinar) | Setas procuradas ao lado dos números |
+| Visão | Sinal lido como dígito somado ao sentido da seta | Vento com sinal invertido | Sentido só pelas setas; "-" não é aprendido no vento |
+| Visão | Marcador com amostras de tamanhos diferentes | Personagens não encontrados | Escala da amostra vencedora |
+| Visão | Busca de modelos em 7 escalas na tela inteira a cada leitura | 1,3 s (1000×600) e 4,6 s (1080p) por leitura | Escala memorizada + meia resolução: 0,16 s e 0,46 s |
+| Visão | Faixa de vitória sobre o painel da batalha | Fim de batalha atrasado | Vitória/derrota/desconexão vencem a batalha |
+| Visão | Janela do jogo fechada entre leitura e clique | Clique em coordenadas da área de trabalho | Clique cancelado |
+| Mira | Tabela de 20° ignorava o vento | Viés de ±0,3 da régua com vento 3 | Força corrigida pelo vento |
+| Mira | Viés geral da arma aumentava a confiança de métodos nunca usados | Probabilidade otimista | Só disparos do próprio método |
+| Mira | Vento NaN derrubava o cálculo; alvo colado no personagem | Erro / tiro em si mesmo | Recusados com motivo |
+| Mira | 0,27 s por recomendação | Menos tempo no turno | 0,09 s, mesmas escolhas |
+| Calibração | Histórico inteiro recalculado a cada disparo | Custo crescente em sessões longas | Previsões memorizadas |
+
+**O que o código não faz (limites honestos):** não enxerga o terreno, paredes nem teto (o bloqueio por
+terreno só funciona com um perfil passado ao cálculo); usa um conjunto global de constantes físicas
+ajustado a tabelas da comunidade, não ao DDClássico; para inimigo invisível, só estima a partir da última
+posição vista e espera quando a incerteza é grande; não trata habilidades e armas especiais além de
+fatores configuráveis por arma; as probabilidades de acerto só passam a significar algo depois de
+disparos reais registrados.
+
+### Resultados confirmados (CI 38987570650, commit `c53d980`, branch `release/0.3.0`)
+
+| Onde | Resultado |
+|---|---|
+| Linux (Xvfb) | 210 aprovados, 3 pulados (só Windows) |
+| Windows, código-fonte | 213 de 213 aprovados, 0 pulados; inclui o teste de interface e os 3 testes com janelas e processos reais |
+| Detecção com janelas reais (Windows da CI) | launcher de teste sozinho → "é o launcher" → espera; o launcher abre o jogo num processo filho → conectado sozinho, launcher reconhecido, captura é a do jogo; jogo coberto por outra janela → a captura nunca traz a janela da frente |
+| `.exe` da pasta (ZIP extraído, sem Python no PATH) | autoteste OK; interface OK (atraso máximo 103 ms), incluindo Detectar jogo minimizando e restaurando a janela principal |
+| `.exe` em pasta sem permissão de escrita | interface OK, dados em `%LOCALAPPDATA%\JonFlow` |
+| `.exe` de arquivo único | autoteste OK; interface OK (atraso máximo 88 ms) |
+| Capturas da interface (100%, 125%, 150%) | sem texto cortado nem área fora da janela; inclui a janela Detectar jogo (procurando, escolher, confirmar) |
+| Linux sem gerenciador de janelas | minimizar não é verificável no Xvfb: conferido só no Windows |
+
+Desempenho medido no ambiente de desenvolvimento: recomendação de mira 89 ms (antes 266 ms); classificação
+da tela com 11 modelos 0,16 s a 1000×600 (antes 1,3 s) e 0,46 s a 1080p (antes 4,6 s).
+
+### O que foi simulado (e não prova o jogo real)
+
+- Demonstração: cliente simulado com lobby, menus, sala, batalha, resultado e falhas (pop-up, tela
+  desconhecida, desconexão, perda de foco, clique ignorado). Testadas uma partida, três seguidas, repetição
+  contínua até parar, uma instância completa, pausa, retomada e emergência.
+- Detecção: janelas e processos de teste no Windows (`tests/fixtures/fake_window.py`), não o launcher real.
+- Visão e mira: imagens sintéticas e tabelas da comunidade, não capturas do DDClássico.
+
+### O que ainda depende do seu computador
+
+1. Detectar jogo com o launcher real (roteiro em `docs/TESTES.md`, seção "Launcher").
+2. Calibração no cliente real (telas, botões, números, setas, marcadores) e o Diagnóstico ao vivo.
+3. Uma instância e uma partida PvE do início ao fim, com o dedo no F12, e depois várias seguidas.
+4. Conferir se a captura pela janela funciona com o cliente (se aparecer "outra janela está na frente do
+   jogo", o jogo não permite e precisa ficar visível).
+5. Regras do servidor sobre automação (não verificadas).
 
 ## Versão 0.2.1
 

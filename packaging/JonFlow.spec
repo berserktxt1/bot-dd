@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Gera dist/DDClassicoBot/DDClassicoBot.exe (pasta portátil, sem console).
+# Gera dist/JonFlow/JonFlow.exe (pasta portátil, sem console).
 from pathlib import Path
 
 ROOT = Path(SPECPATH).parent
@@ -9,6 +9,7 @@ datas = [
     (str(ROOT / "data" / "instances"), "data/instances"),
     (str(ROOT / "data" / "templates"), "data/templates"),
     (str(ROOT / "config" / "default_config.json"), "config"),
+    (str(ROOT / "assets" / "jonflow-icon.png"), "assets"),
 ]
 
 a = Analysis(
@@ -25,9 +26,10 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="DDClassicoBot",
+    name="JonFlow",
     console=False,
     upx=False,
     version=str(ROOT / "packaging" / "version_info.txt"),
+    icon=str(ROOT / "assets" / "jonflow.ico"),
 )
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="DDClassicoBot")
+coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="JonFlow")

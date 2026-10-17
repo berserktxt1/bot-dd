@@ -104,18 +104,22 @@ class Aimer:
         return self.calibrator.predict_offset(method, angle, force, ctx.wind, ctx.dy, ctx.distance,
                                               weapon=ctx.weapon.name)
 
-    def _sigma(self, angle, force, ctx, p, extra_sigma, n_obs=0):
+    def _sigma(self, angle, force, ctx, p, extra_sigma, learned=False):
         """Propaga incertezas (força, vento, medição, modelo) para o ponto de impacto."""
         a, f, w, dy = float(angle), float(force), ctx.wind, ctx.dy
-        x0 = float(landing_x(a, f, w, dy, p))
         h = 0.5
-        dxdf = (float(landing_x(a, f + h, w, dy, p)) - x0) / h
-        dxdw = (float(landing_x(a, f, w + 0.2, dy, p)) - x0) / 0.2
-        dxdy = (float(landing_x(a, f, w, dy + 0.2, p)) - x0) / 0.2
+        # as quatro trajetórias numa chamada só (derivadas por diferença finita)
+        xs = landing_x(a, np.array([f, f + h, f, f]), np.array([w, w, w + 0.2, w]),
+                       np.array([dy, dy, dy, dy + 0.2]), p)
+        x0 = float(xs[0])
+        dxdf = (float(xs[1]) - x0) / h
+        dxdw = (float(xs[2]) - x0) / 0.2
+        dxdy = (float(xs[3]) - x0) / 0.2
         if not all(np.isfinite([dxdf, dxdw, dxdy])):
             return float("inf")
-        # com disparos observados o erro do modelo já está na correção (e no sigma dela)
-        model_sigma = self.model_sigma_force * (0.4 if n_obs >= 5 else 1.0)
+        # com disparos observados DESTE método o erro do modelo já está na correção (e no sigma dela);
+        # o viés geral da arma não diz nada sobre a forma de outra trajetória
+        model_sigma = self.model_sigma_force * (0.4 if learned else 1.0)
         var = ((dxdf * self.FORCE_EXEC_SIGMA) ** 2 + (dxdf * model_sigma) ** 2
                + (dxdw * ctx.sigma_wind) ** 2 + (dxdy * ctx.sigma_dy) ** 2
                + ctx.sigma_distance ** 2 + extra_sigma ** 2)
@@ -137,20 +141,29 @@ class Aimer:
         ground = np.interp(pts[sel, 0], tx, ty, left=-np.inf, right=-np.inf)
         return bool(np.any(pts[sel, 1] < ground))
 
-    def _evaluate(self, method, angle, force, ctx, p, basis, documented=False):
+    def _evaluate(self, method, angle, force, ctx, p, basis, documented=False, solved=False,
+                  table_wind: float | None = None):
+        """``solved``: ``force`` já é a solução do modelo para este ângulo inteiro e esta distância.
+
+        ``table_wind``: vento sob o qual a força documentada vale (0 para tabelas sem regra de vento
+        no ângulo, como a de 20°: aí o vento precisa ser compensado na força).
+        """
         angle_exec = round_angle(angle)
         if not (ctx.angle_min <= angle_exec <= ctx.angle_max) or not (0 < force <= 100):
             return None
         offset, extra_sigma, n_obs = self._correction(method, angle_exec, force, ctx)
         corrected_target = ctx.distance - offset
         # reajusta a força para o ângulo inteiro e para o alvo corrigido
-        model_force = float(solve_force(angle_exec + ctx.weapon.angle_offset, corrected_target,
-                                        ctx.wind, ctx.dy, p))
+        if solved and offset == 0 and angle_exec == angle:
+            model_force = float(force)
+        else:
+            model_force = float(solve_force(angle_exec + ctx.weapon.angle_offset, corrected_target,
+                                            ctx.wind, ctx.dy, p))
         if documented and np.isfinite(model_force):
-            # mantém a força documentada e aplica só o delta do modelo para
-            # arredondamento do ângulo, altura e correção de calibração
+            # mantém a força documentada e aplica só o delta do modelo para arredondamento do
+            # ângulo, altura, vento não compensado pelo ângulo e correção de calibração
             nominal = float(solve_force(angle + ctx.weapon.angle_offset, ctx.distance,
-                                        ctx.wind, 0.0, p))
+                                        ctx.wind if table_wind is None else table_wind, 0.0, p))
             if np.isfinite(nominal):
                 force = force + (model_force - nominal)
         elif np.isfinite(model_force):
@@ -161,7 +174,9 @@ class Aimer:
         pred = float(landing_x(angle_exec + ctx.weapon.angle_offset, force, ctx.wind, ctx.dy, p)) + offset
         if not np.isfinite(pred):
             return None
-        sigma = self._sigma(angle_exec + ctx.weapon.angle_offset, force, ctx, p, extra_sigma, n_obs)
+        learned = n_obs >= 5 and self.calibrator is not None and self.calibrator.has_method_model(
+            method, ctx.weapon.name)
+        sigma = self._sigma(angle_exec + ctx.weapon.angle_offset, force, ctx, p, extra_sigma, learned)
         half = hit_half_width(ctx.target_width, ctx.weapon.blast_radius)
         bias = pred - ctx.distance
         prob = _phi((half - bias) / sigma) - _phi((-half - bias) / sigma) if np.isfinite(sigma) else 0.0
@@ -191,7 +206,7 @@ class Aimer:
                     continue
                 c = self._evaluate(key, m.angle_for(ctx.wind), f, ctx, p,
                                    [f"tabela documentada ({m.source})", "modelo ajustado às tabelas"],
-                                   documented=True)
+                                   documented=True, table_wind=None if m.wind_angle_factor else 0.0)
             else:
                 angle = m.base_angle
                 f = float(solve_force(angle, ctx.distance, ctx.wind, ctx.dy, p))
@@ -216,7 +231,7 @@ class Aimer:
             # avalia só alguns ângulos promissores para manter rápido
             valid = [(a, f) for a, f in zip(angles, forces) if np.isfinite(f) and 0 < f <= 100]
             sampled = valid[:: max(1, len(valid) // 16)]
-            phys = [c for c in (self._evaluate("fisica", a, f, ctx, p, ["busca no modelo físico"])
+            phys = [c for c in (self._evaluate("fisica", a, f, ctx, p, ["busca no modelo físico"], solved=True)
                                 for a, f in sampled) if c]
             if phys:
                 # refina em volta do melhor ângulo amostrado (a amostragem pode pular o ótimo)
@@ -225,7 +240,8 @@ class Aimer:
                 by_angle = {int(a): f for a, f in valid}
                 for a in range(best.angle - 3, best.angle + 4):
                     if a not in done and a in by_angle:
-                        c = self._evaluate("fisica", a, by_angle[a], ctx, p, ["busca no modelo físico"])
+                        c = self._evaluate("fisica", a, by_angle[a], ctx, p, ["busca no modelo físico"],
+                                           solved=True)
                         if c:
                             phys.append(c)
             out += phys
@@ -233,8 +249,13 @@ class Aimer:
         return out
 
     def recommend(self, ctx: ShotContext) -> Recommendation:
+        if not all(math.isfinite(v) for v in (ctx.distance, ctx.wind, ctx.dy)):
+            return Recommendation(None, [], ctx, "leitura inválida de distância, vento ou altura")
         if ctx.distance <= 0:
             return Recommendation(None, [], ctx, "distância inválida")
+        if ctx.distance <= ctx.weapon.blast_radius + ctx.target_width / 2:
+            # a explosão pegaria o próprio personagem
+            return Recommendation(None, [], ctx, "alvo colado no seu personagem; o disparo atingiria você também")
         cands = self.candidates(ctx)
         if not cands:
             return Recommendation(None, [], ctx, "nenhuma combinação alcança o alvo")

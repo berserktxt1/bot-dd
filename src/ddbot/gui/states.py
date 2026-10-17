@@ -23,7 +23,7 @@ class UiSnapshot:
     unknown_screen: bool = False
     completed: int = 0
     runs: int = 1
-    window_state: str = ""   # jogo | launcher_sem_jogo | nada | sem_perfil | "" (desconhecido)
+    window_state: str = ""   # jogo | launcher_sem_jogo | escolher | confirmar | nada | "" (desconhecido)
 
 
 @dataclass
@@ -36,10 +36,13 @@ class Banner:
 # orientação para os motivos mais comuns de pausa/erro (trecho do motivo -> o que fazer)
 ADVICE = [
     ("regras do servidor", "Abra Configurações, leia o aviso e marque a autorização."),
-    ("selecione a janela", "Abra o DDClássico pelo launcher; se for a primeira vez, use Identificar janela."),
+    ("falta calibrar", "Abra a aba Calibração, capture a tela do jogo e salve cada item da lista (uma vez só)."),
+    ("selecione a janela", "Abra o DDClássico pelo launcher e clique em Detectar jogo, no topo."),
+    ("confirme a janela", "Clique em Detectar jogo e confira na prévia se é a tela do jogo."),
     ("launcher está aberto", "Entre no jogo pelo launcher. O bot conecta sozinho quando o jogo abrir."),
+    ("na frente do jogo", "Deixe a janela do jogo visível; não coloque outras janelas por cima durante a rotina."),
     ("foco do teclado", "Clique uma vez dentro da área do jogo (não no launcher) e depois em Retomar."),
-    ("não foi encontrado", "Abra o DDClássico pelo launcher; se a janela mudou, use Identificar janela."),
+    ("não foi encontrad", "Abra o DDClássico pelo launcher e clique em Detectar jogo, no topo."),
     ("tela desconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
     ("não reconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
     ("não encontrado na tela", "Capture de novo esse botão em Calibração > Modelos (a aparência pode ter mudado)."),
@@ -115,15 +118,16 @@ def describe(s: UiSnapshot) -> Banner:
         if s.window_state == "launcher_sem_jogo":
             return Banner("idle", "Launcher aberto, aguardando o jogo",
                           "Entre no jogo pelo launcher. O bot conecta sozinho quando a janela do jogo aparecer.")
-        if s.window_state == "sem_perfil":
-            return Banner("warning", "Identifique a janela do jogo",
-                          "Abra o jogo pelo launcher e clique em Identificar janela, no topo. É preciso fazer só uma vez.")
+        if s.window_state in ("escolher", "confirmar"):
+            return Banner("warning", "Confirme a janela do jogo",
+                          "O bot achou o jogo, mas precisa que você confira na prévia. Clique em Detectar jogo.")
         return Banner("warning", "Jogo não encontrado",
-                      "Abra o DDClássico pelo launcher. Para conhecer o programa, ligue o modo demonstração.")
+                      "Abra o DDClássico pelo launcher e clique em Detectar jogo, no topo. "
+                      "Para conhecer o programa sem o jogo, ligue o modo demonstração.")
     if not s.activity_name:
         return Banner("idle", "Escolha o que jogar",
                       "As instâncias e partidas aparecem aqui depois de capturadas do menu do jogo "
-                      "(Calibração > Opções do menu).")
+                      "(Calibração > Menu). No modo demonstração há uma de cada para testar.")
     if not s.activity_auto:
         return Banner("warning", f"{s.activity_name} envolve outros jogadores",
                       "O bot não joga sozinho contra pessoas. Use a mira assistida na aba Diagnóstico.")

@@ -79,3 +79,27 @@ def test_single_observation_waits():
 def test_uniform_hit_probability():
     assert hit_probability_uniform(0, 0.3) == 1.0
     assert hit_probability_uniform(1.0, 0.25) == 0.25
+
+
+def test_rebuild_does_not_recompute_history(tmp_path, params, monkeypatch):
+    """Cada disparo novo calcula só a própria previsão (antes: o histórico inteiro, a cada disparo)."""
+    from ddbot import calibration as C
+    store = ShotStore(tmp_path / "s.sqlite3")
+    cal = Calibrator(store, params, sources=("simulado",))
+    calls = {"n": 0}
+    real = C.landing_x
+
+    def counting(*a, **k):
+        calls["n"] += 1
+        return real(*a, **k)
+    monkeypatch.setattr(C, "landing_x", counting)
+    for i in range(40):
+        cal.record(ShotRecord(angle=45 + i % 20, force=60 + i % 30, wind=0.5, distance=8.0,
+                              impact_x=8.0 + 0.1 * (i % 5), source="simulado", method="fisica"))
+    # 40 disparos: previsão do próprio disparo + uma por disparo no histórico, não ~40*40
+    assert calls["n"] <= 2 * 40 + 5, calls["n"]
+    before = cal.predict_offset("fisica", 50, 70, 0.5, 0.0, 8.0)
+    cal.params = params.with_vector(params.to_vector() * 1.02)  # modelo reajustado: recalcula
+    cal.rebuild()
+    assert cal.predict_offset("fisica", 50, 70, 0.5, 0.0, 8.0) != before
+    store.close()

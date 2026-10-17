@@ -26,8 +26,8 @@ from .capture import FrameSource, WindowCapture, save_image
 from .combat import CombatEngine, Mode
 from .config import Config
 from .game_io import GameActor, KeyboardShooter, VisionBattleView, VisionScreenReader
-from .game_window import GAME, LAUNCHER_ONLY, NO_PROFILE, GameWindowProfile, Located, WindowRule, locate, \
-    rank_candidates, validate_choice
+from .detection import Detection, detect
+from .game_window import GAME, LAUNCHER_ONLY, GameWindowProfile, WindowRule, rank_candidates, validate_choice
 from .knowledge import KnowledgeBase
 from .log import setup_logging
 from .paths import Paths
@@ -73,7 +73,7 @@ class BotService:
                  start_hotkey: bool = True):
         self.paths = Paths(home)
         self.log_file = setup_logging(self.paths.logs)
-        log.info("DDClássico Bot %s, dados em %s", __version__, mask_home(str(self.paths.root)))
+        log.info("JonFlow %s, dados em %s", __version__, mask_home(str(self.paths.root)))
         self.startup_notes: list[str] = list(self.paths.notes)
         self.config = Config(self.paths.config_file)
         self.startup_notes += self.config.problems
@@ -130,44 +130,89 @@ class BotService:
             return winapi.list_windows()
         return winapi.find_game_windows(self.config.get("window.title_keywords", []))
 
-    def inventory(self) -> list[winapi.WindowInfo]:
-        """Janelas principais e internas visíveis, para o assistente de identificação."""
+    def inventory(self, ranked: bool = True) -> list[winapi.WindowInfo]:
+        """Janelas principais e internas visíveis.
+
+        ``ranked=False`` mantém a ordem do Windows (da frente para trás), usada para saber
+        qual janela está sob um ponto da tela.
+        """
         out = []
         for w in winapi.list_windows(min_size=150):
             out.append(w)
             out += winapi.child_windows(w.hwnd, min_size=150)
-        return rank_candidates(out, self.config.get("window.title_keywords", []))
+        return rank_candidates(out, self.config.get("window.title_keywords", [])) if ranked else out
 
     @property
     def profile(self) -> GameWindowProfile:
         return GameWindowProfile.from_config(self.config)
 
-    def save_profile(self, game: winapi.WindowInfo, launcher: winapi.WindowInfo | None) -> str | None:
-        """Guarda qual programa/classe é o jogo e qual é o launcher. Devolve um erro legível ou None."""
+    def detect_game(self, baseline: set[int] | None = None, rejected: set[int] | None = None) -> Detection:
+        """Procura o jogo e o launcher (janelas, processos e o perfil confirmado antes)."""
+        return detect(self.inventory(), winapi.process_parents(), winapi.own_pid(),
+                      self.config.get("window.title_keywords", []), self.profile, baseline, rejected)
+
+    def auto_connect(self, baseline: set[int] | None = None, rejected: set[int] | None = None) -> Detection:
+        """Detecta o jogo e conecta sozinho quando a evidência é forte.
+
+        Não troca de janela no meio de uma rotina. Com evidência fraca (o usuário precisa
+        confirmar), só informa; a confirmação chega por ``confirm_game``.
+        """
+        found = self.detect_game(baseline, rejected)
+        running = bool(self.runner and self.runner.alive)
+        if found.state == GAME and found.confident and not running:
+            if self.window is None or self.window.hwnd != found.game.hwnd:
+                self.select_window(found.game)
+                self._remember(found.game, found.launcher)
+        elif self.window is not None and not running and winapi.IS_WINDOWS \
+                and winapi.window_info(self.window.hwnd) is None:
+            self._drop_window("a janela do jogo foi fechada")
+        return found
+
+    def _remember(self, game: winapi.WindowInfo, launcher: winapi.WindowInfo | None):
+        """Guarda o programa e a classe do jogo (e do launcher) para reencontrá-los sozinho depois."""
+        prof = self.profile
+        rule = WindowRule.of(game)
+        lrule = WindowRule.of(launcher) if launcher else prof.launcher
+        new = GameWindowProfile(rule, lrule if lrule != rule else None)
+        if new != prof:
+            self.config.set("window.profile", new.to_dict())
+            try:
+                self.config.save()
+            except OSError as exc:
+                log.warning("não foi possível gravar o perfil da janela: %s", exc)
+
+    def confirm_game(self, game: winapi.WindowInfo, launcher: winapi.WindowInfo | None = None) -> str | None:
+        """O usuário confirmou (ou escolheu) a janela do jogo. Devolve um erro legível ou None."""
         err = validate_choice(game, launcher)
         if err:
             return err
-        prof = GameWindowProfile(WindowRule.of(game), WindowRule.of(launcher) if launcher else None)
-        self.config.set("window.profile", prof.to_dict())
-        self.config.save()
-        self.push_event("etapa", f"janela do jogo identificada: {game.exe} ({'área interna' if game.parent else 'janela'}"
-                        f"{', classe ' + game.cls if game.cls else ''})"
-                        + (f"; launcher: {launcher.exe}" if launcher else ""))
+        if self.runner and self.runner.alive:
+            return "pare a rotina antes de trocar de janela"
+        self.select_window(game)
+        self._remember(game, launcher)
         return None
 
-    def locate_game(self) -> Located:
+    def mark_launcher(self, launcher: winapi.WindowInfo):
+        """O usuário disse que a janela encontrada é o launcher (o jogo ainda não abriu)."""
+        top = launcher
+        if launcher.parent:
+            top = winapi.window_info(winapi.root_of(launcher.hwnd)) or launcher
         prof = self.profile
-        if not prof.configured:
-            return Located(NO_PROFILE)
-        return locate(prof, self.inventory())
+        rule = WindowRule.of(top)
+        game = prof.game if prof.game and prof.game != rule else None
+        self.config.set("window.profile", GameWindowProfile(game, rule).to_dict())
+        try:
+            self.config.save()
+        except OSError as exc:
+            log.warning("não foi possível gravar o perfil da janela: %s", exc)
+        if self.window is not None and self.window.hwnd in (launcher.hwnd, top.hwnd):
+            self._drop_window("a janela escolhida era o launcher")
 
-    def auto_connect(self) -> Located:
-        """Conecta (ou reconecta) ao jogo pelo perfil salvo; não troca de janela no meio de uma rotina."""
-        found = self.locate_game()
-        if found.state == GAME and (self.window is None or self.window.hwnd != found.game.hwnd):
-            if not (self.runner and self.runner.alive):
-                self.select_window(found.game)
-        return found
+    def _drop_window(self, why: str):
+        old, self.source, self.window = self.source, None, None
+        if old is not None:
+            old.close()
+        self.push_event("aviso", f"janela do jogo desconectada: {why}")
 
     def select_window(self, info: winapi.WindowInfo):
         if self.runner and self.runner.alive:
@@ -239,6 +284,12 @@ class BotService:
         if d.path and d.path.exists():
             d.path.unlink()
 
+    def readiness(self, d: ActivityDef):
+        """O que falta calibrar para ``d`` rodar sozinha no jogo real (lista vazia = nada)."""
+        from .readiness import check
+        return check(d, self.templates.has, self.config, self.perception.angle_reader.trained,
+                     self.perception.wind_reader.trained)
+
     # ------------------------------------------------------------ armas
     def weapon_by_name(self, name: str) -> Weapon:
         w = self.config.get(f"weapons.{name}", {}) or {}
@@ -273,12 +324,9 @@ class BotService:
             return r.cancel_reason() if r else None
 
         if simulated:
-            from .simulation import SimulatedClient, SimulatedShooter, SimulatedView, SimulatedWorld
+            from .simulation import SimulatedClient, SimulatedShooter, SimulatedView, SimulatedWorld, demo_option
             world = SimulatedWorld(self.params)
-            option = next((a.target for acts in d.flow.values() for a in acts
-                           if a.kind == "clicar" and a.target and a.target.startswith(("instancia_", "partida_"))),
-                          "instancia_teste")
-            client = SimulatedClient(world, option=option, faults=faults)
+            client = SimulatedClient(world, option=demo_option(d), faults=faults)
             if self._sim_store is None:
                 self._sim_store = ShotStore(self.paths.root / "simulacao.sqlite3")
             sim_cal = Calibrator(self._sim_store, self.params, sources=("simulado",))
@@ -334,13 +382,16 @@ class BotService:
     def start(self, d: ActivityDef, runs: int, simulated=False, faults: dict | None = None) -> tuple[bool, str]:
         if self.runner and self.runner.alive:
             return False, "já existe uma rotina em execução"
-        if not simulated and self.profile.configured:
+        if not simulated:
             found = self.auto_connect()
-            if found.state == LAUNCHER_ONLY:
-                return False, ("o launcher está aberto, mas o jogo ainda não iniciou: entre no jogo pelo launcher "
-                               "e clique em Iniciar")
-            if found.state != GAME:
-                return False, "o jogo não foi encontrado: abra o DDClássico pelo launcher"
+            if self.source is None:
+                if found.state == LAUNCHER_ONLY:
+                    return False, ("o launcher está aberto, mas o jogo ainda não iniciou: entre no jogo pelo "
+                                   "launcher e clique em Iniciar")
+                if found.state == GAME:
+                    return False, "confirme a janela do jogo: clique em Detectar jogo"
+                return False, ("a janela do jogo não foi encontrada: abra o DDClássico pelo launcher e clique em "
+                               "Detectar jogo")
         if not simulated and self.hotkey is not None and not self.hotkey_ok:
             return False, ("a tecla de emergência não está funcionando; sem ela o modo automático no jogo fica "
                            "bloqueado (veja o Registro técnico)")
@@ -353,6 +404,11 @@ class BotService:
         ok, why = runner.check_allowed()
         if not ok:
             return False, why
+        if not simulated:
+            from .readiness import summary
+            missing = summary(self.readiness(d))
+            if missing:
+                return False, f"falta calibrar para jogar sozinho: {missing}"
         if not simulated and self.window is not None:
             winapi.set_foreground(self.window.hwnd)
             deadline = time.monotonic() + 2.0
@@ -373,8 +429,8 @@ class BotService:
         if self.runner:
             if not self.simulated and self.profile.configured and isinstance(self.source, WindowCapture) \
                     and winapi.window_info(self.source.hwnd) is None:
-                found = self.locate_game()  # o jogo foi reaberto pelo launcher: janela nova
-                if found.state == GAME:
+                found = self.detect_game()  # o jogo foi reaberto pelo launcher: janela nova
+                if found.state == GAME and found.confident:
                     self.source.rebind(found.game.hwnd)
                     self.window = found.game
                     self.push_event("etapa", "jogo reaberto: reconectado à janela nova")

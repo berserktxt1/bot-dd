@@ -248,8 +248,9 @@ def run_simulation(kb: KnowledgeBase, params: PhysicsParams, battles: int = 20,
 class SimulatedClient:
     """Cliente falso com telas e botões para testar ``ActivityRunner`` de ponta a ponta.
 
-    Transições: lobby -[botao_instancias]-> menu_instancias -[opção]-> sala
-    -[botao_iniciar]-> carregando -> batalha -> vitoria/derrota -[botao_sair]-> lobby.
+    Transições: lobby -[botao_instancias]-> menu_instancias (ou -[botao_partidas]-> menu_partidas)
+    -[opção]-> sala -[botao_iniciar]-> carregando -> batalha -> vitoria/derrota -[botao_sair]-> lobby.
+    A opção só existe no menu do seu tipo (``partida_*`` no de partidas, as demais no de instâncias).
     ``faults`` injeta problemas: {"popup_at": n, "unknown_for": leituras,
     "disconnect_at": n, "missing_button": nome, "stage_battles": k}.
     """
@@ -333,8 +334,10 @@ class SimulatedClient:
                 self.clicks.append((self.screen, template))
                 return True
             return False
+        menu = "menu_partidas" if self.option.startswith("partida_") else "menu_instancias"
         nxt = {("lobby", "botao_instancias"): "menu_instancias",
-               ("menu_instancias", self.option): "sala",
+               ("lobby", "botao_partidas"): "menu_partidas",
+               (menu, self.option): "sala",
                ("sala", "botao_iniciar"): "carregando",
                ("etapa_concluida", "botao_continuar"): "carregando",
                ("vitoria", "botao_sair"): "lobby", ("derrota", "botao_sair"): "lobby",
@@ -355,6 +358,12 @@ class SimulatedClient:
             self._popup = False
 
 
+def demo_option(definition, default="instancia_teste") -> str:
+    """Opção (modelo do menu) que a definição clica: o cliente simulado a mostra no menu certo."""
+    return next((a.target for acts in definition.flow.values() for a in acts
+                 if a.kind == "clicar" and a.target and a.target.startswith(("instancia_", "partida_"))), default)
+
+
 def simulated_activity(kb: KnowledgeBase, params: PhysicsParams, definition, runs=2, faults=None,
                        settings: SimSettings | None = None, calibrate=True, store_path: Path | None = None,
                        limits=None, config_overrides: dict | None = None):
@@ -363,7 +372,7 @@ def simulated_activity(kb: KnowledgeBase, params: PhysicsParams, definition, run
 
     settings = settings or SimSettings()
     world = SimulatedWorld(params, settings)
-    client = SimulatedClient(world, faults=faults)
+    client = SimulatedClient(world, option=demo_option(definition), faults=faults)
     tmpdir = None
     if store_path is None:
         tmpdir = tempfile.TemporaryDirectory()

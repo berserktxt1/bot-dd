@@ -75,8 +75,8 @@ class InputController:
     def key_up(self, key):
         with self._lock:
             if key in self._held:
-                self._held.discard(key)
                 self.backend.key(key, True)
+                self._held.discard(key)  # só depois de soltar: se falhar, release_all tenta de novo
 
     def release_all(self):
         with self._lock:

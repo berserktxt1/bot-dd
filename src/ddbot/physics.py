@@ -96,7 +96,7 @@ def impact_time(angle_deg, force, wind, dy, p: PhysicsParams):
         if not need.any():
             break
         hi = np.where(need, hi * 2.0 + 1.0, hi)
-    for _ in range(45):  # bisseção
+    for _ in range(30):  # bisseção (2^-30 do intervalo: erro de tempo ~1e-7, muito abaixo do que importa)
         mid = 0.5 * (lo + hi)
         _, ym = _state(mid, vx0, vy0, a, p)
         above = ym > dy

@@ -29,9 +29,17 @@ def _writable(p: Path) -> bool:
         return False
 
 
+LEGACY_NAMES = ("DDClassicoBot",)  # nome do programa até a 0.2.1
+
+
 def _fallback_dir() -> Path:
     base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "share")
-    return base / APP_NAME
+    new = base / APP_NAME
+    if not new.exists():
+        for old in LEGACY_NAMES:  # quem já usava o programa continua com os mesmos dados
+            if (base / old / "config.json").exists():
+                return base / old
+    return new
 
 
 def user_root(notes: list[str] | None = None) -> Path:

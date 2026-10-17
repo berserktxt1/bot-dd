@@ -4,9 +4,9 @@ O DDClássico é aberto por um launcher. Dependendo do launcher, o jogo aparece:
 - numa janela própria de outro processo (título e classe diferentes do launcher); ou
 - numa área interna (janela filha) do próprio launcher.
 
-Nada aqui presume nomes. O usuário identifica uma vez, no assistente da interface, qual
-janela é o jogo e qual é o launcher; o perfil guarda o executável e a classe de cada um
-(sem coordenadas). Depois o bot reencontra o jogo sozinho, inclusive quando ele é reaberto.
+Nada aqui presume nomes. ``detection`` descobre qual janela é o jogo e qual é o launcher;
+o perfil guarda o executável e a classe de cada um (sem coordenadas), para o bot
+reencontrar o jogo sozinho, inclusive quando ele é reaberto.
 
 Comandos:
 - cliques só valem se o ponto estiver sobre a área do jogo (a janela escolhida ou uma
@@ -19,7 +19,7 @@ from dataclasses import asdict, dataclass
 
 from .winapi import WindowInfo
 
-GAME, LAUNCHER_ONLY, NOTHING, NO_PROFILE = "jogo", "launcher_sem_jogo", "nada", "sem_perfil"
+GAME, LAUNCHER_ONLY, NOTHING = "jogo", "launcher_sem_jogo", "nada"
 
 
 @dataclass
@@ -82,40 +82,6 @@ def validate_choice(game: WindowInfo, launcher: WindowInfo | None) -> str | None
             return ("o jogo e o launcher parecem a mesma janela; se o jogo aparece dentro do launcher, "
                     "escolha a área interna (janela interna) onde a batalha é desenhada")
     return None
-
-
-@dataclass
-class Located:
-    state: str                      # jogo | launcher_sem_jogo | nada | sem_perfil
-    game: WindowInfo | None = None
-    launcher: WindowInfo | None = None
-    candidates: int = 0
-
-    @property
-    def message(self) -> str:
-        return {
-            GAME: "Jogo encontrado",
-            LAUNCHER_ONLY: "Launcher aberto; o jogo ainda não iniciou",
-            NOTHING: "Launcher e jogo não encontrados",
-            NO_PROFILE: "Janela do jogo ainda não identificada",
-        }[self.state]
-
-
-def locate(profile: GameWindowProfile, windows: list[WindowInfo]) -> Located:
-    """Procura o jogo e o launcher numa lista de janelas (principais e internas)."""
-    if not profile.configured:
-        return Located(NO_PROFILE)
-    games = [w for w in windows if profile.game.matches(w) and w.visible]
-    launchers = [w for w in windows if profile.launcher and profile.launcher.matches(w)] if profile.launcher else []
-    launcher = max(launchers, key=lambda w: w.area) if launchers else None
-    # o jogo nunca pode ser o próprio launcher
-    if launcher is not None:
-        games = [w for w in games if w.hwnd != launcher.hwnd]
-    if games:
-        return Located(GAME, max(games, key=lambda w: w.area), launcher, len(games))
-    if launcher is not None:
-        return Located(LAUNCHER_ONLY, None, launcher)
-    return Located(NOTHING)
 
 
 def rank_candidates(windows: list[WindowInfo], keywords) -> list[WindowInfo]:

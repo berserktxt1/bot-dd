@@ -72,3 +72,41 @@ def test_weapon_scale_reduces_force(kb, params):
     by_angle = {c.angle: c.force for c in normal.candidates}
     common = [c for c in strong.candidates if c.angle in by_angle]
     assert common and all(c.force < by_angle[c.angle] for c in common)
+
+
+def test_table_without_wind_rule_corrects_force_for_wind(kb, params):
+    """Tabela de 20° não muda o ângulo com o vento: o vento precisa entrar na força."""
+    from ddbot.aiming import Aimer, ShotContext
+    a = Aimer(kb, params)
+
+    def a20(w):
+        return next(c for c in a.candidates(ShotContext(distance=10, wind=w, allowed_methods=["a20"])))
+    still, tail, head = a20(0.0), a20(3.0), a20(-3.0)
+    assert still.angle == tail.angle == head.angle == 20
+    assert tail.force < still.force < head.force  # vento a favor pede menos força
+
+
+def test_generic_bias_does_not_raise_confidence_of_other_methods(tmp_path, kb, params):
+    from ddbot.aiming import Aimer, ShotContext
+    from ddbot.calibration import Calibrator, ShotRecord, ShotStore
+    store = ShotStore(tmp_path / "s.sqlite3")
+    cal = Calibrator(store, params, sources=("simulado",))
+    ctx = ShotContext(distance=10, wind=0, allowed_methods=["a20"])
+    before = Aimer(kb, params, cal).candidates(ctx)[0].hit_probability
+    for i in range(6):  # só disparos do método físico em ângulos altos
+        cal.record(ShotRecord(angle=78 + i % 3, force=70, wind=0, distance=10, impact_x=10.1, method="fisica",
+                              source="simulado"))
+    after = Aimer(kb, params, cal).candidates(ctx)[0].hit_probability
+    assert after <= before + 0.02  # nenhum disparo de 20°: a confiança no 20° não sobe
+    store.close()
+
+
+def test_invalid_reads_and_target_on_top_of_you(kb, params):
+    from ddbot.aiming import Aimer, ShotContext
+    a = Aimer(kb, params)
+    for bad in (dict(distance=10, wind=float("nan")), dict(distance=float("inf"), wind=0),
+                dict(distance=10, wind=0, dy=float("nan"))):
+        r = a.recommend(ShotContext(**bad))
+        assert r.best is None and "inválida" in r.reason
+    r = a.recommend(ShotContext(distance=0.05, wind=0))
+    assert r.best is None and "colado" in r.reason

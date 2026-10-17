@@ -173,3 +173,69 @@ def test_kill_switch_during_charge_releases_key(tmp_path):
 def test_activity_definition_matches_capture_flow(tmp_path):
     d = activity_from_option("instancia_x", "X")
     assert d.flow["sala"][0].target == "botao_iniciar"
+
+
+def test_visual_power_unreadable_bar_releases_on_time(tmp_path):
+    """Barra configurada mas ilegível (cor errada: lê 0): solta no tempo, não 10% depois."""
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path, power_mode="visual")
+    game.full_time = 2.0
+    cfg.set("automation.power_full_time_s", 2.0)
+    cfg.set("regions.power_bar", [0.0, 0.0, 0.05, 0.05])  # região sem barra nenhuma
+    KeyboardShooter(inp, view, cfg).charge_and_fire(40.0)
+    assert abs(game.released_power - 40) < 4
+    store.close()
+
+
+def test_capture_error_during_charge_does_not_abort_shot(tmp_path):
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path, power_mode="visual")
+    game.full_time = 2.0
+    cfg.set("automation.power_full_time_s", 2.0)
+    real, calls = game.grab, {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] > 1:  # a primeira (antes de segurar) funciona; depois a captura falha
+            raise RuntimeError("falha passageira na captura")
+        return real()
+    game.grab = flaky
+    KeyboardShooter(inp, view, cfg).charge_and_fire(40.0)
+    assert game.released_power is not None and abs(game.released_power - 40) < 4
+    store.close()
+
+
+def test_unconfirmed_angle_reads_are_not_trusted(tmp_path):
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
+    sh = KeyboardShooter(inp, view, cfg)
+    seq = iter([44, 45, 44, 45, 44, 45])
+    sh._read_angle = lambda: next(seq)
+    assert sh._stable_angle() is None
+    store.close()
+
+
+def test_retarget_when_followed_enemy_is_gone(tmp_path):
+    """O inimigo seguido morreu: depois de algumas leituras o bot mira o outro que está na tela."""
+    from ddbot.vision.perception import Character, Snapshot
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
+    a, b = Character(500, 400, 1.0, "inimigo", "modelo"), Character(900, 400, 1.0, "inimigo", "modelo")
+    snap = Snapshot(width=1000, height=600, enemies=[a, b], unit_px=100)
+    view._target_px = (500, 400)
+    assert view._pick_target(snap) is a
+    snap.enemies = [b]  # A morreu
+    picks = [view._pick_target(snap) for _ in range(view.RETARGET_READS)]
+    assert all(p is None for p in picks[:-1]) and picks[-1] is b
+    assert view._target_seq == 1  # alvo novo, histórico novo no rastreador
+    store.close()
+
+
+def test_click_cancelled_when_game_window_vanished(tmp_path, monkeypatch):
+    """Janela do jogo fechada entre a leitura e o clique: nada de clicar na área de trabalho."""
+    from ddbot import winapi
+    from ddbot.capture import WindowCapture
+    game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
+    frame = game.grab()
+    gone = WindowCapture(4242)
+    monkeypatch.setattr(winapi, "window_info", lambda h: None)
+    actor = GameActor(inp, gone, lib, cfg)
+    assert actor.click("botao_iniciar", frame) is False
+    assert not any(e[0] == "click" for e in game.events)
+    store.close()
