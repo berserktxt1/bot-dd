@@ -11,7 +11,7 @@ import numpy as np
 
 from ..config import Config
 from .digits import DigitReader
-from .regions import crop, frac_to_px, valid_roi
+from .regions import crop, expand, frac_to_px, valid_roi
 from .templates import TemplateLibrary, find_all
 
 log = logging.getLogger(__name__)
@@ -101,13 +101,22 @@ class Perception:
         roi = self.region("states")
         sub, (ox, oy, _, _) = crop(img, roi)
         best, best_score = "desconhecido", 0.0
+        scores = {}
         for st in STATES:
             key = f"estado_{st}"
             if not self.templates.has(key):
                 continue
             m = self.templates.best(key, sub, (ox, oy))
+            if m:
+                scores[st] = m.score
             if m and m.score > best_score:
                 best, best_score = st, m.score
+        # o aviso de resultado/desconexão aparece POR CIMA da batalha (cujo painel continua visível):
+        # reconhecido, ele vale mais que a batalha, mesmo com semelhança um pouco menor
+        over = [(sc, st) for st, sc in scores.items()
+                if st in ("vitoria", "derrota", "desconectado") and sc >= self.threshold()]
+        if over:
+            best_score, best = max(over)
         if best_score >= self.threshold():
             snap.state, snap.state_confidence = best, best_score
         else:
@@ -140,8 +149,12 @@ class Perception:
             snap.warnings.append(f"vento lido fora da faixa ({value}); leitura descartada")
             return
         direction, dconf = 0, 0.0
-        left = self.templates.best("vento_esquerda", sub) if self.templates.has("vento_esquerda") else None
-        right = self.templates.best("vento_direita", sub) if self.templates.has("vento_direita") else None
+        value = abs(value)  # o sentido vem só das setas (um "-" lido junto não pode inverter de novo)
+        # as setas ficam ao lado dos números: procura numa área maior que a dos dígitos, para a região
+        # dos dígitos poder ser justa (uma seta dentro dela viraria um "dígito" a mais)
+        arrows, _ = crop(img, expand(roi, 1.0, 0.75))
+        left = self.templates.best("vento_esquerda", arrows) if self.templates.has("vento_esquerda") else None
+        right = self.templates.best("vento_direita", arrows) if self.templates.has("vento_direita") else None
         ls = left.score if left else 0.0
         rs = right.score if right else 0.0
         if max(ls, rs) >= self.threshold() * 0.9 and abs(ls - rs) > 0.05:
@@ -183,9 +196,10 @@ class Perception:
                 if stats[i][4] >= min_area:
                     found.append(Character(cents[i][0] + ox, cents[i][1] + oy, 0.75, kind, "cor"))
         elif self.templates.has(key):
-            tpl = self.templates.get(key)[0]
-            # escala do marcador pela melhor ocorrência (zoom/resolução diferentes da captura)
+            # escala do marcador pela melhor ocorrência (zoom/resolução diferentes da captura), com a
+            # amostra que venceu: o tamanho de uma amostra não serve para outra de tamanho diferente
             best = self.templates.best(key, sub)
+            tpl = self.templates.get(key)[best.template if best else 0]
             scale = (best.rect[2] / tpl.shape[1]) if best and best.score >= self.threshold() else 1.0
             for score, x, y, w, h in find_all(sub, tpl, self.threshold(), scale=scale,
                                               max_hits=1 if kind == "eu" else 8):

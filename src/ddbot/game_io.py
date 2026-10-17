@@ -8,7 +8,7 @@ import time
 from . import winapi
 from .automation.input import InputController
 from .automation.safety import Aborted
-from .capture import FrameSource
+from .capture import FrameSource, WindowCapture
 from .combat import BattleObservation, BattleView, Shooter, ShotOutcome
 from .vision.perception import Perception, Snapshot, to_ruler
 
@@ -26,9 +26,16 @@ class VisionBattleView(BattleView):
         self.last_frame = None
         self.last_snapshot: Snapshot | None = None
         self._target_px: tuple[float, float] | None = None
+        self._lost_reads = 0
+        self._target_seq = 0  # cada alvo novo tem o próprio histórico no rastreador
+
+    # leituras seguidas sem o alvo seguido, com outro inimigo visível, até trocar de alvo (~2 s):
+    # o seguido morreu ou sumiu de vez; não dá para ficar esperando por ele a batalha inteira
+    RETARGET_READS = 12
 
     def reset(self):
         self._target_px = None
+        self._lost_reads = 0
 
     def _pick_target(self, snap: Snapshot):
         if not snap.enemies:
@@ -39,7 +46,16 @@ class VisionBattleView(BattleView):
         best = min(snap.enemies, key=lambda e: math.hypot(e.x - tx, e.y - ty))
         gate = float(self.config.get("tracking.max_move_per_turn", 1.5)) * 2 * max(snap.unit_px, 1.0)
         if math.hypot(best.x - tx, best.y - ty) > gate:
-            return None  # o inimigo seguido sumiu; o que restou é outro
+            # o inimigo seguido sumiu; o que restou é outro. Por pouco tempo é invisibilidade (espera);
+            # se continuar assim, troca para um inimigo que está de fato na tela (nada é inventado)
+            self._lost_reads += 1
+            if self._lost_reads < self.RETARGET_READS:
+                return None
+            log.info("alvo seguido sumiu por %d leituras; mirando outro inimigo visível", self._lost_reads)
+            self._lost_reads = 0
+            self._target_seq += 1
+            return self.perception.target(snap)
+        self._lost_reads = 0
         return best
 
     def observe(self) -> BattleObservation:
@@ -56,6 +72,7 @@ class VisionBattleView(BattleView):
                                 current_angle=angle, notes=list(snap.warnings),
                                 wind_screen=snap.wind, wind_confidence=snap.wind_confidence)
         target = self._pick_target(snap)
+        obs.target_id = f"alvo_{self._target_seq}"
         conv = to_ruler(snap, target, snap.wind)
         confs = [snap.turn_confidence if snap.my_turn else 1.0]
         if snap.me:
@@ -123,7 +140,7 @@ class KeyboardShooter(Shooter):
             if value is not None and value == last:
                 return value
             last = value
-        return last
+        return None  # leituras que nunca coincidiram (ex.: 44/45/44/45) não confirmam nada
 
     def face(self, direction: int):
         keys = self._keys()
@@ -191,21 +208,28 @@ class KeyboardShooter(Shooter):
             if frame is None or snap.power is None:
                 log.warning("barra de força não lida: usando o tempo de carga")
             else:
-                misses = {"n": 0}
+                state = {"seen": False, "t0": time.monotonic()}
 
                 def reached():
-                    f, s = self._grab_snap()
-                    if f is None:
-                        misses["n"] += 1
-                        return False
-                    self.view.perception.read_power(f, s)
-                    if s.power is None:
-                        misses["n"] += 1
-                        return False
-                    return s.power >= force - 0.5
-                # nunca segura além do tempo estimado (+10%): sem leitura, solta como no modo por tempo
+                    elapsed = time.monotonic() - state["t0"]
+                    try:
+                        f, s = self._grab_snap()
+                        if f is not None:
+                            self.view.perception.read_power(f, s)
+                    except Exception:  # uma falha de captura no meio da carga não pode soltar a tecla cedo
+                        log.debug("leitura da barra falhou durante a carga", exc_info=True)
+                        f = None
+                    power = None if f is None else s.power
+                    if power is not None and power > 0:
+                        state["seen"] = True
+                        return power >= force - 0.5
+                    # barra vazia/ilegível: sem nenhuma leitura boa até aqui, vale o tempo (modo por tempo)
+                    return not state["seen"] and elapsed >= timed
+                # nunca segura além do tempo estimado (+10%), mesmo com leituras boas
                 if not self.inp.hold(fire, timed * 1.1 + 0.05, until=reached, poll_s=0.005):
                     log.warning("barra de força não atingiu %.1f na leitura; solto pelo tempo", force)
+                elif not state["seen"]:
+                    log.warning("barra de força não lida durante a carga: solto pelo tempo")
                 return
         self.inp.hold(fire, timed)
 
@@ -302,8 +326,13 @@ class GameActor(Actor):
 
     def _screen_point(self, frame, cx, cy):
         info = getattr(self.source, "info", None)
-        if info is None:  # fontes de teste/imagem: só a origem
-            ox, oy = self.source.origin
+        if info is None:
+            if isinstance(self.source, WindowCapture):
+                # a janela do jogo fechou (ou o launcher o reabriu) entre a leitura e o clique: sem ela
+                # não há como saber onde clicar; nunca clica em coordenadas da área de trabalho
+                log.warning("a janela do jogo não existe mais; clique cancelado")
+                return None
+            ox, oy = self.source.origin  # fontes de teste/imagem: só a origem
             return ox + cx, oy + cy
         h, w = frame.shape[:2]
         if (info.width, info.height) != (w, h):

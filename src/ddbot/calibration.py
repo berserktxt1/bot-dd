@@ -205,6 +205,11 @@ class Calibrator:
         with self._lock:
             self._models = models
 
+    def has_method_model(self, method, weapon="padrao") -> bool:
+        """Há correção aprendida com disparos deste método (e não só o viés geral da arma)?"""
+        with self._lock:
+            return f"{weapon}|{method}" in self._models
+
     def predict_offset(self, method, angle, force, wind, dy, distance, weapon="padrao"):
         """Retorna (erro_previsto, sigma_extra, n_disparos)."""
         with self._lock:

@@ -23,7 +23,7 @@ def wait_for(fn, timeout=20.0, every=0.25):
     last = None
     while time.monotonic() < end:
         last = fn()
-        if last:
+        if last is not None and last is not False:
             return last
         time.sleep(every)
     return last

@@ -310,7 +310,8 @@ class MainWindow:
         self.lbl_tpl.grid(row=3, column=0, sticky="w", pady=(px(6), 0))
 
         f = page("Números", "Com a região já salva, digite o número que aparece no jogo e clique em Aprender. "
-                 "Repita até cobrir os dígitos de 0 a 9.")
+                 "Repita até cobrir os dígitos de 0 a 9. No vento, a região deve pegar só os números (sem a "
+                 "seta): o sentido vem das setas salvas em Modelos.")
         self.digit_kind = tk.StringVar(value="angle")
         row = ttk.Frame(f, style="Surface.TFrame")
         row.grid(row=1, column=0, sticky="w")
@@ -820,6 +821,9 @@ class MainWindow:
         sub, _ = crop(frame, roi)
         reader = self.svc.perception.angle_reader if kind == "angle" else self.svc.perception.wind_reader
         text = self.digit_value.get().strip()
+        if kind == "wind":
+            # o sentido do vento vem das setas (Modelos); um "-" aprendido como dígito inverteria a leitura
+            text = text.lstrip("-+").strip()
         if not text or not reader.learn(sub, text):
             self.notice(f"Não consegui separar os dígitos. Confira o número digitado e a região do {name}.", True)
             return
@@ -1300,23 +1304,30 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
     at(span * 0.46, s_resume)
     at(span * 0.55, s_tabs)
     at(span * 0.65, s_stop)
-    at(span * 0.70, s_detect_open)
-    at(span * 0.76, s_detect_close)
-    at(span * 0.80, s_stopped)
-    at(span * 0.82, s_kinds)
-    at(span * 0.85, s_emergency)
+    at(span * 0.76, s_stopped)
+    at(span * 0.78, s_detect_open)    # com a rotina já parada (Detectar jogo é recusado durante uma rotina)
+    at(span * 0.83, s_detect_close)
+    at(span * 0.86, s_kinds)
+    at(span * 0.89, s_emergency)
 
     lags = []
 
+    t0 = time.monotonic()
+
     def probe(last=[time.monotonic()]):
         now = time.monotonic()
-        lags.append(now - last[0] - 0.1)
+        lag = now - last[0] - 0.1
+        if not lags or lag > max(lags):
+            # onde a interface travou: segundos desde o início e o último passo executado
+            report["atraso_max_em_s"] = round(now - t0, 2)
+            report["atraso_max_depois_de"] = report.get("ultimo_passo", "")
+        lags.append(lag)
         last[0] = now
         report["atraso_max_ms"] = round(max(lags) * 1000)
         root.after(100, probe)
     root.after(100, probe)
     for delay, fn in steps:
-        root.after(int(delay * 1000), fn)
+        root.after(int(delay * 1000), lambda fn=fn: (report.__setitem__("ultimo_passo", fn.__name__), fn()))
 
 
 def _install_error_hooks(root: tk.Tk):

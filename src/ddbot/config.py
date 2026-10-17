@@ -42,6 +42,8 @@ DEFAULTS: dict = {
         "post_shot_wait_s": 4.0,
         "turn_confirm_reads": 2,
         "bad_reads_per_turn": 3,
+        "bad_read_seconds": 5.0,
+        "battle_over_confirm_reads": 2,
     },
     "safety": {"emergency_hotkey": "<f12>", "require_foreground": True},
     "tracking": {"max_move_per_turn": 1.5, "max_uncertainty": 2.5, "area_attack_radius": 1.0},

@@ -157,13 +157,26 @@ def test_auto_fires_once_per_turn(tmp_path, kb, params):
 
 def test_low_confidence_does_not_fire(tmp_path, kb, params):
     sh = CountShooter()
-    eng = _engine(tmp_path, kb, params, ScriptView([my_turn(confidence=0.3)]), sh)
+    cfg = Config(data={"automation": {"server_rules_confirmed": True, "min_seconds_between_shots": 0,
+                                      "bad_read_seconds": 0}})
+    eng = _engine(tmp_path, kb, params, ScriptView([my_turn(confidence=0.3)]), sh, cfg)
     eng.set_mode(Mode.AUTO)
     events = []
     eng.on_event = events.append
     for _ in range(6):  # desiste do turno só depois de 3 leituras ruins seguidas
         eng.step()
     assert sh.shots == [] and any("confiança" in e.message for e in events)
+
+
+def test_brief_bad_reads_at_turn_start_do_not_lose_the_turn(tmp_path, kb, params):
+    """Câmera se movendo no começo do turno: algumas leituras ruins e depois boas -> ainda atira."""
+    sh = CountShooter()
+    seq = [my_turn(confidence=0.3)] * 5 + [my_turn()]
+    eng = _engine(tmp_path, kb, params, ScriptView(seq), sh)
+    eng.set_mode(Mode.AUTO)
+    for _ in range(len(seq)):
+        eng.step()
+    assert len(sh.shots) == 1
 
 
 def test_hidden_target_without_history_waits(tmp_path, kb, params):
@@ -193,6 +206,8 @@ def test_battle_over_resets(tmp_path, kb, params):
                   CountShooter())
     eng.tracker.observe("alvo", 1, 0, 1)
     eng.step()
+    assert eng.tracker.targets  # um quadro só ainda não encerra a batalha
+    eng.step()
     assert eng.tracker.targets == {}
 
 
@@ -220,12 +235,23 @@ def test_first_turn_of_next_battle_fires(tmp_path, kb, params):
     """A batalha terminou no meu turno: o primeiro turno da seguinte não pode ser pulado."""
     sh = CountShooter()
     over = BattleObservation(False, False, battle_over="vitoria")
-    seq = [my_turn(), my_turn(), over, my_turn(), my_turn()]
+    seq = [my_turn(), my_turn(), over, over, my_turn(), my_turn()]
     eng = _engine(tmp_path, kb, params, ScriptView(seq), sh)
+    eng.set_mode(Mode.AUTO)
+    for _ in range(6):
+        eng.step()
+    assert len(sh.shots) == 2
+
+
+def test_single_victory_like_frame_does_not_allow_second_shot(tmp_path, kb, params):
+    """Uma explosão lida como 'vitória' num quadro só não zera o turno nem libera outro disparo."""
+    sh = CountShooter()
+    over = BattleObservation(False, False, battle_over="vitoria")
+    eng = _engine(tmp_path, kb, params, ScriptView([my_turn(), my_turn(), over, my_turn(), my_turn()]), sh)
     eng.set_mode(Mode.AUTO)
     for _ in range(5):
         eng.step()
-    assert len(sh.shots) == 2
+    assert len(sh.shots) == 1
 
 
 def test_observe_only_step_never_fires(tmp_path, kb, params):

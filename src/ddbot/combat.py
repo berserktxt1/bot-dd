@@ -88,6 +88,9 @@ class CombatEngine:
         self.mode = Mode.ASSIST
         self.gate = self._new_gate()
         self._bad_reads = 0
+        self._bad_since: float | None = None
+        self._over_candidate: str | None = None
+        self._over_reads = 0
         self.last_recommendation: Recommendation | None = None
         self.last_observation: BattleObservation | None = None
         self.paused = threading.Event()
@@ -158,7 +161,9 @@ class CombatEngine:
         self.last_recommendation = None
         self._recommended_turn = -1
         self._bad_reads = 0
-        self.gate = self._new_gate()  # o turno da batalha anterior não vale mais
+        self._bad_since = None
+        old_gate, self.gate = self.gate, self._new_gate()  # o turno da batalha anterior não vale mais
+        self.gate._last_shot = old_gate._last_shot  # o intervalo mínimo entre disparos continua valendo
         for part in (self.shooter, self.view):
             reset = getattr(part, "reset", None)
             if callable(reset):
@@ -171,15 +176,26 @@ class CombatEngine:
         obs = self.view.observe()
         self.last_observation = obs
         if obs.battle_over:
+            # um quadro de explosão parecido com a tela de vitória não pode zerar o turno (abriria
+            # um segundo disparo): o fim só vale depois de leituras seguidas iguais
+            if obs.battle_over == self._over_candidate:
+                self._over_reads += 1
+            else:
+                self._over_candidate, self._over_reads = obs.battle_over, 1
+            if self._over_reads < int(self.config.get("automation.battle_over_confirm_reads", 2)):
+                return None
+            self._over_candidate, self._over_reads = None, 0
             self._emit("fim", f"batalha encerrada: {obs.battle_over}", result=obs.battle_over)
             self.reset_battle()
             return None
+        self._over_candidate, self._over_reads = None, 0
         if not obs.in_battle:
             return None
         prev_turn = self.gate.turn_id
         turn = self.gate.update(obs.my_turn)
         if turn != prev_turn:
             self._bad_reads = 0
+            self._bad_since = None
         if not self.gate.my_turn or not obs.my_turn:
             return None
         extra_sigma = 0.0
@@ -241,12 +257,18 @@ class CombatEngine:
         elif rec.best.hit_probability < min_p:
             problem = f"probabilidade estimada baixa ({rec.best.hit_probability:.0%})"
         if problem:
-            # um quadro ruim não basta para desistir do turno: espera algumas leituras
+            # leituras ruins no começo do turno são comuns (câmera se movendo, números animando):
+            # só desiste do turno depois de algumas leituras E de alguns segundos seguidos assim
             self._bad_reads += 1
-            if self._bad_reads >= int(self.config.get("automation.bad_reads_per_turn", 3)):
+            now = time.monotonic()
+            if self._bad_since is None:
+                self._bad_since = now
+            if self._bad_reads >= int(self.config.get("automation.bad_reads_per_turn", 3)) and \
+                    now - self._bad_since >= float(self.config.get("automation.bad_read_seconds", 5.0)):
                 self._emit("aviso", f"{problem}; disparo não executado neste turno")
                 self.gate.mark_shot()
             return
+        self._bad_since = None
         allowed, why = self.auto_allowed()
         if not allowed:
             self._emit("aviso", why)
