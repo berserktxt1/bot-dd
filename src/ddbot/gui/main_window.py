@@ -1203,7 +1203,8 @@ class MainWindow:
             self._drain_events()
             self._drain_locate()
             self._ticks = getattr(self, "_ticks", 0) + 1
-            if self._ticks % 15 == 0 and not (self.svc.runner and self.svc.runner.alive):
+            # não procura durante o Iniciar em thread: a troca de janela fecharia a captura do runner novo
+            if self._ticks % 15 == 0 and not self._starting and not (self.svc.runner and self.svc.runner.alive):
                 self.refresh_windows()  # a cada ~3 s: o jogo pode abrir/fechar pelo launcher
             self._drain_logs()
             self._drain_diag()

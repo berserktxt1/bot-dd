@@ -198,6 +198,7 @@ class StrategyPlanner:
     STAGE_CONFIRM = 3      # leituras seguidas vendo o papel que abre a próxima etapa
     HIDE_GRACE_READS = 12  # leituras esperando um chefe que sumiu antes de mirar outro alvo
     STATUS_CONFIRM = 2     # leituras seguidas de um estado "pausar" antes de pausar
+    COUNT_WINDOW = 5       # leituras usadas para contar os inimigos de forma estável
 
     def __init__(self, profile: InstanceProfile, has_template=lambda name: False, on_event=None,
                  cluster_radius: float = 1.0):
@@ -234,6 +235,7 @@ class StrategyPlanner:
     def _progress(self):
         self._shots = 0
         self._fewest: int | None = None
+        self._counts: list[int] = []
 
     def _advance(self, idx: int, why: str):
         if idx <= self.index or idx >= len(self.p.stages):
@@ -274,28 +276,35 @@ class StrategyPlanner:
         return role == GENERIC_ROLE or self.has(self.p.role_template(role))
 
     def _effects(self, enemies, statuses, unit_px) -> tuple[dict[int, str], str | None]:
-        """Efeito de cada inimigo (por ``id``) a partir dos estados vistos perto dele."""
+        """Efeito de cada inimigo (por ``id``) a partir dos estados vistos perto dele.
+
+        O estado vale para o inimigo mais próximo dele, de preferência com o papel da regra;
+        se o chefe naquele quadro só foi achado pelo marcador genérico (o escudo e o pavio mudam
+        a aparência dele), vale para o inimigo genérico mais próximo. Um estado "pausar" conta
+        mesmo sem inimigo por perto: na dúvida, pausa. Cada estado conta uma vez por leitura.
+        """
         out: dict[int, str] = {}
         pause = None
         seen = set()
+        radius = 3 * max(unit_px, 1.0)
         for s in statuses:
             rule = self.p.statuses.get(s.kind)
             if rule is None:
                 continue
-            group = [e for e in enemies if e.kind in rule.roles]
-            if not group:
-                continue  # estado sem o chefe na tela: não vale
-            e = min(group, key=lambda c: math.hypot(c.x - s.x, c.y - s.y))
-            if math.hypot(e.x - s.x, e.y - s.y) > 3 * max(unit_px, 1.0):
-                continue
-            seen.add(rule.key)
+            group = [e for e in enemies if e.kind in rule.roles] or \
+                [e for e in enemies if e.kind == GENERIC_ROLE]
+            e = min(group, key=lambda c: math.hypot(c.x - s.x, c.y - s.y)) if group else None
+            near = e is not None and math.hypot(e.x - s.x, e.y - s.y) <= radius
             if rule.effect == "pausar":
-                n = self._status_reads.get(rule.key, 0) + 1
-                self._status_reads[rule.key] = n
-                if n >= self.STATUS_CONFIRM:
-                    pause = rule.message
-            elif out.get(id(e)) != "imune":
+                seen.add(rule.key)
+            elif near and out.get(id(e)) != "imune":
+                seen.add(rule.key)
                 out[id(e)] = rule.effect
+        for key in seen:
+            if self.p.statuses[key].effect == "pausar":
+                self._status_reads[key] = self._status_reads.get(key, 0) + 1
+                if self._status_reads[key] >= self.STATUS_CONFIRM:
+                    pause = self.p.statuses[key].message
         for k in list(self._status_reads):
             if k not in seen:
                 self._status_reads[k] = 0
@@ -334,10 +343,14 @@ class StrategyPlanner:
         st = self.stage
         if st.out_of_scope:
             return Plan(stage=st, pause=f"a etapa {st.name} não é combate que o bot faça sozinho ({st.objective})")
-        if self._fewest is None or len(enemies) < self._fewest:
-            if self._fewest is not None:
-                self._shots = 0  # um inimigo a menos: houve progresso
-            self._fewest = len(enemies)
+        # progresso = menos inimigos de forma estável: o maior número das últimas leituras (um quadro
+        # vazio de explosão ou câmera não conta) caiu em relação ao anterior; ondas novas sobem a referência
+        self._counts.append(len(enemies))
+        del self._counts[:-self.COUNT_WINDOW]
+        stable = max(self._counts)
+        if self._fewest is not None and stable < self._fewest:
+            self._shots = 0
+        self._fewest = stable
         effects, pause = self._effects(enemies, statuses, unit_px)
         if pause:
             return Plan(stage=st, pause=pause)

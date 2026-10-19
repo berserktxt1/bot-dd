@@ -237,14 +237,17 @@ class Perception:
         p = self.profile
         pf = frac_to_px(self.region("playfield") or [0, 0, 1, 1], img.shape)
         unit = pf[2] / float(self.config.get("ruler.units_per_screen", 10))
-        roles: list[Character] = []
+        found: list[Character] = []
         for role in p.roles:
             key = p.role_template(role)
             if self.templates.has(key):
-                found = self._locate(img, role, key, {})
-                for c in found:  # uma ocorrência por inimigo (a busca pode achar o mesmo duas vezes)
-                    if all(abs(c.x - o.x) > 0.4 * unit or abs(c.y - o.y) > 0.4 * unit for o in roles):
-                        roles.append(c)
+                found += self._locate(img, role, key, {})
+        # uma ocorrência por inimigo: no mesmo lugar fica o papel de maior semelhança (o modelo de um
+        # lacaio pode casar com o chefe, e o chefe não pode virar lacaio por vir antes na lista)
+        roles: list[Character] = []
+        for c in sorted(found, key=lambda c: c.confidence, reverse=True):
+            if all(abs(c.x - o.x) > 0.4 * unit or abs(c.y - o.y) > 0.4 * unit for o in roles):
+                roles.append(c)
         for st in p.statuses:
             key = p.status_template(st)
             if self.templates.has(key):

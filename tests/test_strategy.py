@@ -191,7 +191,8 @@ def test_no_progress_asks_for_help(profiles):
     # um inimigo a menos conta como progresso
     for _ in range(pl.stage.max_shots - 1):
         assert pl.on_shot() is None
-    pl.update(ants[:1], [], ME, 1.0)
+    for _ in range(StrategyPlanner.COUNT_WINDOW):  # menos inimigos de forma estável (não um quadro só)
+        pl.update(ants[:1], [], ME, 1.0)
     assert pl.on_shot() is None
 
 
@@ -382,3 +383,80 @@ def test_service_associates_strategy_and_lists_targets(home, monkeypatch):
         assert not svc.runner.alive
     finally:
         svc.close()
+
+
+# ------------------------------------------------- regressões da revisão (0.4.0)
+def test_status_applies_to_boss_seen_only_as_generic_enemy(profiles):
+    """O pavio/escudo mudam a aparência: o chefe pode sair só pelo marcador genérico naquele quadro."""
+    pl = planner(profiles["bugou_normal"])
+    pl.on_battle_start()
+    pl.index = 3
+    boss = enemy(GENERIC_ROLE, 6.0)
+    fuse = Character(6.0, -0.3, 0.9, "matias_pavio", "teste")
+    assert pl.update([boss], [fuse], ME, 1.0).pause is None
+    assert pl.update([boss], [fuse], ME, 1.0).pause  # pausa mesmo sem o papel reconhecido
+    pl2 = planner(profiles["bugou_normal"])
+    pl2.on_battle_start()
+    pl2.index = 1
+    baron = enemy(GENERIC_ROLE, 6.0)
+    plan = pl2.update([baron], [Character(6.0, -0.4, 0.9, "barao_escudo", "teste")], ME, 1.0)
+    assert plan.target is None and "imune" in plan.reason
+
+
+def test_pause_status_needs_two_reads_not_two_hits(profiles):
+    pl = planner(profiles["bugou_normal"])
+    pl.on_battle_start()
+    pl.index = 3
+    fuses = [Character(6.0, -0.3, 0.9, "matias_pavio", "teste"), Character(6.1, -0.3, 0.9, "matias_pavio", "teste")]
+    assert pl.update([enemy("matias", 6.0)], fuses, ME, 1.0).pause is None
+
+
+def test_progress_survives_an_empty_frame(profiles):
+    pl = planner(profiles["formigueiro"])
+    pl.on_battle_start()
+    pl.update([], [], ME, 1.0)  # quadro de explosão sem inimigos
+    ants = [enemy("formiga", 3.0 + i) for i in range(8)]
+    for n in range(8, 1, -1):  # uma formiga a menos a cada 2 disparos
+        for _ in range(5):
+            pl.update(ants[:n], [], ME, 1.0)
+        assert pl.on_shot() is None and pl.on_shot() is None, n
+
+
+def test_auto_fire_no_progress_pauses_and_resume_does_not_double_fire(kb, params, profiles, tmp_path):
+    from ddbot.aiming import Aimer
+    from ddbot.automation.safety import KillSwitch
+    from ddbot.calibration import Calibrator, ShotStore
+    from ddbot.combat import BattleView, CombatEngine, Mode, Shooter, ShotOutcome
+    from ddbot.config import Config
+    from ddbot.tracking import TargetTracker
+
+    class View(BattleView):
+        def observe(self):
+            return BattleObservation(True, True, distance=6.0, wind=0.0, confidence=0.95, me_x=0.0, target_x=6.0,
+                                     target_y=0.0)
+
+    class Count(Shooter):
+        shots = 0
+
+        def shoot(self, *a):
+            Count.shots += 1
+            return ShotOutcome()
+    pl = planner(profiles["formigueiro"])
+    pl.on_battle_start()
+    pl._shots = pl.stage.max_shots - 1
+    store = ShotStore(tmp_path / "s.sqlite3")
+    cal = Calibrator(store, params)
+    eng = CombatEngine(View(), Count(), Aimer(kb, params, cal), cal, TargetTracker(), KillSwitch(),
+                       Config(data={"automation": {"server_rules_confirmed": True, "min_seconds_between_shots": 0,
+                                                   "post_shot_wait_s": 0},
+                                    "thresholds": {"auto_min_hit_probability": 0.0}}))
+    eng.planner = pl
+    eng.set_mode(Mode.AUTO)
+    eng.step()
+    with pytest.raises(NeedsAttention):
+        eng.step()
+    assert Count.shots == 1
+    for _ in range(3):  # retomado, ainda no mesmo turno: nada de segundo disparo
+        eng.step()
+    assert Count.shots == 1
+    store.close()

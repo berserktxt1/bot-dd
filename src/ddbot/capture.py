@@ -217,6 +217,9 @@ class WindowCapture(FrameSource):
             return img  # coberto por inteiro, mas a imagem da janela já foi confirmada antes
         self._pw_ok_at = None
         log.warning("captura pela janela recusada: %s", why)
+        if not pts:
+            # descoberto e sem conferir: usa a cópia da tela por um tempo (sem cópia dupla e aviso a cada quadro)
+            self._pw_failures, self._pw_retry_at = 3, time.monotonic() + self.VERIFY_EVERY_S
         if pts:
             self.unavailable = f"{why}; deixe a janela do jogo visível"
         return None

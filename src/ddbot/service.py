@@ -431,6 +431,16 @@ class BotService:
     def start(self, d: ActivityDef, runs: int, simulated=False, faults: dict | None = None) -> tuple[bool, str]:
         if self.runner and self.runner.alive:
             return False, "já existe uma rotina em execução"
+        # clicar em Iniciar recomeça depois de uma emergência antiga; uma emergência apertada DURANTE o
+        # início (procura da janela, espera do foco) cancela este início
+        if self.kill.triggered:
+            self.kill.reset()
+        ok, why = self._start(d, runs, simulated, faults)
+        if not ok and not (self.runner and self.runner.alive):
+            self.perception.profile = None  # o perfil da instância só vale durante a rotina dela
+        return ok, why
+
+    def _start(self, d, runs, simulated, faults) -> tuple[bool, str]:
         if not simulated:
             found = self.auto_connect()
             if self.source is None:
@@ -444,8 +454,6 @@ class BotService:
         if not simulated and self.hotkey is not None and not self.hotkey_ok:
             return False, ("a tecla de emergência não está funcionando; sem ela o modo automático no jogo fica "
                            "bloqueado (veja o Registro técnico)")
-        if self.kill.triggered:
-            self.kill.reset()
         try:
             runner, engine = self.build_runner(d, runs, simulated, faults)
         except RuntimeError as exc:
@@ -465,6 +473,8 @@ class BotService:
                 time.sleep(0.1)
             if winapi.IS_WINDOWS and not self.source.is_foreground():
                 return False, "não foi possível trazer a janela do jogo para a frente; clique nela e tente de novo"
+        if self.kill.triggered:
+            return False, f"parada de emergência acionada durante o início ({self.kill.reason})"
         self.stop_assist()
         self.runner, self.engine, self.simulated = runner, engine, simulated
         runner.start()
@@ -545,6 +555,8 @@ class BotService:
         if self.source is None:
             raise RuntimeError("selecione a janela do jogo primeiro")
         self.stop_assist()
+        if not (self.runner and self.runner.alive):
+            self.perception.profile = None  # a mira assistida sugere para o inimigo escolhido, sem estratégia
         view = VisionBattleView(self.source, self.perception, self.config)
         self.assist_engine = CombatEngine(view, None, self.aimer, self.calibrator, self._tracker(), self.kill,
                                           self.config, on_event=self._combat_event)

@@ -100,7 +100,7 @@ def test_gui_smoke(tmp_path):
 
 
 def test_service_real_start_order_with_game_found(home, monkeypatch):
-    """Jogo encontrado e conectado, sem autorização: recusa pelas regras (e não finge que falta a janela).
+    """Com uma fonte de imagem conectada e sem autorização: recusa pelas regras (e não pela janela).
 
     O modo demonstração continua sem precisar de janela nem de autorização (não envia nada ao jogo).
     """
