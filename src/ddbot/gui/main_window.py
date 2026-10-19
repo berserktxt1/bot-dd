@@ -65,6 +65,7 @@ class MainWindow:
         self.live_diag = tk.BooleanVar(value=False)
         self.simulated = tk.BooleanVar(value=False)
         self._starting = False  # Iniciar no jogo real em andamento (em thread)
+        self._missing_required = ""  # calibração obrigatória que falta para a atividade escolhida
         self._diag_queue: "queue.Queue[tuple]" = queue.Queue(maxsize=2)
         self._diag_busy = False
         self._tiles: list = []
@@ -605,6 +606,7 @@ class MainWindow:
         self._show_window_label()
 
     def _show_window_label(self):
+        self._update_buttons()  # Iniciar no jogo real depende da janela conectada
         w = self.svc.window
         if w is not None:
             title = (w.title or w.exe or "janela").strip()
@@ -726,6 +728,7 @@ class MainWindow:
             self.btn_goto_calib.configure(text="Capturar opções do jogo", command=self._goto_options)
             self.btn_goto_calib.grid()
             return
+        self._missing_required = ""
         if d.key.startswith(DEMO_KEY) or self.simulated.get():
             self.lbl_ready.grid_remove()
             self.btn_goto_calib.grid_remove()
@@ -733,6 +736,7 @@ class MainWindow:
         self.lbl_ready.grid()
         from ..readiness import summary
         missing = summary(self.svc.readiness(d), limit=6)
+        self._missing_required = missing
         if missing:
             self.lbl_ready.configure(text=f"Para jogar sozinho, falta calibrar: {missing}.",
                                      style="SurfaceError.TLabel")
@@ -829,7 +833,12 @@ class MainWindow:
         st = self.svc.status
         running = self.svc.runner is not None and self.svc.runner.alive
         d = self.selected_activity()
+        demo = d is not None and (d.key.startswith(DEMO_KEY) or self.simulated.get())
         ready = d is not None and (d.auto_allowed or d.key.startswith(DEMO_KEY))
+        if ready and not demo:
+            # no jogo real: só com o jogo conectado e a calibração obrigatória completa (o motivo aparece
+            # na faixa de estado e embaixo da atividade)
+            ready = self.svc.window is not None and not self._missing_required
         busy = running or self._starting
         self.btn_start.state(["disabled"] if busy or not ready else ["!disabled"])
         if self._minimized_for_run and (not running or st != RunStatus.RUNNING):
@@ -1420,6 +1429,12 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
         app.area.set("instancia")
         app._fill_activity_list()
         check("instancia_continua_escolhida", (app.selected_activity() or d).kind == "instancia")
+        # sem o modo demonstração e sem o jogo: Iniciar fica desativado (no jogo real precisa da janela)
+        app.simulated.set(False)
+        app.refresh_activities()
+        check("iniciar_bloqueado_sem_jogo", app.btn_start.instate(["disabled"]))
+        app.simulated.set(True)
+        app.refresh_activities()
 
     def s_emergency():
         app.run_mode.set("cont")
