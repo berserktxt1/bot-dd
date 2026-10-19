@@ -531,3 +531,28 @@ def test_window_capture_never_returns_foreign_pixels(monkeypatch):
     assert frame is not None and cap.method == "janela" and np.array_equal(frame, game)
     monkeypatch.setattr(cap, "_grab_window", lambda i: None)            # sem PrintWindow e coberto
     assert cap.grab() is None and "na frente do jogo" in cap.unavailable
+
+
+def test_capture_part_of_game_off_screen_is_not_a_mismatch(monkeypatch):
+    """No runner do Windows (1024x768) o jogo de teste passava da borda: a cópia da tela é preta ali.
+
+    Esses pontos não podem reprovar a imagem certa da janela, e sem ela a cópia da tela não é usada.
+    """
+    import numpy as np
+    from ddbot import capture, winapi
+    from ddbot.winapi import WindowInfo
+    info = WindowInfo(5, "Cliente", 100, 100, 400, 300)
+    game = _frame((40, 170, 40))
+    screen = game.copy()
+    screen[:, 250:] = 0                                         # fora do monitor: preto na cópia da tela
+    monkeypatch.setattr(winapi, "window_info", lambda h: info)
+    monkeypatch.setattr(winapi, "is_minimized", lambda h: False)
+    monkeypatch.setattr(winapi, "root_of", lambda h: h)
+    monkeypatch.setattr(winapi, "window_at", lambda x, y: 0 if x >= 350 else 5)
+    cap = capture.WindowCapture(5)
+    monkeypatch.setattr(cap, "_screen", lambda i: screen.copy())
+    monkeypatch.setattr(cap, "_grab_window", lambda i: game.copy())
+    frame = cap.grab()
+    assert frame is not None and cap.method == "janela" and np.array_equal(frame, game)
+    monkeypatch.setattr(cap, "_grab_window", lambda i: None)
+    assert cap.grab() is None and "fora da tela" in cap.unavailable

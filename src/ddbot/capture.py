@@ -46,19 +46,24 @@ def grid_points(grid=GRID) -> list[tuple[float, float]]:
     return [((i + 0.5) / nx, (j + 0.5) / ny) for j in range(ny) for i in range(nx)]
 
 
-def covered_points(hwnd: int, info, window_at, root_of, grid=GRID) -> list[tuple[float, float]]:
-    """Pontos (frações da área do jogo) em que outra janela está por cima do jogo.
+def sample_points(hwnd: int, info, window_at, root_of, grid=GRID):
+    """Classifica uma grade de 8×6 pontos (frações da área do jogo): (cobertos, visíveis, fora da tela).
 
-    Uma grade de 8×6 pontos: com só o centro e os quadrantes, uma janela menor entre eles
-    (aviso, outro programa) passava despercebida e a cópia da tela trazia os pixels dela.
+    Com só o centro e os quadrantes, uma janela menor entre eles (aviso, outro programa)
+    passava despercebida e a cópia da tela trazia os pixels dela. Ponto sem janela nenhuma
+    está fora de qualquer monitor: não é "descoberto" (a cópia da tela ali é preta).
     """
     root = root_of(hwnd)
-    out = []
+    cov, vis, off = [], [], []
     for fx, fy in grid_points(grid):
         h = window_at(info.left + int(info.width * fx), info.top + int(info.height * fy))
-        if h and root_of(h) != root:
-            out.append((fx, fy))
-    return out
+        (off if not h else vis if root_of(h) == root else cov).append((fx, fy))
+    return cov, vis, off
+
+
+def covered_points(hwnd: int, info, window_at, root_of, grid=GRID) -> list[tuple[float, float]]:
+    """Pontos em que outra janela está por cima do jogo."""
+    return sample_points(hwnd, info, window_at, root_of, grid)[0]
 
 
 def covered(hwnd: int, info, window_at, root_of) -> bool:
@@ -89,7 +94,7 @@ def same_pixels(a, b, points, tol: float = 10.0) -> float:
     return hits / len(points)
 
 
-def check_window_image(window_img, screen_img, covered_pts) -> tuple[bool | None, str]:
+def check_window_image(window_img, screen_img, covered_pts, visible_pts=None) -> tuple[bool | None, str]:
     """Confere a imagem pedida à janela (PrintWindow) contra a cópia da tela.
 
     - onde outra janela cobre o jogo, a imagem da janela **não pode** ser igual à tela (seria
@@ -100,11 +105,12 @@ def check_window_image(window_img, screen_img, covered_pts) -> tuple[bool | None
     Devolve (True, "") se confirmada, (False, motivo) se é de outra janela e (None, motivo)
     quando não há como confirmar (jogo coberto por inteiro).
     """
-    free = [p for p in grid_points() if p not in set(covered_pts)]
+    # pontos fora da tela não entram: lá a cópia da tela não tem o jogo
+    free = visible_pts if visible_pts is not None else [p for p in grid_points() if p not in set(covered_pts)]
     if covered_pts and same_pixels(window_img, screen_img, covered_pts) >= 0.5:
         return False, "a imagem da janela do jogo mostra a janela que está na frente dele"
     if not free:
-        return None, "o jogo está todo coberto por outra janela e a imagem dele não pôde ser confirmada"
+        return None, "o jogo não está visível em nenhum ponto da tela e a imagem dele não pôde ser confirmada"
     # o jogo anima (água, vento, personagens): basta a maior parte da área descoberta coincidir
     if same_pixels(window_img, screen_img, free) < 0.6:
         return False, "a imagem da janela do jogo não confere com o que aparece na tela"
@@ -168,10 +174,10 @@ class WindowCapture(FrameSource):
             self.unavailable = "a janela do jogo está minimizada"
             return None
         self.unavailable = ""
-        pts = covered_points(self.hwnd, info, winapi.window_at, winapi.root_of)
+        pts, visible, offscreen = sample_points(self.hwnd, info, winapi.window_at, winapi.root_of)
         img = self._grab_window(info)
         if img is not None:
-            img = self._verified(img, info, pts)
+            img = self._verified(img, info, pts, visible)
             if img is not None:
                 self.method = "janela"
                 self.last_info = info
@@ -182,6 +188,9 @@ class WindowCapture(FrameSource):
             self.unavailable = ("outra janela está na frente do jogo; deixe a janela do jogo visível "
                                 "(o JonFlow se minimiza sozinho durante a rotina)")
             return None
+        if offscreen:
+            self.unavailable = "parte da janela do jogo está fora da tela; deixe o jogo inteiro dentro do monitor"
+            return None
         self.method = "tela"
         self.last_info = info
         return self._screen(info)
@@ -190,7 +199,7 @@ class WindowCapture(FrameSource):
         mon = {"left": info.left, "top": info.top, "width": info.width, "height": info.height}
         return cv2.cvtColor(np.asarray(self._sct().grab(mon)), cv2.COLOR_BGRA2BGR)
 
-    def _verified(self, img, info, pts):
+    def _verified(self, img, info, pts, visible=None):
         """A imagem da janela só vale se conferir com a tela (ver ``check_window_image``).
 
         Com o jogo descoberto, a conferência é refeita a cada ``VERIFY_EVERY_S``; com ele coberto,
@@ -200,7 +209,7 @@ class WindowCapture(FrameSource):
         now = time.monotonic()
         if not pts and self._pw_ok_at is not None and now - self._pw_ok_at < self.VERIFY_EVERY_S:
             return img
-        ok, why = check_window_image(img, self._screen(info), pts)
+        ok, why = check_window_image(img, self._screen(info), pts, visible)
         if ok:
             self._pw_ok_at = now
             return img

@@ -105,8 +105,8 @@ def test_capture_of_covered_game_is_the_game(procs, svc):
             b, g, r = mean_color(frame)
             assert g > 120 and r < 100, ("a captura trouxe a janela da frente", (b, g, r))
         else:
-            # o Windows não deu a imagem pela janela: a captura recusa em vez de ler a janela errada
-            assert frame is None and "na frente do jogo" in cap.unavailable
+            # sem a imagem da janela confirmada: a captura recusa (com o motivo) em vez de ler a janela errada
+            assert frame is None and cap.unavailable
     finally:
         cap.close()
 
