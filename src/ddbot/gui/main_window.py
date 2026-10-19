@@ -373,13 +373,15 @@ class MainWindow:
                                         + [p.name for p in self.svc.strategies()])
         self.cb_strategy.grid(row=2, column=0, sticky="we")
         self.cb_strategy.bind("<<ComboboxSelected>>", lambda e: self.set_strategy())
+        ttk.Label(f, text="Alvo ou estado a capturar", style="Surface.TLabel").grid(row=3, column=0, sticky="w",
+                                                                                   pady=(px(8), 0))
         self.cb_role = ttk.Combobox(f, state="readonly")
-        self.cb_role.grid(row=3, column=0, sticky="we", pady=(px(8), 0))
+        self.cb_role.grid(row=4, column=0, sticky="we")
         self._role_keys: list[str] = []
-        ttk.Button(f, text="Salvar alvo ou estado", command=self.save_role_template).grid(
-            row=4, column=0, sticky="we", pady=(px(6), 0))
+        self.btn_role = ttk.Button(f, text="Salvar alvo ou estado", command=self.save_role_template)
+        self.btn_role.grid(row=5, column=0, sticky="we", pady=(px(6), 0))
         self.lbl_strategy = ttk.Label(f, text="", style="SurfaceMuted.TLabel", wraplength=px(320), justify="left")
-        self.lbl_strategy.grid(row=5, column=0, sticky="w", pady=(px(6), 0))
+        self.lbl_strategy.grid(row=6, column=0, sticky="w", pady=(px(6), 0))
         sub.bind("<<NotebookTabChanged>>", lambda e: self._fill_strategy_page(), add="+")
 
         ttk.Separator(s).grid(row=3, column=0, sticky="we", pady=px(14))
@@ -899,6 +901,8 @@ class MainWindow:
             self.cb_role.current(0)
         else:
             self.cb_role.set("")
+        for w in (self.cb_role, self.btn_role):
+            w.state(["!disabled"] if tpls else ["disabled"])
         if d is None:
             text = "Escolha no Início uma instância capturada do jogo."
         elif prof is None:
