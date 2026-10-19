@@ -8,6 +8,9 @@ Obrigatório: as telas em que o fluxo age (lobby, menu, sala, batalha, vitória,
 os botões que o fluxo precisa clicar, e no combate o ângulo, o vento, o indicador de turno,
 as setas do vento e os marcadores dos personagens. Telas e botões opcionais (carregando,
 etapa concluída, recompensa, confirmar) só entram como recomendação.
+
+Com uma estratégia de instância, os alvos (rainha, Barão...) e os estados (escudo, pavio)
+também entram como recomendação: sem eles a etapa mira qualquer inimigo visível e o bot avisa.
 """
 from __future__ import annotations
 
@@ -26,7 +29,8 @@ class Missing:
     required: bool = True
 
 
-def check(d: ActivityDef, has_template, config, angle_trained: bool, wind_trained: bool) -> list[Missing]:
+def check(d: ActivityDef, has_template, config, angle_trained: bool, wind_trained: bool,
+          profile=None) -> list[Missing]:
     out: list[Missing] = []
     for state, actions in d.flow.items():
         acts = {a.kind for a in actions}
@@ -64,6 +68,10 @@ def check(d: ActivityDef, has_template, config, angle_trained: bool, wind_traine
         for tpl in ("vento_esquerda", "vento_direita"):  # sem o sentido, o vento lido não é usado
             if not has_template(tpl):
                 out.append(Missing(COMMON_TEMPLATES[tpl], "Calibração > Modelos"))
+    if profile is not None:
+        for tpl, label in profile.templates().items():
+            if not has_template(tpl):
+                out.append(Missing(label.split(" (")[0].lower(), "Calibração > Alvos da instância", False))
     # sem repetições (o mesmo botão em duas telas)
     seen, uniq = set(), []
     for m in out:

@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
-from .automation.safety import Aborted, Cancelled, FocusLost, InputBlocked, KillSwitch
+from .automation.safety import Aborted, Cancelled, FocusLost, InputBlocked, KillSwitch, NeedsAttention
 from .util import atomic_write_text
 
 log = logging.getLogger(__name__)
@@ -105,6 +105,7 @@ class ActivityDef:
     start_states: tuple[str, ...] = ("lobby",)
     forbidden: tuple[str, ...] = ()
     validated: bool = False           # validada no cliente real?
+    strategy: str | None = None       # perfil de estratégia da instância (strategy.py), se houver
     path: Path | None = None
 
     @property
@@ -121,6 +122,7 @@ class ActivityDef:
         return {"id": self.key, "nome": self.name, "tipo": self.kind, "categoria": self.category,
                 "descricao": self.description, "validada_no_cliente": self.validated,
                 "estados_iniciais": list(self.start_states), "proibido": list(self.forbidden),
+                "estrategia": self.strategy,
                 "fluxo": {s: [a.to_raw() for a in acts] for s, acts in self.flow.items()}}
 
     def save(self, folder: Path) -> Path:
@@ -154,11 +156,14 @@ class ActivityDef:
         kind = raw.get("tipo", "instancia")
         if kind not in ("instancia", "partida"):
             raise ValueError(f"tipo inválido: {kind}")
+        strategy = raw.get("estrategia") or None
+        if strategy is not None and not valid_name(strategy):
+            raise ValueError(f"estratégia inválida: {strategy!r}")
         return cls(key=key, name=str(raw.get("nome", key))[:80], kind=kind,
                    category=cat, description=str(raw.get("descricao", ""))[:300], flow=flow,
                    start_states=tuple(raw.get("estados_iniciais", ["lobby"])),
                    forbidden=tuple(raw.get("proibido", [])), validated=bool(raw.get("validada_no_cliente")),
-                   path=path)
+                   strategy=strategy, path=path)
 
 
 def load_activities(folder: Path) -> tuple[list[ActivityDef], list[str]]:
@@ -188,7 +193,7 @@ def unique_slug(base: str, taken) -> str:
 
 
 def activity_from_option(option_template: str, name: str, kind: str = "instancia",
-                         category: str = "pve", key: str | None = None) -> ActivityDef:
+                         category: str = "pve", key: str | None = None, strategy: str | None = None) -> ActivityDef:
     """Definição padrão para uma opção capturada no menu de instâncias ou de partidas.
 
     Os botões genéricos (``botao_instancias``, ``botao_partidas``, ``botao_iniciar``...)
@@ -210,7 +215,7 @@ def activity_from_option(option_template: str, name: str, kind: str = "instancia
     }
     return ActivityDef(key=key or slug(f"{kind}_{name}"), name=name, kind=kind, category=category,
                        description="Criada a partir de uma opção capturada no menu do cliente.", flow=flow,
-                       start_states=("lobby", menu, "sala"))
+                       start_states=("lobby", menu, "sala"), strategy=strategy if kind == "instancia" else None)
 
 
 def instance_from_option(option_template: str, name: str, category: str = "pve") -> ActivityDef:
@@ -338,7 +343,7 @@ class ActivityRunner:
 
     def __init__(self, definition: ActivityDef, reader: ScreenReader, actor: Actor, combat_step,
                  kill: KillSwitch, config, limits: RunLimits, on_event=None, state_threshold: float = 0.8,
-                 clock=time.monotonic, on_battle_start=None, on_failure_frame=None):
+                 clock=time.monotonic, on_battle_start=None, on_failure_frame=None, on_activity_start=None):
         self.d = definition
         self.reader = reader
         self.actor = actor
@@ -350,6 +355,7 @@ class ActivityRunner:
         self.state_threshold = state_threshold
         self.clock = clock
         self.on_battle_start = on_battle_start or (lambda: None)
+        self.on_activity_start = on_activity_start or (lambda: None)  # nova execução (antes da 1ª batalha)
         self.on_failure_frame = on_failure_frame  # callable(frame, motivo): guarda a tela para diagnóstico
         self.counters = RunCounters(started_at=clock(), clock=clock)
         self.status = RunStatus.IDLE
@@ -572,6 +578,7 @@ class ActivityRunner:
             if not self._in_activity:
                 self._in_activity = True
                 self._pending_result = None
+                self.on_activity_start()
             self.counters.battles += 1
             self.on_battle_start()
         elif state in self.d.start_states and self._in_activity:
@@ -756,7 +763,7 @@ class ActivityRunner:
                 return False
             if isinstance(exc, Cancelled):
                 return True  # pausa/parada pedida no meio de uma ação: o próximo passo trata
-            if isinstance(exc, (FocusLost, InputBlocked)):
+            if isinstance(exc, (FocusLost, InputBlocked, NeedsAttention)):
                 return self._pause_for_user(str(exc))
             self._emit("aviso", f"ação cancelada: {exc}")
             return True

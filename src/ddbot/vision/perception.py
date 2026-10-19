@@ -63,7 +63,8 @@ class Snapshot:
     angle_confidence: float = 0.0
     power: float | None = None          # 0-100 lido da barra
     me: Character | None = None
-    enemies: list[Character] = field(default_factory=list)
+    enemies: list[Character] = field(default_factory=list)  # ``kind``: papel na instância ou "inimigo"
+    statuses: list[Character] = field(default_factory=list)  # estados especiais vistos (``kind`` = estado)
     unit_px: float = 0.0                # pixels por unidade de régua
     warnings: list[str] = field(default_factory=list)
     regions_px: dict = field(default_factory=dict)
@@ -86,6 +87,7 @@ class Perception:
         self.manual_me: tuple[float, float] | None = None       # frações da área cliente
         self.manual_target: tuple[float, float] | None = None
         self.selected_enemy: int = 0
+        self.profile = None  # InstanceProfile da rotina: reconhece papéis (rainha, Barão...) e estados
 
     # ------------------------------------------------------------------ regiões
     def region(self, key):
@@ -217,11 +219,41 @@ class Perception:
         snap.me = max(me, key=lambda c: c.confidence) if me else None
         if snap.me:
             enemies = [e for e in enemies if abs(e.x - snap.me.x) > 5 or abs(e.y - snap.me.y) > 5]
+        if self.profile is not None and not self.manual_target:
+            enemies = self._with_roles(img, snap, enemies)
         snap.enemies = sorted(enemies, key=lambda c: c.x)
         if snap.me is None:
             snap.warnings.append("meu personagem não localizado (calibre o marcador ou marque manualmente)")
         if not snap.enemies:
             snap.warnings.append("nenhum inimigo localizado")
+
+    def _with_roles(self, img, snap: Snapshot, generic: list[Character]) -> list[Character]:
+        """Inimigos com papel (modelos ``alvo_<instancia>_<papel>``) e estados (``status_...``).
+
+        O mesmo inimigo achado pelo marcador genérico e pelo modelo do papel fica uma vez só,
+        com o papel. A distância para juntar os dois é medida na régua (o marcador costuma
+        ficar acima do corpo).
+        """
+        p = self.profile
+        pf = frac_to_px(self.region("playfield") or [0, 0, 1, 1], img.shape)
+        unit = pf[2] / float(self.config.get("ruler.units_per_screen", 10))
+        roles: list[Character] = []
+        for role in p.roles:
+            key = p.role_template(role)
+            if self.templates.has(key):
+                found = self._locate(img, role, key, {})
+                for c in found:  # uma ocorrência por inimigo (a busca pode achar o mesmo duas vezes)
+                    if all(abs(c.x - o.x) > 0.4 * unit or abs(c.y - o.y) > 0.4 * unit for o in roles):
+                        roles.append(c)
+        for st in p.statuses:
+            key = p.status_template(st)
+            if self.templates.has(key):
+                snap.statuses += self._locate(img, st, key, {})
+        if snap.me:
+            roles = [e for e in roles if abs(e.x - snap.me.x) > 5 or abs(e.y - snap.me.y) > 5]
+        rest = [g for g in generic
+                if all(abs(g.x - r.x) > 0.6 * unit or abs(g.y - r.y) > 1.5 * unit for r in roles)]
+        return roles + rest
 
     # --------------------------------------------------------------- principal
     def analyze(self, img: np.ndarray) -> Snapshot:

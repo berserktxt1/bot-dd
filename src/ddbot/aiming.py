@@ -256,9 +256,10 @@ class Aimer:
         if ctx.distance <= ctx.weapon.blast_radius + ctx.target_width / 2:
             # a explosão pegaria o próprio personagem
             return Recommendation(None, [], ctx, "alvo colado no seu personagem; o disparo atingiria você também")
-        cands = self.candidates(ctx)
+        cands = [c for c in self.candidates(ctx) if ctx.angle_min <= c.angle <= ctx.angle_max]
         if not cands:
-            return Recommendation(None, [], ctx, "nenhuma combinação alcança o alvo")
+            return Recommendation(None, [], ctx, "nenhuma combinação alcança o alvo"
+                                  + (f" com ângulo a partir de {ctx.angle_min}°" if ctx.angle_min else ""))
         best = cands[0]
         reason = f"{best.method}: {best.angle}° / {best.force:.1f} (P≈{best.hit_probability:.0%})"
         if best.hit_probability <= 0:
