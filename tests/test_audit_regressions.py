@@ -445,3 +445,89 @@ def test_legacy_localappdata_folder_kept(tmp_path, monkeypatch):
     assert P._fallback_dir() == tmp_path / "DDClassicoBot"
     (tmp_path / "JonFlow").mkdir()
     assert P._fallback_dir() == tmp_path / "JonFlow"
+
+
+# ------------------------------------------------------------ 0.4.0: launcher e captura
+def test_stale_parent_pid_reused_by_other_launcher_is_dropped():
+    """O pid do pai que terminou foi reaproveitado por um launcher aberto depois do jogo."""
+    from ddbot.winapi import prune_stale_parents
+    created = {10: 100, 11: 900, 20: 500, 30: 50}   # 11 (segundo launcher) nasceu depois do jogo (20)
+    parents = {10: 4, 11: 4, 20: 11, 30: 4}
+    out = prune_stale_parents(parents, created.get)
+    assert out[20] == 0 and out[10] == 4
+    # sem a hora de criação (sem acesso), a ligação fica: não há prova de que é falsa
+    assert prune_stale_parents({20: 11, 11: 4}, lambda pid: None)[20] == 11
+
+
+def test_several_launchers_without_parentage_do_not_guess():
+    from ddbot.detection import GAME, detect
+    from ddbot.game_window import GameWindowProfile, WindowRule
+    from ddbot.winapi import WindowInfo
+
+    def w(hwnd, pid, exe, title, ww=1000, hh=640):
+        return WindowInfo(hwnd, title, 0, 0, ww, hh, pid=pid, exe=exe, cls="Wnd")
+    l1, l2 = w(100, 10, "L.exe", "DDTank Launcher", 1200, 700), w(110, 11, "L.exe", "DDTank Launcher", 900, 600)
+    game = w(200, 20, "cliente.exe", "Janela")
+    prof = GameWindowProfile(WindowRule("cliente.exe", "Wnd"), WindowRule("L.exe", "Wnd"))
+    # o jogo foi aberto por um processo intermediário que já terminou: sem parentesco
+    d = detect([l1, l2, game], {10: 4, 11: 4, 20: 0}, 999, ["DDTank"], prof)
+    assert d.state == GAME and d.game.hwnd == 200
+    assert d.launcher is None  # dois launchers: não escolhe o "maior"
+    # com parentesco, é o launcher certo, mesmo sendo o menor
+    d = detect([l1, l2, game], {10: 4, 11: 4, 20: 11}, 999, ["DDTank"], prof)
+    assert d.launcher is not None and d.launcher.pid == 11
+    # um launcher só, sem parentesco: é ele
+    d = detect([l1, game], {10: 4, 20: 0}, 999, ["DDTank"], prof)
+    assert d.launcher is not None and d.launcher.pid == 10
+
+
+def _frame(color, w=400, h=300):
+    import numpy as np
+    img = np.zeros((h, w, 3), np.uint8)
+    img[:] = color
+    img[::17, :] = (255, 255, 255)  # textura: nada de imagem "vazia"
+    return img
+
+
+def test_window_image_that_shows_the_covering_window_is_refused():
+    from ddbot.capture import check_window_image, grid_points
+    game, cover = _frame((40, 170, 40)), _frame((40, 40, 170))
+    pts = [p for p in grid_points() if p[0] > 0.5]           # metade direita coberta
+    screen = game.copy()
+    screen[:, 200:] = cover[:, 200:]
+    ok, _ = check_window_image(game, screen, pts)              # imagem real do jogo: confirmada
+    assert ok is True
+    ok, why = check_window_image(screen, screen, pts)          # "imagem da janela" = a tela: recusada
+    assert ok is False and "na frente" in why
+    ok, _ = check_window_image(cover, game, [])                # descoberto, mas não confere
+    assert ok is False
+    ok, _ = check_window_image(game, cover, grid_points())     # todo coberto: não dá para confirmar
+    assert ok is None
+
+
+def test_window_capture_never_returns_foreign_pixels(monkeypatch):
+    """Simula o Windows: PrintWindow devolvendo a janela da frente; jogo coberto em parte."""
+    import numpy as np
+    from ddbot import capture, winapi
+    from ddbot.winapi import WindowInfo
+    info = WindowInfo(5, "Cliente", 100, 100, 400, 300)
+    game, cover = _frame((40, 170, 40)), _frame((40, 40, 170))
+    screen = game.copy()
+    screen[:, 330:] = cover[:, 330:]                            # janela estreita na faixa da direita
+    cover_x0 = 100 + 330
+
+    monkeypatch.setattr(winapi, "window_info", lambda h: info)
+    monkeypatch.setattr(winapi, "is_minimized", lambda h: False)
+    monkeypatch.setattr(winapi, "root_of", lambda h: h)
+    monkeypatch.setattr(winapi, "window_at", lambda x, y: 9 if x >= cover_x0 else 5)
+    cap = capture.WindowCapture(5)
+    monkeypatch.setattr(cap, "_screen", lambda i: screen.copy())
+    # a cobertura fica entre os 5 pontos antigos (centro/quadrantes): a grade a encontra
+    assert capture.covered(5, info, winapi.window_at, winapi.root_of)
+    monkeypatch.setattr(cap, "_grab_window", lambda i: screen.copy())   # PrintWindow "mentindo"
+    assert cap.grab() is None and "na frente" in cap.unavailable
+    monkeypatch.setattr(cap, "_grab_window", lambda i: game.copy())     # PrintWindow correto
+    frame = cap.grab()
+    assert frame is not None and cap.method == "janela" and np.array_equal(frame, game)
+    monkeypatch.setattr(cap, "_grab_window", lambda i: None)            # sem PrintWindow e coberto
+    assert cap.grab() is None and "na frente do jogo" in cap.unavailable

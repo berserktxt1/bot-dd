@@ -122,3 +122,19 @@ def test_pick_at_real_window(procs, svc):
     time.sleep(0.5)
     got = pick_at(svc.inventory(ranked=False), game.left + 100, game.top + 100, winapi.own_pid())
     assert got is not None and winapi.root_of(got.hwnd) == winapi.root_of(game.hwnd)
+
+
+def test_two_launchers_game_linked_to_the_one_that_opened_it(procs, svc):
+    """Dois launchers abertos; só o segundo abre o jogo: o jogo é associado a ele, não ao primeiro."""
+    from ddbot import winapi
+    from ddbot.detection import GAME
+    first_l = procs("launcher", "--x", "40", "--y", "40")
+    second_l = procs("launcher", "--spawn-after", "6", "--x", "520", "--y", "60")
+    both = wait_for(lambda: (lambda ws: ws if len(ws) >= 2 else None)(
+        [w for w in winapi.list_windows() if w.title == "DDTank Launcher (teste)"]))
+    assert both is not None, "os launchers de teste não apareceram"
+    svc.mark_launcher(next(w for w in both if w.pid == first_l.pid))
+    found = wait_for(lambda: (lambda d: d if d.state == GAME else None)(svc.auto_connect()), timeout=25)
+    assert found is not None and found.confident, found
+    assert found.game.pid not in (first_l.pid, second_l.pid)
+    assert found.launcher is not None and found.launcher.pid == second_l.pid, (found.launcher, first_l.pid)
