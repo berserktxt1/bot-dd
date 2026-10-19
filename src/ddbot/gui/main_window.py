@@ -37,7 +37,8 @@ OPTIONAL_FIELDS = {"automation.keys.pass_turn"}
 
 def demo_activity(kind: str, profile=None) -> ActivityDef:
     if profile is not None:
-        d = activity_from_option(f"instancia_{profile.key}", profile.name, "instancia", "pve", strategy=profile.key)
+        d = activity_from_option(f"instancia_{profile.key}", f"{profile.name} (demonstração)", "instancia", "pve",
+                                 strategy=profile.key)
         d.key = DEMO_KEY + profile.key
     else:
         name = "Instância de demonstração" if kind == "instancia" else "Partida de demonstração"
@@ -683,7 +684,7 @@ class MainWindow:
 
     def _label(self, d: ActivityDef):
         if d.key.startswith(DEMO_KEY):
-            return f"{d.name} (simulação)"
+            return d.name if "demonstração" in d.name else f"{d.name} (simulação)"
         tag = "" if d.validated else " (ainda não validada no jogo)"
         return f"{d.name}, {CATEGORIES.get(d.category, d.category)}{tag}"
 
@@ -1253,7 +1254,7 @@ class MainWindow:
         obs = eng.last_observation if eng else None
         alive = bool(r and r.alive)
         return UiSnapshot(
-            has_window=self.svc.window is not None, demo=self.simulated.get(),
+            has_window=self.svc.window is not None, demo=self.simulated.get() or self.svc.simulated,
             activity_name=(r.d.name if alive else (d.name if d else None)),
             activity_auto=(d.auto_allowed if d else True),
             status=self.svc.status, alive=alive, reason=(r.reason if r else ""),
@@ -1340,6 +1341,10 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
         app.run_mode.set("cont")
         app._update_status()
         check("demonstracao_listada", app.selected_activity() is not None)
+        demos = {d.strategy for d in app.activities.values() if d.key.startswith(DEMO_KEY) and d.strategy}
+        check("estrategias_listadas", {"formigueiro", "galinheiro", "bugou_normal"} <= demos)
+        check("demonstracao_com_estrategia", (app.selected_activity() or demo_activity("instancia")).strategy
+              is not None)
         check("faixa_pronto", app.banner.kind == "ready")
 
     def s_start():
