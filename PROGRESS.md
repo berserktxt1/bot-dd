@@ -9,7 +9,7 @@
 ## Versão 0.4.2
 
 Publica a correção do `--simulate` descrita abaixo (commit `b17d179`). O programa no jogo real, a demonstração e
-as estratégias não mudaram. Resultados da CI da tag: RESULTADOS_042
+as estratégias não mudaram. CI da branch `release/0.4.2` (execução 39355727642, commit `dee0c3f`): Linux 246 aprovados, 4 pulados (só no Windows); Windows 250 aprovados (0 pulados), com compilação e testes do `.exe` (pasta e arquivo único) aprovados. Os números da compilação publicada estão no `build-info.json` da Release.
 
 ## Correção do `--simulate` (entrou na 0.4.2)
 
