@@ -7,7 +7,7 @@ JonFlow - bot para DDTank (DDClassico) - como usar (resumo)
    O JonFlow se minimiza e procura o jogo sozinho. Se so o launcher estiver aberto,
    ele espera: entre no jogo pelo launcher e ele conecta quando o jogo aparecer.
    Confira a previa e clique em Pronto (ou "Sim, e o jogo").
-3. Primeira vez: aba "Calibracao" (veja LEIA-ME.md, secao "Primeira configuracao").
+3. Primeira vez: aba "Calibracao" (veja LEIA-ME.md, "Passo 4 - Ensinar o bot a enxergar").
    Formigueiro, Galinheiro e Castelo de Bugou (Normal) tem estrategia propria:
    capture os alvos e estados deles em Calibracao > Alvos.
 4. Aba "Configuracoes": leia o aviso e marque a autorizacao do modo automatico.
