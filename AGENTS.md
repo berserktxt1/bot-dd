@@ -1,7 +1,9 @@
 # AGENTS.md
 
 Guia para agentes de código (Claude Code, Codex etc.) que trabalham neste repositório. Para usuários finais, veja
-o [`README.md`](README.md).
+o [`README.md`](README.md): ele vai no pacote como `LEIA-ME.md` e é escrito passo a passo para quem nunca usou o
+programa (linguagem simples, tabelas, problemas comuns e glossário). Ao mudar algo que o usuário vê, atualize o
+README nesse mesmo tom e confira os nomes de botões e abas no código da interface.
 
 ## O projeto
 
@@ -40,6 +42,7 @@ config/default_config.json                  configuração padrão
 packaging/                                  specs do PyInstaller, version_info.txt, run_ddbot.py
 tests/                                      pytest (fixtures em conftest.py e fixtures/)
 tools/fit_model.py                          reajuste das constantes físicas
+tools/display_scale.py                      muda a escala do Windows (100/125/150%...) sem sair da sessão (CI)
 ```
 
 ## Comandos
@@ -60,6 +63,18 @@ O build do `.exe` só roda no Windows (`build_windows.bat`); a CI (`.github/work
 Linux com Xvfb e no Windows, compila e testa os executáveis. `test_windows_real.py` e alguns testes de interface
 só rodam no Windows: são pulados no Linux, e isso é esperado.
 
+No Windows a CI roda, além da suíte completa:
+
+- os testes de janelas reais **num venv e com o navegador aberto**, 3 vezes cada (como no PC do usuário). No
+  Windows, o `python.exe` de um venv é um redirecionador que abre o Python base como processo filho: `Popen.pid`
+  não é o dono da janela. Use o pid e o hwnd que a janela de teste informa (`--ready`);
+- os mesmos testes e a suíte completa com a **escala do Windows em 125%** (`tools/display_scale.py`). O runner
+  roda em 100%, e falhas de DPI só aparecem acima disso. Capturas recusadas por esses testes vão para os
+  relatórios da CI.
+
+Para acompanhar a CI: `gh run list --limit 5`, `gh run view <id>`, `gh run view <id> --log-failed`. Registre no
+`PROGRESS.md` o número da execução e o commit de cada resultado citado.
+
 ## Regras do código
 
 - **Segurança vem antes de tudo.** Não enfraqueça as travas de `automation/safety.py` e de `combat.py`/
@@ -69,8 +84,14 @@ só rodam no Windows: são pulados no Linux, e isso é esperado.
 - **Nada inventado sobre o jogo.** Coordenadas, telas e botões vêm das capturas do usuário; constantes físicas
   vêm de `data/knowledge` com fonte registrada em `sources.json`. Não fixe nomes de janela/processo nem posições.
 - Telas e fins de batalha só valem após leituras seguidas; leitura com baixa confiança não dispara.
+- **Escala do Windows (DPI).** Um programa sem suporte a DPI (como a janela de teste e muitos jogos) desenha no
+  tamanho de 100% e o Windows amplia a imagem na tela. A imagem pedida à janela (`winapi.print_window`) vem no DPI
+  dela e é ampliada para a área do jogo (`capture.fit_to_area`); imagem com faixas pretas que a tela não tem é
+  recusada. Qualquer código que relacione coordenadas ou tamanhos da janela com os da tela precisa considerar a
+  escala, e o teste correspondente deve rodar também em 125%.
 - A interface nunca pode travar: trabalho pesado fica fora da thread do Tk (o `--gui-smoke` falha se o laço de
-  eventos atrasar mais de 1,5 s).
+  eventos atrasar mais de 1,5 s). Quando a interface para mais de 1 s, o relatório do `--gui-smoke`
+  (`DDBOT_SMOKE_OUT`) guarda em `pilhas_no_atraso` onde cada thread estava: use isso em vez de repetir a execução.
 - Dados do usuário: use `paths.py` (pasta `dados` portátil ao lado do `.exe` ou `%LOCALAPPDATA%\JonFlow`, com
   compatibilidade com `DDClassicoBot`). Gravação atômica; não grave caminhos pessoais nos logs.
 - Dependências com versão fixa em `requirements*.txt`; actions da CI fixadas por SHA. Não adicione dependência sem

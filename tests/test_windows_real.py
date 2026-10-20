@@ -118,6 +118,39 @@ def mean_color(frame):
     return tuple(int(v) for v in frame.reshape(-1, 3).mean(axis=0))  # BGR
 
 
+def green(bgr) -> bool:
+    """Cor do jogo de teste (#22AA44, BGR 68, 170, 34); o launcher (#3355AA) e a outra janela (#AA2222) não passam."""
+    b, g, r = bgr
+    return g > 120 and r < 100 and b < 120
+
+
+def corners(frame, size=0.12):
+    """Médias dos quatro cantos: a imagem do jogo precisa ocupar a captura inteira, não só parte dela."""
+    h, w = frame.shape[:2]
+    dh, dw = max(2, int(h * size)), max(2, int(w * size))
+    return [mean_color(frame[y:y + dh, x:x + dw]) for y in (0, h - dh) for x in (0, w - dw)]
+
+
+def is_game_image(frame, hwnd) -> bool:
+    """Captura do jogo de teste: do tamanho da área do jogo na tela e verde inteira (inclusive nos cantos)."""
+    from ddbot import winapi
+    info = winapi.window_info(hwnd)
+    return (info is not None and frame.shape[:2] == (info.height, info.width)
+            and green(mean_color(frame)) and all(green(c) for c in corners(frame)))
+
+
+def capture_report(frame, hwnd, path: Path, seen=()) -> dict:
+    """Diagnóstico de uma captura recusada pelo teste (a imagem fica salva em ``path``)."""
+    from ddbot import winapi
+    from ddbot.capture import save_image
+    info = winapi.window_info(hwnd)
+    out = {"dpi_janela_monitor": winapi.window_dpi(hwnd), "area_do_jogo": info and info.rect,
+           "ultimas_medias_bgr": list(seen)[-5:]}
+    if frame is not None:
+        out.update(tamanho=frame.shape[:2], cantos_bgr=corners(frame), imagem=str(save_image(path, frame)))
+    return out
+
+
 def ancestors(pid):
     from ddbot import winapi
     parents, cur, chain = winapi.process_parents(), pid, []
@@ -127,7 +160,7 @@ def ancestors(pid):
     return chain
 
 
-def test_launcher_then_game_in_child_process(procs, svc):
+def test_launcher_then_game_in_child_process(procs, svc, tmp_path):
     from ddbot.detection import GAME
     launcher = procs("launcher", "--spawn-after", "6", "--x", "40", "--y", "40")
     lwin = launcher.window()
@@ -151,23 +184,26 @@ def test_launcher_then_game_in_child_process(procs, svc):
     assert svc.window is not None and svc.window.hwnd == found.game.hwnd
     # captura pela janela: a imagem é do jogo (verde). Logo que a janela aparece o Windows ainda anima a
     # abertura (a imagem sai misturada com o fundo, CI 39346270446: BGR 139, 202, 118); espera o jogo terminar
-    # de desenhar. Uma captura da janela errada (launcher azul, outra janela) nunca fica verde e reprova
-    seen = []
+    # de desenhar. Uma captura da janela errada (launcher azul, outra janela) nunca fica verde e reprova; e a
+    # imagem precisa ter o tamanho da área do jogo e ser verde até os cantos: com a escala do Windows em 125%,
+    # a imagem do jogo vinha no tamanho de 100%, num canto, com o resto preto (BGR 43, 108, 22 no PC do usuário)
+    seen, last = [], []
 
     def drawn():
         f = svc.grab()
         if f is None:
             return None
         seen.append(mean_color(f))
-        b, g, r = seen[-1]
-        return f if g > 120 and r < 100 and b < 120 else None
+        last[:] = [f]
+        return f if is_game_image(f, found.game.hwnd) else None
     frame = wait_for(drawn, timeout=10)
-    assert frame is not None, ("a captura não ficou com a imagem do jogo", seen[-5:])
+    assert frame is not None, ("a captura não ficou com a imagem do jogo", capture_report(
+        last[0] if last else None, found.game.hwnd, tmp_path / "captura.png", seen))
     # na próxima vez o perfil salvo reconhece o jogo direto
     assert svc.profile.game is not None
 
 
-def test_capture_of_covered_game_is_the_game(procs, svc):
+def test_capture_of_covered_game_is_the_game(procs, svc, tmp_path):
     from ddbot import winapi
     from ddbot.capture import WindowCapture, covered
     game = procs("game", "--x", "200", "--y", "150").window()
@@ -181,8 +217,8 @@ def test_capture_of_covered_game_is_the_game(procs, svc):
     try:
         frame = cap.grab()
         if cap.method == "janela":
-            b, g, r = mean_color(frame)
-            assert g > 120 and r < 100, ("a captura trouxe a janela da frente", (b, g, r))
+            assert is_game_image(frame, game.hwnd), ("a captura não é a imagem inteira do jogo",
+                                                     capture_report(frame, game.hwnd, tmp_path / "captura.png"))
         else:
             # sem a imagem da janela confirmada: a captura recusa (com o motivo) em vez de ler a janela errada
             assert frame is None and cap.unavailable
