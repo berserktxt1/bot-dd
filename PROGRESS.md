@@ -6,6 +6,58 @@
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
 
+## Depois da 0.4.1 (em `develop`, sem versão nova)
+
+### Simulação de precisão (`--simulate`) e defeito encontrado nela
+
+Executado em 2026-10-20 no commit `b17d179` (Linux de desenvolvimento). É **simulação**: um "jogo" de mentira
+com constantes físicas diferentes das do modelo (velocidade +3%, vento +25%, arrasto −5%) e ruído de leitura e de
+execução, com sorteio fixo (semente 1). Não diz nada sobre a precisão no DDClássico.
+
+**Defeito encontrado:** antes da correção, `--simulate 50` perdia 40 turnos (sem calibração) e 49 (com
+calibração), sempre o **1º turno de cada batalha** a partir da 2ª. Causa: o laço de `run_simulation` lia o fim
+da batalha uma vez só, mas desde a auditoria da 0.3.0 o motor só aceita o fim após leituras seguidas; o
+`reset_battle()` não rodava e o turno da batalha anterior (já com disparo) continuava valendo. Só a medição do
+`--simulate` era afetada: a rotina e a demonstração zeram a batalha pelo `on_battle_start`. Corrigido em
+`b17d179` (o laço zera a batalha como o `ActivityRunner`), com o teste de regressão
+`test_simulation_does_not_lose_the_first_turn_of_each_battle`, que falha no código anterior.
+
+| `--simulate 50` | Disparos | Acerto | Vitórias | Erro médio (1ª / 2ª metade, régua) | Turnos perdidos |
+|---|---|---|---|---|---|
+| sem calibração, antes da correção | 365 | 37,0% | 41 | 0,711 / 0,686 | 40 |
+| com calibração, antes da correção | 155 | 96,8% | 50 | 0,177 / 0,136 | 49 |
+| **sem calibração, corrigido** | 350 | **40,0%** | 43 | 0,639 / 0,682 | **0** |
+| **com calibração, corrigido** | 156 | **96,2%** | 50 | 0,160 / 0,139 | **0** |
+
+Comparação com versões anteriores, `--simulate 15` medido agora na mesma máquina:
+
+| Código | Sem calibração | Com calibração | Turnos perdidos |
+|---|---|---|---|
+| v0.2.1 | 41,4% (erro 2ª metade 0,664) | 88,2% (0,175) | 0 / 0 |
+| v0.3.0 | 39,6% (1,036) | 91,8% (0,159) | 12 / 14 |
+| `b17d179` | 41,4% (0,664) | 91,8% (0,136) | 0 / 0 |
+
+- O defeito entrou na 0.3.0. Com a correção, o resultado sem calibração volta a ser idêntico ao da 0.2.1 (mesmo
+  sorteio, mesma mira sem correção).
+- O ganho com calibração em relação à 0.2.1 (88% → 92%) vem das correções de mira da auditoria da 0.3.0.
+- O valor antigo deste arquivo (35% → 85% em 15 batalhas) **não se reproduz** nem na v0.2.1: foi medido num
+  commit anterior. A referência passa a ser a tabela acima.
+- A calibração aprende a diferença entre o "jogo" simulado e o modelo; no jogo real, ela só ajuda depois de
+  disparos reais registrados.
+
+### Outras verificações no mesmo commit
+
+| Verificação | Resultado |
+|---|---|
+| `pyflakes src tools tests` | sem avisos |
+| `--selftest` | OK (recursos, mira, visão, simulação, estratégias, entrada, interface) |
+| pytest, Linux de desenvolvimento (sem tela) | 245 aprovados, 5 pulados (interface: sem display; 4 só no Windows) |
+| pytest, container Ubuntu 24.04 + Xvfb | 246 aprovados, 4 pulados (só no Windows) |
+| `--gui-smoke 8` (container + Xvfb) | OK: 25 verificações, atraso máximo 108 ms |
+| Windows | ver a CI da branch `feature/simulacao-primeiro-turno` (abaixo) |
+
+RESULTADOS_CI_SIM
+
 ## Versão 0.4.1 (hotfix)
 
 A CI da tag `v0.4.0` (execução 39346270446) falhou em `test_launcher_then_game_in_child_process`: a cor média da

@@ -23,7 +23,7 @@ Para rodar: `python -m pytest -q tests` (com `PYTHONPATH=src`, ou pelo `build_wi
 | `test_strategy.py` | unitário/cenário/visão | perfis de instância carregados, com fontes registradas; associação pelo nome respeitando a dificuldade; **Formigueiro** (onde há mais formigas; a rainha abre a etapa 2 só após leituras seguidas; na etapa da rainha não atira nas formigas); sem o modelo do alvo, mira qualquer inimigo e avisa uma vez; **Galinheiro** (o mais perto primeiro); **Bugou** (Barão imune de frente; escudo do Midas força ângulo ≥ 60; pavio do Matias pausa só após leituras seguidas); sem progresso pede ajuda; chefe que some espera e depois troca; papéis reconhecidos numa imagem sintética sem duplicar o marcador genérico; as três instâncias completas na simulação, 1 e 3 vezes seguidas, passando por todas as etapas; repetição contínua até parar; nenhum disparo anulado por escudo (sem a estratégia, o mesmo cenário desperdiça disparos); pavio pausa a rotina e, depois do gelo, Retomar termina; serviço: estratégia associada, alvos como recomendação, demonstração com pausa/retomada/parada |
 | `test_audit_regressions.py` | regressão | cada defeito das auditorias. Na 0.4.0: pid do pai reaproveitado por outro launcher; vários launchers sem parentesco não são "chutados"; imagem da janela que mostra a janela da frente é recusada; captura simulada no Windows com cobertura entre os 5 pontos antigos |
 | `test_gui_states.py` | unitário | textos da faixa de estado; demonstração sempre identificada como simulação (executando, pausada, concluída) |
-| `test_simulation_service.py` | cenário/regressão/interface | a calibração melhora a precisão; inimigos invisíveis na simulação; serviço completo em modo simulado (iniciar, pausar, retomar e parar em menos de 3,5 s); recusas sem janela e sem autorização (isoladas da área de trabalho real: antes, num PC com o DDTank aberto, o bot conectava no jogo e a recusa vinha pelas regras); demonstração sem autorização nem janela; emergência e reinício; `--selftest` pela linha de comando; **teste de interface** `--gui-smoke` (precisa de tkinter: roda na CI Windows e na CI Linux com Xvfb) |
+| `test_simulation_service.py` | cenário/regressão/interface | a calibração melhora a precisão; o `--simulate` não perde o 1º turno de cada batalha; inimigos invisíveis na simulação; serviço completo em modo simulado (iniciar, pausar, retomar e parar em menos de 3,5 s); recusas sem janela e sem autorização (isoladas da área de trabalho real: antes, num PC com o DDTank aberto, o bot conectava no jogo e a recusa vinha pelas regras); demonstração sem autorização nem janela; emergência e reinício; `--selftest` pela linha de comando; **teste de interface** `--gui-smoke` (precisa de tkinter: roda na CI Windows e na CI Linux com Xvfb) |
 
 ## Teste de interface (`--gui-smoke`)
 
@@ -46,6 +46,22 @@ A CI (`.github/workflows/windows-build.yml`) compila com `build_windows.bat` e c
 LEIA-ME e os dados embutidos existem. Depois extrai o ZIP numa pasta nova, tira o Python do `PATH` e roda o `.exe`
 com `--selftest` (recursos, configuração, mira, visão e fluxo simulado) e com `--gui-smoke`. Por fim confere que a
 pasta portátil `dados\config.json` foi criada ao lado do executável.
+
+## Simulação de precisão (`--simulate N`)
+
+`PYTHONPATH=src python -m ddbot --simulate N` joga N batalhas simuladas em modo automático duas vezes, sem e com
+calibração, e imprime uma linha JSON para cada: disparos, acertos, vitórias, taxa de acerto na 1ª e na 2ª metade,
+erro médio do impacto (em unidades da régua), disparos com o alvo oculto e turnos perdidos (o tempo do turno
+esgotou sem disparo). O "jogo" tem constantes físicas diferentes das do modelo (velocidade +3%, vento +25%,
+arrasto −5%) e ruído; o sorteio é fixo (semente 1), então a mesma versão dá o mesmo resultado.
+
+Limitações: é um alvo único num terreno plano, sem a visão (as leituras chegam prontas, com ruído) e com um "jogo"
+inventado. Mede se a mira e a calibração funcionam como programado; **não** mede a precisão no DDClássico.
+
+Resultados de 2026-10-20 (commit `b17d179`): com 50 batalhas, 40,0% de acerto sem calibração e 96,2% com
+calibração, sem turnos perdidos. Antes desse commit, o 1º turno de cada batalha era perdido no `--simulate`
+(defeito da medição desde a 0.3.0; detalhes e comparação com versões anteriores em `PROGRESS.md`). Regressão:
+`test_simulation_does_not_lose_the_first_turn_of_each_battle`.
 
 ## Rodar no Linux sem Xvfb instalado
 
