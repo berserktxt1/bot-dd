@@ -113,8 +113,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { $fail += "suíte completa" }
           } finally {
             python tools/display_scale.py 100
-            # capturas recusadas pelos testes (diagnóstico); só as imagens, nada da pasta de dados dos testes
-            Get-ChildItem $out -Recurse -Filter *.png -ErrorAction SilentlyContinue | ForEach-Object {
+            # capturas recusadas pelos testes de janelas reais (captura.png); nada da pasta de dados dos testes
+            Get-ChildItem $out -Recurse -Filter captura.png -ErrorAction SilentlyContinue | ForEach-Object {
               New-Item -ItemType Directory -Force test-results/escala-125 | Out-Null
               Copy-Item $_.FullName "test-results/escala-125/$($_.Directory.Parent.Name)-$($_.Directory.Name)-$($_.Name)" }
           }
