@@ -1,12 +1,58 @@
 # Andamento
 
-Última atualização: 2026-10-20. Versão 0.4.2 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-20. Versão 0.4.3 (**JonFlow**, antes *DDClássico Bot*).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
 
-## Versão 0.4.2
+## Versão 0.4.3
+
+### As três falhas dos testes de janelas reais no Windows do usuário
+
+Reproduzidas na CI antes da correção (execução 39358228747, commit `ecb6b71`): um passo novo roda os testes de
+janelas reais **dentro de um venv** e com o **Chrome maximizado**, como no PC do usuário, cada teste sozinho e 3
+vezes. A e C falharam nas 3 rodadas, nas mesmas linhas relatadas (79 e 146). Na CI comum elas passavam porque o
+Python do `setup-python` não é um venv.
+
+| Falha | Causa encontrada | Correção |
+|---|---|---|
+| **A** `test_launcher_then_game_in_child_process`, linha 79: `found.launcher` apontava "outro launcher" | No Windows, o `python.exe` de um venv é um **redirecionador** que abre o Python base como processo filho; quem cria a janela é o filho. O teste comparava `found.launcher.pid` (5028, o dono da janela, que de fato abriu o jogo) com `Popen.pid` (1548, o redirecionador, sem janela). A detecção estava associando o launcher certo; a identidade usada pelo teste é que era a errada | As janelas de teste informam o **pid real** e o hwnd (`--ready`). O teste agora confere que o jogo encontrado é o que este launcher abriu, que ele descende do processo dono da janela do launcher e que `found.launcher` é essa janela (pid e hwnd) |
+| **B** `test_pick_at_real_window`, linha 134: `pick_at` devolvia "Intermediate D3D Window" do Chrome | `pick_at` seguia só a ordem das janelas do `EnumWindows`, que inclui janelas que não aparecem no ponto: ocultas pelo DWM (outra área de trabalho virtual, apps suspensos) e janelas transparentes ao clique. E o teste supunha o jogo na frente depois de `SetForegroundWindow`, que o Windows recusa quando o processo do teste não está em primeiro plano: um navegador maximizado continuava sobre o ponto. Não reproduzida no runner (o Chrome dele não ficou sobre o ponto) | No clique, vale a janela que **o próprio Windows** diz estar no ponto (`WindowFromPoint`, com a camada de seleção escondida), e só ela e as janelas internas dela entram. Janelas ocultas pelo DWM e janelas principais transparentes ao clique não contam como visíveis (`winapi.shown`). O teste põe o jogo acima das janelas comuns (`--topmost`), confere o cenário com `WindowFromPoint` antes de chamar `pick_at` e testa os dois modos (clique e contorno). Teste novo sem Windows: navegador antes do jogo na lista |
+| **C** `test_two_launchers_game_linked_to_the_one_that_opened_it`, linha 146: `StopIteration` | A mesma do A: nenhuma janela tem o pid do redirecionador | Mesma identidade real (`--ready`). Com dois launchers, o teste confere pid e hwnd do segundo e que o jogo **não** descende do primeiro |
+
+Isolamento dos testes: os títulos levam uma etiqueta única por teste (janelas de execuções anteriores ou de outros
+programas nunca batem), as palavras-chave do serviço usam essa etiqueta, e a limpeza (em `finally`) encerra só a
+árvore de processos do próprio teste e os pids que as janelas dele informaram. Nenhum tempo de espera foi
+aumentado: as esperas existentes passaram a aguardar a identidade informada pela janela.
+
+Aviso de depreciação: com o MSS 10.2.0 fixado, `mss.mss()` está obsoleto; a captura usa `mss.MSS` (e
+`mss.mss` só em versões antigas). A suíte do Windows passou a rodar sem avisos.
+
+### Resultados (commit `776ed0e`, antes da versão)
+
+| Onde | Resultado |
+|---|---|
+| CI 39358839810, Windows: os 4 testes de janelas reais, cada um sozinho, 3 rodadas, num venv com o Chrome aberto | **12 de 12 aprovados** |
+| CI 39358839810, Windows, suíte completa | 251 de 251 aprovados, 0 pulados, sem avisos |
+| CI 39358839810, `.exe` da pasta e de arquivo único | autoteste e interface OK (atraso máximo 56 e 72 ms) |
+| CI 39358839810, Linux (`ubuntu-24.04`, Xvfb) | 247 aprovados, 4 pulados (só no Windows) |
+| Container Ubuntu 24.04 + Xvfb (dev) | 247 aprovados, 4 pulados; `--gui-smoke 8` OK (25 verificações, 103 ms) |
+| Linux dev: `pyflakes`, `--selftest` | sem avisos; OK |
+| Linux dev: `--simulate 50` | 40,0% de acerto sem calibração, 96,2% com calibração, 0 turnos perdidos (igual à 0.4.2: o código da simulação não mudou) |
+
+CI da branch `release/0.4.3` (execução 39360961060, commit `77b2db4`, com a versão 0.4.3): Windows 251 de 251
+aprovados, sem avisos; janelas reais num venv com o Chrome aberto, 12 de 12; Linux 247 aprovados, 4 pulados (só no
+Windows); `.exe` da pasta e de arquivo único aprovados. Os números da compilação publicada estão no
+`build-info.json` da Release.
+
+A **v0.4.2** ficou sem Release: a publicação foi cancelada quando estas falhas foram relatadas. A 0.4.3 inclui a
+correção do `--simulate` da 0.4.2.
+
+Limite: os testes usam janelas e processos **de teste** (`tests/fixtures/fake_window.py`); o launcher e o cliente
+reais do DDClássico continuam sem validação.
+
+## Versão 0.4.2 (sem Release)
 
 Publica a correção do `--simulate` descrita abaixo (commit `b17d179`). O programa no jogo real, a demonstração e
 as estratégias não mudaram. CI da branch `release/0.4.2` (execução 39355727642, commit `dee0c3f`): Linux 246 aprovados, 4 pulados (só no Windows); Windows 250 aprovados (0 pulados), com compilação e testes do `.exe` (pasta e arquivo único) aprovados. Os números da compilação publicada estão no `build-info.json` da Release.

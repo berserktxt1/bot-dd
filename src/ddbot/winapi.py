@@ -121,6 +121,35 @@ if IS_WINDOWS:
         user32.GetWindowTextW(hwnd, buf, n + 1)
         return buf.value
 
+    user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.GetWindowLongW.restype = ctypes.c_long
+    try:
+        dwmapi = ctypes.WinDLL("dwmapi")
+        dwmapi.DwmGetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
+    except OSError:  # Windows sem DWM
+        dwmapi = None
+    WS_EX_TRANSPARENT = 0x20
+    DWMWA_CLOAKED = 14
+
+    def shown(hwnd) -> bool:
+        """A janela aparece de fato na tela: visível, não oculta pelo DWM e não transparente ao clique.
+
+        Janelas de outra área de trabalho virtual ou de apps suspensos continuam "visíveis" para
+        o EnumWindows (ocultas pelo DWM, "cloaked"), e sobreposições de outros programas costumam
+        ser transparentes ao clique: nenhuma delas está de verdade sob o ponto.
+        """
+        if not user32.IsWindowVisible(hwnd):
+            return False
+        top = int(user32.GetAncestor(hwnd, 2) or hwnd) == int(hwnd)
+        if top and user32.GetWindowLongW(hwnd, -20) & WS_EX_TRANSPARENT:  # GWL_EXSTYLE; só janelas principais
+            return False
+        if dwmapi is not None:
+            cloaked = wintypes.DWORD(0)
+            if dwmapi.DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, ctypes.byref(cloaked),
+                                            ctypes.sizeof(cloaked)) == 0 and cloaked.value:
+                return False
+        return True
+
     def window_info(hwnd) -> WindowInfo | None:
         if not user32.IsWindow(hwnd):
             return None
@@ -136,7 +165,7 @@ if IS_WINDOWS:
         is_child = bool(root) and int(root) != int(hwnd)
         return WindowInfo(int(hwnd), _title(hwnd), pt.x, pt.y, rc.right - rc.left, rc.bottom - rc.top,
                           pid.value, process_exe(pid.value), _class(hwnd),
-                          int(parent) if (parent and is_child) else 0, bool(user32.IsWindowVisible(hwnd)))
+                          int(parent) if (parent and is_child) else 0, shown(hwnd))
 
     def list_windows(min_size: int = 100) -> list[WindowInfo]:
         """Janelas principais visíveis (com ou sem título) maiores que ``min_size``."""
@@ -145,7 +174,7 @@ if IS_WINDOWS:
         def cb(hwnd, _):
             if user32.IsWindowVisible(hwnd):
                 info = window_info(hwnd)
-                if info and info.width > min_size and info.height > min_size:
+                if info and info.visible and info.width > min_size and info.height > min_size:
                     result.append(info)
             return True
 

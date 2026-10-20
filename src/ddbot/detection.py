@@ -237,22 +237,34 @@ def detect(windows: list[WindowInfo], parents: dict[int, int], own_pid: int, key
     return Detection(GAME, best.window, launcher, cands[:8], same_window=same, confident=strong)
 
 
-def pick_at(windows: list[WindowInfo], x: int, y: int, own_pid: int) -> WindowInfo | None:
+def pick_at(windows: list[WindowInfo], x: int, y: int, own_pid: int, hit: int = 0, root_of=None
+            ) -> WindowInfo | None:
     """Janela sob o ponto, sem contar as do próprio bot (a camada de seleção fica por cima).
 
     ``windows`` vem na ordem do Windows (janelas principais da frente para trás, cada uma
     seguida das suas internas). Fica a área interna grande mais funda que contém o ponto,
     para o clique cair na área do jogo e não na moldura do launcher.
+
+    ``hit``: a janela que o próprio Windows diz estar no ponto (``WindowFromPoint``, com a
+    camada de seleção escondida). Quando ela é de outro programa que não o bot, só a janela
+    principal dela vale: a ordem das janelas sozinha conta janelas que estão na lista mas não
+    aparecem no ponto (transparentes ao clique, ocultas pelo Windows) e escolhia uma janela
+    sem relação com o alvo.
     """
     def inside(w):
         return w.left <= x < w.left + w.width and w.top <= y < w.top + w.height
 
+    root = root_of(hit) if hit and root_of is not None else 0
+    if root and not any(w.hwnd == root and w.pid != own_pid for w in windows):
+        root = 0  # a janela do ponto é do bot (ou não está na lista): fica a ordem das janelas
     by_parent: dict[int, list[WindowInfo]] = {}
     for w in windows:
         if w.parent:
             by_parent.setdefault(w.parent, []).append(w)
     for top in windows:
         if top.parent or top.pid == own_pid or not top.visible or not inside(top):
+            continue
+        if root and top.hwnd != root:
             continue
         best, frontier = top, [top.hwnd]
         while frontier:
