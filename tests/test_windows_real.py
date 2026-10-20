@@ -78,10 +78,20 @@ def test_launcher_then_game_in_child_process(procs, svc):
     assert launcher.pid in chain  # o jogo descende do launcher
     assert found.launcher is not None and found.launcher.pid == launcher.pid
     assert svc.window is not None and svc.window.hwnd == found.game.hwnd
-    # captura pela janela: a imagem é do jogo (verde)
-    frame = wait_for(lambda: svc.grab(), timeout=5)
-    b, g, r = mean_color(frame)
-    assert g > 120 and r < 100 and b < 120, (b, g, r)
+    # captura pela janela: a imagem é do jogo (verde). Logo que a janela aparece o Windows ainda anima a
+    # abertura (a imagem sai misturada com o fundo, CI 39346270446: BGR 139, 202, 118); espera o jogo terminar
+    # de desenhar. Uma captura da janela errada (launcher azul, outra janela) nunca fica verde e reprova
+    seen = []
+
+    def drawn():
+        f = svc.grab()
+        if f is None:
+            return None
+        seen.append(mean_color(f))
+        b, g, r = seen[-1]
+        return f if g > 120 and r < 100 and b < 120 else None
+    frame = wait_for(drawn, timeout=10)
+    assert frame is not None, ("a captura não ficou com a imagem do jogo", seen[-5:])
     # na próxima vez o perfil salvo reconhece o jogo direto
     assert svc.profile.game is not None
 
