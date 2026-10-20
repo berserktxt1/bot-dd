@@ -556,3 +556,93 @@ def test_capture_part_of_game_off_screen_is_not_a_mismatch(monkeypatch):
     assert frame is not None and cap.method == "janela" and np.array_equal(frame, game)
     monkeypatch.setattr(cap, "_grab_window", lambda i: None)
     assert cap.grab() is None and "fora da tela" in cap.unavailable
+
+
+def _scaled_game(scale):
+    """Janela de teste verde (#22AA44) com texto, desenhada na escala ``scale`` (1.0 = 100%)."""
+    import cv2
+    import numpy as np
+    w, h = int(round(400 * scale)), int(round(248 * scale))
+    img = np.zeros((h, w, 3), np.uint8)
+    img[:] = (68, 170, 34)
+    cv2.putText(img, "GAME", (w // 2 - int(60 * scale), h // 2), cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 2)
+    return img
+
+
+def test_window_drawn_at_100_percent_on_125_percent_screen(monkeypatch):
+    """PC do usuário em 125%: a janela sem suporte a DPI desenha em 100% e o Windows a amplia na tela.
+
+    A imagem pedida no tamanho da tela vinha com o jogo num canto e o resto preto (média BGR 43, 108, 22)
+    e passava na conferência por pontos (30 de 48 coincidiam). Agora a imagem no tamanho em que a janela
+    desenha é ampliada para a tela; a imagem no canto é recusada (e, com o jogo coberto, nada é usado).
+    """
+    import numpy as np
+    from ddbot import capture, winapi
+    from ddbot.capture import check_window_image, grid_points
+    from ddbot.winapi import WindowInfo
+    small, screen = _scaled_game(1.0), _scaled_game(1.25)        # 400×248 desenhado, 500×310 na tela
+    h, w = screen.shape[:2]
+    corner = np.zeros_like(screen)
+    corner[:small.shape[0], :small.shape[1]] = small             # o que o PrintWindow devolvia antes
+    ok, why = check_window_image(corner, screen, [], grid_points())
+    assert ok is False and "área inteira" in why
+
+    info = WindowInfo(5, "Cliente", 100, 100, w, h)
+    monkeypatch.setattr(winapi, "IS_WINDOWS", True)
+    monkeypatch.setattr(winapi, "window_info", lambda hw: info)
+    monkeypatch.setattr(winapi, "is_minimized", lambda hw: False)
+    monkeypatch.setattr(winapi, "root_of", lambda hw: hw)
+    monkeypatch.setattr(winapi, "window_at", lambda x, y: 5)
+    bgra = lambda img: np.dstack([img, np.full(img.shape[:2], 255, np.uint8)])  # noqa: E731
+    cap = capture.WindowCapture(5)
+    monkeypatch.setattr(cap, "_screen", lambda i: screen.copy())
+    monkeypatch.setattr(winapi, "print_window", lambda hw, ww, hh: bgra(small))    # tamanho em que a janela desenha
+    frame = cap.grab()
+    assert frame is not None and cap.method == "janela" and frame.shape == screen.shape
+    assert float(np.abs(frame.astype(int) - screen.astype(int)).mean()) < 4      # igual à tela, inclusive nos cantos
+    assert tuple(frame[-3, -3]) == (68, 170, 34)
+
+    cap = capture.WindowCapture(5)
+    monkeypatch.setattr(cap, "_screen", lambda i: screen.copy())
+    monkeypatch.setattr(winapi, "print_window", lambda hw, ww, hh: bgra(corner))   # imagem no canto (antes)
+    frame = cap.grab()
+    assert cap.method == "tela" and np.array_equal(frame, screen)  # descoberto: usa a cópia da tela, nunca o canto
+    cap = capture.WindowCapture(5)
+    monkeypatch.setattr(cap, "_screen", lambda i: screen.copy())
+    monkeypatch.setattr(winapi, "window_at", lambda x, y: 9 if x > 100 + w * 0.8 else 5)  # coberto à direita
+    assert cap.grab() is None and cap.unavailable                    # coberto: recusa com o motivo
+
+
+def test_fit_to_area_only_scales_like_windows():
+    import numpy as np
+    from ddbot.capture import fit_to_area, unpainted_edges
+    img = np.full((248, 400, 3), 90, np.uint8)
+    assert fit_to_area(img, 400, 248) is img
+    assert fit_to_area(img, 500, 310).shape == (310, 500, 3)       # 125%
+    assert fit_to_area(img, 600, 372).shape == (372, 600, 3)       # 150%
+    assert fit_to_area(img, 500, 248) is None                      # proporção diferente: não é a escala do Windows
+    screen = np.full((310, 500, 3), 90, np.uint8)
+    black_right = screen.copy()
+    black_right[:, 450:] = 0
+    assert not unpainted_edges(black_right, screen)                # só um lado preto: a conferência por pontos decide
+    black_right[280:, :] = 0
+    assert unpainted_edges(black_right, screen)
+    assert not unpainted_edges(black_right, black_right)           # a tela também é preta ali (fora do monitor)
+
+
+def test_release_publishes_the_programs_and_readme_links_them():
+    """O usuário procurou o .exe na aba Code e só achou o build_windows.bat: o programa fica só na Release."""
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    wf = (root / ".github" / "workflows" / "windows-build.yml").read_text(encoding="utf-8")
+    release = wf[wf.index("\n  release:"):]
+    assert "startsWith(github.ref, 'refs/tags/v')" in release and "needs: [test-linux, build-windows]" in release
+    files = re.search(r'files="([^"]+)"', release).group(1).split()
+    for name in ("JonFlow.zip", "JonFlow.exe", "SHA256SUMS.txt", "build-info.json"):
+        assert f"pacote/{name}" in files                                # anexado à Release
+        assert f"release/{name}" in wf                                  # e no artefato do Actions
+    assert 'info["commit"] == os.environ["GITHUB_SHA"]' in release      # nunca um binário de outro commit
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    for name in ("JonFlow.zip", "JonFlow.exe"):
+        assert f"https://github.com/berserktxt1/bot-dd/releases/latest/download/{name}" in readme

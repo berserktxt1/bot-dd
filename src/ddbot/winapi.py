@@ -365,12 +365,40 @@ if IS_WINDOWS:
                     ("biYPelsPerMeter", ctypes.c_long), ("biClrUsed", wintypes.DWORD),
                     ("biClrImportant", wintypes.DWORD)]
 
+    try:
+        user32.GetWindowDpiAwarenessContext.argtypes = [wintypes.HWND]
+        user32.GetWindowDpiAwarenessContext.restype = wintypes.HANDLE
+        user32.SetThreadDpiAwarenessContext.argtypes = [wintypes.HANDLE]
+        user32.SetThreadDpiAwarenessContext.restype = wintypes.HANDLE
+        _DPI_CONTEXT = True
+    except AttributeError:  # Windows 10 anterior à versão 1607
+        _DPI_CONTEXT = False
+
     def print_window(hwnd, width: int, height: int):
         """Imagem BGRA da área cliente pedida à própria janela (funciona com ela coberta por outra).
 
-        Usa PrintWindow com PW_CLIENTONLY | PW_RENDERFULLCONTENT. Devolve None se o Windows recusar;
-        alguns jogos devolvem imagem preta (quem chama confere).
+        Usa PrintWindow com PW_CLIENTONLY | PW_RENDERFULLCONTENT, no DPI da própria janela. Um programa
+        sem suporte a DPI desenha no tamanho de 100% e o Windows estica a imagem na tela (125%, 150%...):
+        pedida no tamanho da tela (``width``×``height``), a imagem do jogo vinha num canto e o resto preto.
+        Por isso a imagem vem no tamanho em que a janela desenha; quem chama a amplia para a tela
+        (``capture.fit_to_area``). Devolve None se o Windows recusar; alguns jogos devolvem imagem preta
+        (quem chama confere).
         """
+        old = None
+        if _DPI_CONTEXT:
+            ctx = user32.GetWindowDpiAwarenessContext(hwnd)
+            if ctx:
+                old = user32.SetThreadDpiAwarenessContext(ctx)  # só nesta thread, desfeito abaixo
+        try:
+            rc = wintypes.RECT()
+            if user32.GetClientRect(hwnd, ctypes.byref(rc)) and rc.right > 0 and rc.bottom > 0:
+                width, height = rc.right - rc.left, rc.bottom - rc.top  # tamanho no DPI da janela
+            return _print_window(hwnd, width, height)
+        finally:
+            if old:
+                user32.SetThreadDpiAwarenessContext(old)
+
+    def _print_window(hwnd, width: int, height: int):
         import numpy as np
         if width <= 0 or height <= 0:
             return None
@@ -393,6 +421,28 @@ if IS_WINDOWS:
             gdi32.DeleteObject(bmp)
             gdi32.DeleteDC(mem)
             user32.ReleaseDC(hwnd, hdc)
+
+    user32.GetDpiForWindow.argtypes = [wintypes.HWND]
+    user32.GetDpiForWindow.restype = wintypes.UINT
+    user32.MonitorFromWindow.argtypes = [wintypes.HWND, wintypes.DWORD]
+    user32.MonitorFromWindow.restype = wintypes.HANDLE
+
+    def window_dpi(hwnd) -> tuple[int, int] | None:
+        """(DPI em que a janela desenha, DPI efetivo do monitor dela); diferentes = o Windows amplia a janela.
+
+        Programas sem suporte a DPI desenham a 96 DPI e o Windows estica a imagem na tela (escala de 125%,
+        150%...). None se o Windows não informar (versões antigas).
+        """
+        try:
+            own = int(user32.GetDpiForWindow(hwnd))
+            mon = user32.MonitorFromWindow(hwnd, 2)  # MONITOR_DEFAULTTONEAREST
+            x, y = wintypes.UINT(), wintypes.UINT()
+            if not own or not mon or ctypes.WinDLL("shcore").GetDpiForMonitor(
+                    wintypes.HANDLE(mon), 0, ctypes.byref(x), ctypes.byref(y)) != 0:  # MDT_EFFECTIVE_DPI
+                return None
+            return own, int(x.value)
+        except (AttributeError, OSError):
+            return None
 
     # ------------------------------------------------- escolher a janela com um clique
     user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
@@ -460,6 +510,9 @@ else:  # Linux/macOS: só para desenvolvimento e testes
         return {}
 
     def print_window(hwnd, width: int, height: int):
+        return None
+
+    def window_dpi(hwnd):
         return None
 
     def cursor_pos() -> tuple[int, int]:

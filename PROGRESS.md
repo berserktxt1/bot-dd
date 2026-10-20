@@ -1,10 +1,78 @@
 # Andamento
 
-Última atualização: 2026-10-20. Versão 0.4.3 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-20. Versão 0.4.4 (**JonFlow**, antes *DDClássico Bot*).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Versão 0.4.4
+
+### Captura do jogo com a escala do Windows acima de 100%
+
+Falha relatada no PC do usuário: a captura do jogo de teste tinha média BGR 43, 108, 22 (64% do verde da janela
+de teste, o resto preto). O runner da CI roda em 100% e não a reproduzia. `tools/display_scale.py` passou a mudar a
+escala do Windows na CI sem sair da sessão (e sai com erro se o DPI efetivo não mudou). Em 125%, a CI 39422650761
+reproduziu a falha, sem a correção: DPI janela/monitor 96/120, BGR 43, 108, 22.
+
+| Causa encontrada | Correção |
+|---|---|
+| Um programa sem suporte a DPI (a janela de teste e muitos jogos) desenha no tamanho de 100% e o Windows amplia a imagem na tela. O `PrintWindow` era pedido no tamanho da tela: a imagem do jogo vinha 80% menor, num canto, com o resto preto. A conferência com a tela tolera 40% de diferença (por causa da animação) e aceitava essa imagem | `winapi.print_window` pede a imagem no DPI da própria janela (`SetThreadDpiAwarenessContext` só na thread da captura, desfeito em seguida) e `capture.fit_to_area` a amplia para a área do jogo na tela, igual nos dois eixos, como o Windows faz; proporção diferente é recusada. `check_window_image` recusa imagem com faixas pretas à direita e embaixo que a tela não tem (com o jogo coberto, a captura pausa com o motivo). O registro técnico anota uma vez quando o jogo desenha num tamanho e o Windows o amplia |
+
+Testes novos: `test_window_drawn_at_100_percent_on_125_percent_screen` e `test_fit_to_area_only_scales_like_windows`
+(sem Windows, em `test_audit_regressions.py`). Os testes de janelas reais exigem a imagem do tamanho da área do jogo
+e verde até os cantos; quando reprovam, salvam a captura e o DPI da janela e do monitor (vão para os relatórios
+da CI).
+
+Na CI, um passo novo roda em **125%** os testes de janelas reais (num venv, 3 vezes cada) e depois a suíte
+completa, e volta a escala para 100% no fim.
+
+### "O `.exe` não está no GitHub, só o `.bat`"
+
+Investigado antes de mudar qualquer coisa. A compilação e a publicação **funcionavam**: a Release v0.4.3 (CI
+39362371149, commit `1000526`) tem `JonFlow.exe` (75.374.179 bytes, PE32+ x86-64 GUI), `JonFlow.zip` (pasta
+`JonFlow/` com `JonFlow.exe`, `_internal/` com `python312.dll` e o LEIA-ME, 1156 arquivos), `SHA256SUMS.txt` e
+`build-info.json`. Baixados de novo, as somas SHA-256 conferem e o `build-info.json` aponta o commit e a execução
+da tag. Os builds de desenvolvimento ficam no artefato `JonFlow-windows` de cada execução do Actions.
+
+| Causa encontrada | Correção |
+|---|---|
+| Os programas só existem nos *Assets* da Release (`release/` está no `.gitignore` de propósito: binário não entra no histórico). Na aba *Code* aparece o `build_windows.bat`, e o README só dizia "baixe na página de Releases", sem link. O repositório é **privado**: os links só abrem logado numa conta com acesso | O README abre com uma tabela **Baixar** com links diretos (`releases/latest/download/JonFlow.zip` e `.exe`, que sempre apontam para a última Release) e explica que o `.bat` é só para compilar. As notas da Release dizem que os arquivos ficam em *Assets* e que "Source code" não traz o programa. Teste novo `test_release_publishes_the_programs_and_readme_links_them`: o job `release` anexa os 4 arquivos, confere o commit, e o README mantém os links |
+
+### Parada da interface no `--gui-smoke` (Windows)
+
+O teste da interface falhou 2 vezes na CI desta branch (39422650761 e 39425409626) com a interface parada 2,4 a
+4,3 s logo depois de Pausar, sem mudança no código da interface. O `--gui-smoke` ganhou uma vigia: se a interface
+para mais de 1 s, o relatório guarda onde cada thread estava (`pilhas_no_atraso`). Um diagnóstico com 20 rodadas
+no Windows (CI 39429246572) passou nas 20 (atraso máximo 557 ms) e não reproduziu a parada; nas execuções
+seguintes ela também não voltou. **Causa ainda não encontrada**: se voltar, o relatório mostra onde.
+
+### Resultados (CI 39429245255, commit `6742b03`, antes da versão)
+
+| Onde | Resultado |
+|---|---|
+| Windows, suíte completa (100%) | 253 de 253 aprovados |
+| Windows, janelas reais num venv com o Chrome aberto, 4 testes, 3 rodadas | 12 de 12 aprovados |
+| Windows em **125%**: janelas reais, 4 testes, 3 rodadas | 12 de 12 aprovados |
+| Windows em **125%**: suíte completa | 253 de 253 aprovados |
+| `.exe` da pasta e de arquivo único | autoteste e interface OK (atraso máximo 322 e 197 ms); pasta somente leitura OK |
+| Capturas da interface (100%, 125%, 150%) | geradas |
+| Linux (`ubuntu-24.04`, Xvfb) | 249 aprovados, 4 pulados (só no Windows) |
+| Linux dev: `pyflakes`, `--selftest` | sem avisos; OK |
+| Linux dev: `--simulate 50` | 40,0% sem calibração, 96,2% com calibração, 0 turnos perdidos (igual à 0.4.3) |
+
+CI da branch `release/0.4.4` (execução 39434463429, commit `19e32e9`, com a versão 0.4.4 e os links de
+download): Windows 254 de 254 aprovados em 100% e em 125%; janelas reais num venv com o Chrome aberto 12 de 12 e
+em 125% 12 de 12; `.exe` da pasta e de arquivo único com a versão 0.4.4, autoteste e interface OK (atraso máximo
+259 e 197 ms); Linux 250 aprovados, 4 pulados (só no Windows). Os números da compilação publicada estão no
+`build-info.json` da Release.
+
+Documentação: o README foi reescrito passo a passo para quem nunca usou o programa (como o bot funciona, passos
+numerados, teclas de atalho, problemas comuns e glossário). O AGENTS.md registra a regra da escala do Windows, os
+passos da CI no Windows e a vigia do `--gui-smoke`.
+
+Limite: a captura em 125% foi testada com a janela **de teste** (`tests/fixtures/fake_window.py`), sem suporte a
+DPI. O cliente e o launcher reais do DDClássico continuam sem validação, inclusive em 125% e 150%.
 
 ## Versão 0.4.3
 

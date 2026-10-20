@@ -113,7 +113,7 @@ Ainda **não validado no cliente**: reconhecimento das telas e botões, leitura 
 carga da barra, precisão real, navegação até uma instância e uma execução completa. Roteiro sugerido para a
 primeira validação:
 
-1. Faça a calibração (README, "Primeira configuração").
+1. Faça a calibração (README, "Passo 4 — Ensinar o bot a enxergar").
 2. Aba Diagnóstico, *Ao vivo*: confira as leituras e as confianças em várias telas.
 3. Mira assistida ao vivo durante uma partida: compare as sugestões com os tiros que você faz.
 4. Marque a autorização e use Calibração > *Teste de controles* no seu turno. Depois rode uma instância **uma vez** e

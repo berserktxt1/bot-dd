@@ -94,9 +94,44 @@ def same_pixels(a, b, points, tol: float = 10.0) -> float:
     return hits / len(points)
 
 
+def fit_to_area(img, width: int, height: int, tol: float = 0.02):
+    """Imagem da janela no tamanho da área do jogo na tela.
+
+    Programa sem suporte a DPI desenha no tamanho de 100% e o Windows estica a imagem na tela
+    (escala de 125%, 150%...): a imagem pedida à janela vem menor e é ampliada igual nos dois
+    eixos, como o Windows faz. Proporção diferente não é a ampliação do Windows: devolve None.
+    """
+    h, w = img.shape[:2]
+    if (w, h) == (width, height):
+        return img
+    if w <= 0 or h <= 0 or width <= 0 or height <= 0:
+        return None
+    sx, sy = width / w, height / h
+    if abs(sx - sy) > tol * max(sx, sy):
+        return None
+    return cv2.resize(img, (width, height), interpolation=cv2.INTER_LINEAR if sx > 1 else cv2.INTER_AREA)
+
+
+def unpainted_edges(window_img, screen_img, band: float = 0.03) -> bool:
+    """A imagem da janela tem faixas pretas à direita **e** embaixo que a tela não tem.
+
+    É o que sobra no bitmap quando a janela desenha num tamanho menor que a área do jogo na tela
+    (escala do Windows acima de 100%): a imagem do jogo fica num canto, menor, e não serve para mirar.
+    """
+    if window_img is None or screen_img is None or window_img.shape[:2] != screen_img.shape[:2]:
+        return False
+    h, w = window_img.shape[:2]
+    bw, bh = max(2, int(w * band)), max(2, int(h * band))
+    for s in (np.s_[:, w - bw:], np.s_[h - bh:, :]):
+        if int(window_img[s][..., :3].max()) > 3 or float(screen_img[s][..., :3].mean()) < 12:
+            return False
+    return True
+
+
 def check_window_image(window_img, screen_img, covered_pts, visible_pts=None) -> tuple[bool | None, str]:
     """Confere a imagem pedida à janela (PrintWindow) contra a cópia da tela.
 
+    - a imagem precisa ocupar a área inteira do jogo (sem as faixas pretas de uma imagem menor);
     - onde outra janela cobre o jogo, a imagem da janela **não pode** ser igual à tela (seria
       a janela da frente vista como se fosse o jogo);
     - onde o jogo está descoberto, as duas precisam coincidir (prova que é a imagem atual do
@@ -105,6 +140,9 @@ def check_window_image(window_img, screen_img, covered_pts, visible_pts=None) ->
     Devolve (True, "") se confirmada, (False, motivo) se é de outra janela e (None, motivo)
     quando não há como confirmar (jogo coberto por inteiro).
     """
+    if unpainted_edges(window_img, screen_img):
+        # a conferência por pontos tolera 40% de diferença (animação) e aceitava a imagem no canto
+        return False, "a imagem da janela do jogo não ocupa a área inteira do jogo na tela"
     # pontos fora da tela não entram: lá a cópia da tela não tem o jogo
     free = visible_pts if visible_pts is not None else [p for p in grid_points() if p not in set(covered_pts)]
     if covered_pts and same_pixels(window_img, screen_img, covered_pts) >= 0.5:
@@ -123,7 +161,9 @@ class WindowCapture(FrameSource):
     Primeiro pede a imagem à própria janela (PrintWindow): assim a captura é do jogo mesmo
     com outra janela por cima. Essa imagem é conferida com a tela (alguns drivers e sessões
     remotas devolvem o que está na tela, inclusive a janela da frente, como se fosse a do
-    jogo). Se o jogo devolver imagem vazia (alguns motores gráficos),
+    jogo). Com a escala do Windows acima de 100%, um jogo sem suporte a DPI desenha menor e o
+    Windows o amplia na tela: a imagem da janela é ampliada do mesmo jeito (``fit_to_area``).
+    Se o jogo devolver imagem vazia (alguns motores gráficos),
     usa a cópia da tela (MSS), mas só se nenhuma outra janela cobrir a área do jogo; senão
     devolve None com o motivo (nunca analisa a imagem de outra janela como se fosse o jogo).
 
@@ -143,6 +183,7 @@ class WindowCapture(FrameSource):
         self._pw_failures = 0      # PrintWindow vazio seguido: desiste dele por um tempo
         self._pw_retry_at = 0
         self._pw_ok_at: float | None = None  # última vez em que a imagem da janela conferiu com a tela
+        self._pw_size: tuple[int, int] | None = None  # tamanho em que a janela desenha (escala do Windows)
 
     VERIFY_EVERY_S = 10.0
 
@@ -235,13 +276,20 @@ class WindowCapture(FrameSource):
         except Exception:
             log.debug("PrintWindow falhou", exc_info=True)
             raw = None
-        if raw is None or blank(raw):
+        img = None if raw is None or blank(raw) else fit_to_area(raw, info.width, info.height)
+        if img is None:
             self._pw_failures += 1
             if self._pw_failures >= 3:
                 self._pw_retry_at = time.monotonic() + 30  # o jogo não responde a PrintWindow: usa a tela
             return None
         self._pw_failures = 0
-        return cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR)
+        size = raw.shape[1], raw.shape[0]
+        if size != self._pw_size:
+            self._pw_size = size
+            if size != (info.width, info.height):
+                log.info("o jogo desenha em %d×%d e o Windows o amplia para %d×%d na tela (escala do Windows): "
+                         "a captura amplia a imagem do mesmo jeito", *size, info.width, info.height)
+        return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
     def is_foreground(self) -> bool:
         """A janela principal que contém o jogo está na frente (requisito para clicar)."""
@@ -269,6 +317,7 @@ class WindowCapture(FrameSource):
         self.last_info = None
         self._pw_failures = 0
         self._pw_ok_at = None
+        self._pw_size = None
 
     def release_thread(self):
         sct = getattr(self._local, "sct", None)
