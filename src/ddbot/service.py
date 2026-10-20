@@ -23,6 +23,7 @@ from .automation.input import InputBackend, InputController
 from .automation.safety import HotkeyListener, KillSwitch
 from .calibration import Calibrator, ShotStore
 from .capture import FrameSource, WindowCapture, save_image
+from .catalog import AVAILABLE, MISSING, USER_OFF, AvailabilityStore, build_activity, load_catalog
 from .combat import CombatEngine, Mode
 from .config import Config
 from .game_io import GameActor, KeyboardShooter, VisionBattleView, VisionScreenReader
@@ -85,7 +86,8 @@ class BotService:
         self.params = _load_or_restore(self.paths.knowledge / "model_params.json", pk / "model_params.json",
                                        PhysicsParams.load, "o modelo físico", self.startup_notes)
         self.store = ShotStore(self.paths.db)
-        self.calibrator = Calibrator(self.store, self.params, weapon_lookup=self.weapon_by_name)
+        self.calibrator = Calibrator(self.store, self.params, weapon_lookup=self.weapon_by_name,
+                                     scenario=self.shot_scenario)
         self.aimer = Aimer(self.kb, self.params, self.calibrator)
         self.templates = TemplateLibrary(self.paths.templates)
         self.perception = Perception(self.config, self.templates, self.paths.templates)
@@ -93,6 +95,11 @@ class BotService:
         if errors or not self.profiles:
             self.profiles, _ = load_profiles(pk / "instances.json")
             self.startup_notes += [f"perfis de instância: {e}" for e in errors]
+        self.catalog, errors = load_catalog(self.paths.knowledge / "catalogo.json")
+        if errors or not self.catalog.entries:
+            self.catalog, _ = load_catalog(pk / "catalogo.json")
+            self.startup_notes += [f"atividades pré-cadastradas: {e}" for e in errors]
+        self.availability = AvailabilityStore(self.paths.root / "atividades_estado.json")
         self.kill = KillSwitch()
         self.events: "queue.Queue[HistoryEntry]" = queue.Queue(maxsize=2000)
         self.history: list[HistoryEntry] = []
@@ -263,7 +270,41 @@ class BotService:
 
     # ----------------------------------------------------------- atividades
     def activities(self) -> tuple[list[ActivityDef], list[str]]:
-        return load_activities(self.paths.instances)
+        """Pré-cadastradas (catálogo) e capturadas pelo usuário. Um arquivo do usuário com o id de uma
+        pré-cadastrada a substitui (ajuste para o cliente dele), sem sumir da lista."""
+        own, errors = load_activities(self.paths.instances)
+        mine = {d.key: d for d in own}
+        out = []
+        for e in self.catalog.entries:
+            d = mine.pop(e.key, None)
+            if d is not None:
+                d.instance, d.difficulty = d.instance or e.instance, d.difficulty or e.difficulty
+                d.option = d.option or e.option
+                d.strategy = d.strategy or e.strategy
+            out.append(d if d is not None else build_activity(e, self.catalog))
+        return out + list(mine.values()), errors
+
+    def availability_of(self, d: ActivityDef) -> tuple[str, str]:
+        """(estado, texto) da atividade no cliente do usuário: só muda com evidência."""
+        return self.availability.status(d.key), self.availability.detail(d.key)
+
+    def set_availability(self, d: ActivityDef, state: str, why: str = ""):
+        if self.availability.set(d.key, state, why):
+            label = {AVAILABLE: "disponível", MISSING: "não encontrada no menu", USER_OFF: "indisponível"}.get(
+                state, "a conferir")
+            self.push_event("aviso" if state in (MISSING, USER_OFF) else "etapa", f"{d.name}: {label}"
+                            + (f" ({why})" if why else ""))
+
+    def mark_options_seen(self, keys) -> list[str]:
+        """Opções de menu reconhecidas numa captura: as atividades que as usam ficam disponíveis."""
+        keys = set(keys)
+        names = []
+        defs, _ = self.activities()
+        for d in defs:
+            if d.option and d.option in keys and self.availability.status(d.key) != USER_OFF:
+                self.set_availability(d, AVAILABLE, "opção vista no menu")
+                names.append(d.name)
+        return names
 
     def _taken_names(self) -> set[str]:
         names = {p.stem for p in self.paths.instances.glob("*.json")}
@@ -292,6 +333,9 @@ class BotService:
         return p if p is not None and p.runnable else None
 
     def set_strategy(self, d: ActivityDef, key: str | None):
+        if d.builtin:
+            raise ValueError("a estratégia de uma atividade pré-cadastrada é fixa; capture a opção pelo menu "
+                             "para criar uma atividade com outra estratégia")
         if key is not None and (key not in self.profiles or not self.profiles[key].runnable):
             raise ValueError(f"estratégia desconhecida: {key}")
         d.strategy = key
@@ -309,6 +353,8 @@ class BotService:
         return self.create_activity(tpl, name.strip(), kind, category)
 
     def delete_activity(self, d: ActivityDef):
+        if d.builtin:
+            raise ValueError("as atividades pré-cadastradas não podem ser excluídas")
         if d.path and d.path.exists():
             d.path.unlink()
 
@@ -316,7 +362,16 @@ class BotService:
         """O que falta calibrar para ``d`` rodar sozinha no jogo real (lista vazia = nada)."""
         from .readiness import check
         return check(d, self.templates.has, self.config, self.perception.angle_reader.trained,
-                     self.perception.wind_reader.trained, profile=self.profile_for(d))
+                     self.perception.wind_reader.trained, profile=self.profile_for(d),
+                     difficulty_labels=self.catalog.difficulty_templates(),
+                     option_labels=self.catalog.option_templates())
+
+    def shot_scenario(self) -> str:
+        """Cenário dos disparos: só os do mesmo modo de controlar a força e do mesmo cliente corrigem a mira
+        (a arma já separa os modelos por conta própria)."""
+        game = GameWindowProfile.from_config(self.config).game
+        client = game.exe.lower() if game is not None and game.exe else "cliente_nao_identificado"
+        return f"{self.config.get('automation.power_mode', 'timed')}|{client}"
 
     # ------------------------------------------------------------ armas
     def weapon_by_name(self, name: str) -> Weapon:
@@ -354,14 +409,14 @@ class BotService:
             return r.cancel_reason() if r else None
 
         if simulated:
-            from .simulation import (DEMO_SCENARIOS, InstanceWorld, SimulatedClient, SimulatedShooter, SimulatedView,
-                                     SimulatedWorld, demo_option)
-            if profile is not None and profile.key in DEMO_SCENARIOS:
+            from .simulation import (InstanceWorld, SimulatedClient, SimulatedShooter, SimulatedView, SimulatedWorld,
+                                     demo_difficulty, demo_option, scenario_for)
+            if profile is not None and scenario_for(profile) is not None:
                 planner = StrategyPlanner(profile, has_template=lambda name: True, on_event=self._strategy_event)
                 world = InstanceWorld(self.params, profile, planner)
             else:
                 world = SimulatedWorld(self.params)
-            client = SimulatedClient(world, option=demo_option(d), faults=faults)
+            client = SimulatedClient(world, option=demo_option(d), faults=faults, difficulty=demo_difficulty(d))
             if self._sim_store is None:
                 self._sim_store = ShotStore(self.paths.root / "simulacao.sqlite3")
             sim_cal = Calibrator(self._sim_store, self.params, sources=("simulado",))
@@ -382,8 +437,11 @@ class BotService:
                 raise RuntimeError(bad)
             inp = self._input(cancel)
             if profile is not None:
+                g = self.config.get
                 planner = StrategyPlanner(profile, has_template=self.templates.has, on_event=self._strategy_event,
-                                          cluster_radius=float(self.config.get("strategy.cluster_radius", 1.0)))
+                                          cluster_radius=float(g("strategy.cluster_radius", 1.0)),
+                                          reach=float(g("strategy.blast_reach", 0.6)),
+                                          avoid_radius=float(g("strategy.avoid_radius", 1.0)))
             self.perception.profile = profile  # papéis e estados desta instância (ou nenhum)
             view = VisionBattleView(self.source, self.perception, self.config, planner=planner)
             engine = CombatEngine(view, KeyboardShooter(inp, view, self.config), self.aimer, self.calibrator,
@@ -397,13 +455,15 @@ class BotService:
             actor = GameActor(inp, self.source, self.templates, self.config)
             run_cfg = self.config
         engine.planner = planner
+        engine.context = {"instancia": profile.key if profile else "", "dificuldade": d.difficulty or "",
+                          "atividade": d.key}
 
         def battle_start():
             engine.reset_battle()
             if planner is not None:
                 planner.on_battle_start()
         runner = ActivityRunner(d, reader, actor, engine.step, self.kill, run_cfg, limits,
-                                on_event=self._run_event,
+                                on_event=self._run_event, selection_labels=self.selection_labels(d),
                                 state_threshold=float(self.config.get("thresholds.template", 0.8)),
                                 on_battle_start=battle_start,
                                 on_activity_start=planner.reset_run if planner is not None else None,
@@ -411,6 +471,16 @@ class BotService:
                                     "aviso", f"tela salva para diagnóstico: {self.save_capture(f, 'falha').name}"))
         holder["runner"] = runner
         return runner, engine
+
+    def selection_labels(self, d: ActivityDef) -> dict[str, str]:
+        """Nomes legíveis das opções e dificuldades (para a mensagem quando não aparecem no menu)."""
+        labels = {t: f"a opção {n}" for t, n in self.catalog.option_templates().items()}
+        labels.update({x.template: f"a dificuldade {x.name}" for x in self.catalog.difficulties.values()})
+        for acts in d.flow.values():
+            for a in acts:
+                if a.target and a.target.startswith(("instancia_", "partida_")) and a.target not in labels:
+                    labels[a.target] = f"a opção {d.name}"
+        return labels
 
     def _tracker(self) -> TargetTracker:
         g = self.config.get
@@ -423,6 +493,14 @@ class BotService:
 
     def _run_event(self, e):
         self.push_event(e.kind, e.message, **e.data)
+        r = self.runner
+        d = r.d if r is not None else None
+        if d is None or self.simulated:
+            return  # a demonstração não diz nada sobre o cliente do usuário
+        if e.data.get("selecao_ausente"):
+            self.set_availability(d, MISSING, e.data.get("motivo", ""))
+        elif e.data.get("selecao_feita") and self.availability.status(d.key) != USER_OFF:
+            self.set_availability(d, AVAILABLE, "escolhida no menu pela rotina")
 
     def _combat_event(self, e):
         self.push_event("combate" if e.kind != "aviso" else "aviso", e.message,
@@ -548,6 +626,38 @@ class BotService:
             return f"OK: o ângulo foi de {before:.0f} para {after:.0f} e voltou"
         return (f"o ângulo foi de {before:.0f} para {after:.0f} (esperado {before + 1:.0f}); "
                 "confira as teclas e se é o seu turno")
+
+    def find_angle_region(self):
+        """Acha a região do ângulo no seu turno: captura, aperta ↑, captura de novo e desfaz com ↓. Não atira.
+
+        A parte da tela que mudou é o número do ângulo (sugestão; o usuário confirma antes de salvar).
+        """
+        if self.source is None:
+            raise RuntimeError("selecione a janela do jogo primeiro")
+        if (self.runner and self.runner.alive) or self.assist_alive:
+            raise RuntimeError("pare a rotina e a mira assistida antes")
+        if not self.config.get("automation.server_rules_confirmed", False):
+            raise RuntimeError("autorize o modo automático em Configurações antes de enviar teclas")
+        if self.kill.triggered:
+            raise RuntimeError("a parada de emergência está acionada; clique em Iniciar ou reabra o programa")
+        bad = self._check_keys()
+        if bad:
+            raise RuntimeError(bad)
+        from .vision.autodetect import angle_from_change
+        try:
+            if self.window is not None:
+                winapi.set_foreground(self.window.hwnd)
+                self.kill.sleep(0.5)
+            inp = self._input()
+            keys = self.config.get("automation.keys", {})
+            before = self.grab()
+            inp.tap(keys.get("angle_up", "up"))
+            self.kill.sleep(0.4)
+            after = self.grab()
+            inp.tap(keys.get("angle_down", "down"))
+        finally:
+            self.release_thread()
+        return angle_from_change(before, after), after
 
     # ------------------------------------------------------ mira assistida
     def start_assist(self):

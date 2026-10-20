@@ -156,11 +156,11 @@
     },
     {
       "id": "ddtdjpj_olimpiadas",
-      "titulo": "Olimpíadas Boom — DDTank de jogador para jogador",
+      "titulo": "Olimpíadas Boom (Olimpíadas Bugou) — DDTank de jogador para jogador",
       "url": "https://ddtankdejogadorparajogador.blogspot.com/p/olim.html",
-      "data": "~2014-2017",
-      "conteudo": "Balões (99 pontos), corrida, Boxiador, Juiz ladrão só pelas costas.",
-      "aplicabilidade": "baixa",
+      "data": "2015-09-29",
+      "conteudo": "Stage 1: 99 pontos estourando balões vermelhos (1 a 5), cuidado com os verdes (tiram 1 a 4), balão de flor dobra os pontos. Stage 2 normal: corrida, o time rosa precisa chegar ao pódio antes do azul; ferir 3 bugous inimigos por rodada. Stage 3 normal (2 no difícil/avançado): Boxiador, duas vidas; cada jogador só pode acordar o juiz duas vezes (na terceira morre). Stage 3 difícil/avançado: Juiz ladrão, só recebe dano pelas costas.",
+      "aplicabilidade": "Base do perfil Olimpíadas Bugou — Normal (balões, corrida, Boxiador). Versão 337; confirmar no DDClássico.",
       "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
     },
     {
@@ -225,6 +225,150 @@
       "conteudo": "Termos de uso em https://ddclassico.com/classic/terms (endereço indicado na App Store). Notícia 37 citada pelo usuário: evento com Formigueiro (Normal), Galinheiro (Difícil), Castelo do Reino de Bugou (Difícil), Covil do Dragão (Normal), Redemoinho (Fácil), Olimpíadas Boom (Difícil), Castelo Sombrio (Normal), Tribo Piatan (Normal).",
       "aplicabilidade": "contexto",
       "observacoes": "O site respondeu 403 (Cloudflare) a todas as tentativas em 2026-10-19: nenhuma notícia nem os termos de uso foram lidos. A lista do evento vem da mensagem do usuário, não de leitura própria, e não prova disponibilidade permanente."
+    },
+    {
+      "id": "ddclassico_noticia_37",
+      "titulo": "DDClássico — Caça aos Clones das Sombras (notícia 37)",
+      "url": "https://ddclassico.com/classic/news/37",
+      "data": "2026-10-16",
+      "conteudo": "Onde caçar: Formigueiro (Normal), Galinheiro (Difícil), Castelo do Reino de Bugou (Difícil), Covil do Dragão (Normal), Redemoinho (Fácil), Olimpíadas Boom (Difícil), Castelo Sombrio (Normal) e Tribo Piatan (Normal); evento de 16/10 a 22/10.",
+      "aplicabilidade": "Prova que essas instâncias e dificuldades existiam no DDClássico durante o evento; não descreve etapas nem garante as outras dificuldades.",
+      "observacoes": "Lida em 2026-10-20 pelo endereço https://ddtclassico.com/classic/news/37 (mesmo site: og:url aponta para ddclassico.com, mesmas redes e instalador). O domínio principal respondeu 403 (Cloudflare)."
+    },
+    {
+      "id": "ddclassico_noticias",
+      "titulo": "DDClássico — notícias 1 a 40",
+      "url": "https://ddclassico.com/classic/news",
+      "data": "2026-06-24 a 2026-10-17",
+      "conteudo": "n13 (16/09): drops no Castelo do Rei Bugou Normal; n14 (25/09): 8 instâncias na Central de Expedições; n30 (13/10): nível 33 liberado; n36 (15/10): Difícil da Tribo Piatan liberada nesse dia.",
+      "aplicabilidade": "As dificuldades são liberadas aos poucos: a disponibilidade de cada atividade precisa ser conferida no cliente.",
+      "observacoes": "Lidas pelo endereço espelho ddtclassico.com; nenhuma notícia descreve etapas, turnos, energia ou modo solo."
+    },
+    {
+      "id": "ddtdicasjogar_2013",
+      "titulo": "DDTank Dicas (ddtankdicasjogar.blogspot.com) — instâncias",
+      "url": "https://ddtankdicasjogar.blogspot.com/2013/05/ola-pessoal_19.html",
+      "data": "2013-05-19/20",
+      "conteudo": "Formigueiro Fácil e Normal: 1º estágio matar 20 formigas, 2º matar a rainha Pandora; níveis 08~12 e 12~15. Pintinho Corre Rápido: Fácil 2 estágios (pintinhos; Burrinho e gaiola), Normal 3 (pintinhos; destruir galinheiro; Burrinho e gaiola), Difícil 3 (pintinhos; Burrinho e gaiola; destruir galinheiro); 2 a 4 pessoas.",
+      "aplicabilidade": "Versão 337 de 2013; única fonte para o nome Burrinho e para 20 formigas.",
+      "observacoes": "Também em https://ddtankdicasjogar.blogspot.com/2013/05/ola-pessoal_20.html. Vídeos de 2011–2013 mostram 4 estágios no Galinheiro Difícil."
+    },
+    {
+      "id": "shekinah_olimpiadas_2011",
+      "titulo": "Olimpíadas Boom — estreia (shekinahddtank)",
+      "url": "https://shekinahddtank.blogspot.com/2011/09/olimpiadas-boom-hoje-dia-26092011.html",
+      "data": "2011-09-26",
+      "conteudo": "Olimpíadas Boom (Desafio de Bugous): 4 stages e níveis Normal, Difícil e Herói; balões: 99 pontos em 40 rodadas, balão com X dobra a pontuação da rodada; Menino Torto deixa a pessoa cansada, trancada e algemada.",
+      "aplicabilidade": "Versão de lançamento (2011); confirma que Olimpíadas Boom é o 'Desafio de Bugous'.",
+      "observacoes": "Diverge de outras fontes no número de estágios (4 contra 3) e no balão especial."
+    },
+    {
+      "id": "crieddtank_2012",
+      "titulo": "Scripts das instâncias (crieddtank)",
+      "url": "https://crieddtank.blogspot.com/2012/09/scripts-das-instancias-e-como-as.html",
+      "data": "2012-09-14",
+      "conteudo": "Nomes internos: AntCaveSimpleGame/AntCaveNormalGame = Formigueiro Fácil/Normal; GuluKingdom = Castelo de Bugou; GuluOlympics (Normal/Hard/Terror) = Olimpíadas; Simple = Fácil, Hard = Difícil, Terror = Avançada.",
+      "aplicabilidade": "Só nomenclatura: Olimpíadas (GuluOlympics) e Castelo de Bugou (GuluKingdom) são instâncias diferentes. Nada foi alterado em servidor ou cliente.",
+      "observacoes": "O autor rotula vários scripts só como 'Bugou'; o Galinheiro não aparece na lista."
+    },
+    {
+      "id": "yurigameover_2012",
+      "titulo": "DDTank Brasil — lista de instâncias (yuri-gameover)",
+      "url": "https://yuri-gameover.blogspot.com/p/ddtank-brasil.html",
+      "data": "até 2012-05",
+      "conteudo": "Formigueiro (Fácil e Normal); Olimpíadas (Normal, Difícil e Avançado).",
+      "aplicabilidade": "Só a lista de dificuldades da versão clássica.",
+      "observacoes": ""
+    },
+    {
+      "id": "emulador_ddtank",
+      "titulo": "Emuladores de servidor (SkelletonX/DDTank4.1, thurdev/ddtank-reborn)",
+      "url": "https://github.com/SkelletonX/DDTank4.1",
+      "data": "sem data / 2026-10-08",
+      "conteudo": "Galinheiro (RunRunChicken) Fácil 2, Normal 3, Difícil 4 missões; Olimpíadas Normal 6101–6103 (balões, corrida, boxeador), Difícil 6201/6203/6204; balões com 10 turnos por jogador.",
+      "aplicabilidade": "Só apoio para a estrutura; não é o servidor do DDClássico e as traduções são automáticas.",
+      "observacoes": "Confiança baixa; nenhum código foi copiado."
+    },
+    {
+      "id": "videos_ddclassico_2026",
+      "titulo": "Vídeos de jogadores do DDClássico (2026)",
+      "url": "https://www.youtube.com/watch?v=WNv5GN-WxWI",
+      "data": "2026-09-06 a 2026-10-10",
+      "conteudo": "Japa MMORPGs: capítulos 'Estágio 1–2 Formigueiro' e 'Estágio 1–4 Pintinho' (10/10); 'Drops Olimpíadas Bugou' (06/09, YROhPaYT9dE). Frizzao Games: 'Pintinho Normal' (p5r_AiFE-IQ). WallpaperTV: 'OLIMPÍADAS BUGOU LIBERADA' (4o2ubStQS_E).",
+      "aplicabilidade": "Mostram que as instâncias existem no DDClássico e os nomes usados pelos jogadores.",
+      "observacoes": "Só títulos, descrições e capítulos foram lidos; nenhum vídeo foi assistido."
+    },
+    {
+      "id": "videos_formigueiro_2015",
+      "titulo": "Formigueiro Fácil e Normal (canal ySrLucas)",
+      "url": "https://www.youtube.com/watch?v=djKmEQgay8I",
+      "data": "2015-02-01/02",
+      "conteudo": "Descrições: rainha 'Formiga Rainha: 23 - 100' (Fácil, cvhdcmLxDeg) e '28 - 70' (Normal, djKmEQgay8I).",
+      "aplicabilidade": "Só referência: não dizem posição nem vento.",
+      "observacoes": ""
+    },
+    {
+      "id": "ddmira",
+      "titulo": "DDMira — aimbot e rotinas para DDTank/DDClássico (página comercial)",
+      "url": "https://ddmira.com/aimbot-ddtank",
+      "data": "2026-09/10",
+      "conteudo": "Anuncia prévia da trajetória, marcador na barra de força, rotinas por instância (Formiga, Pintinho, Bugou, OBN/OBD, Tribo Piatan); 'OBN: balões'; 'segunda etapa… foco no Meka'.",
+      "aplicabilidade": "Indica que os jogadores do DDClássico chamam a instância de Olimpíadas Bugou (OBN = Normal, OBD = Difícil). Alegações de desempenho não verificadas.",
+      "observacoes": "Marketing de terceiros; anuncia também PvP automático (o JonFlow não faz)."
+    },
+    {
+      "id": "ainbot_2026",
+      "titulo": "AINBOT — assistente de mira para DDTank/DDClássico (felpp25/ddtank-bot)",
+      "url": "https://github.com/felpp25/ddtank-bot",
+      "data": "2026-09-10",
+      "conteudo": "Leitura só pela tela; no registro do autor, a barra de força enche em cerca de 3,30–3,35 s no DDClássico (navegador); vento de 0,0 a 4,0; escala pela régua do rodapé e pelo retângulo do minimapa; κ do vento reajustado pela mediana dos impactos.",
+      "aplicabilidade": "A medida da barra é a única do DDClássico encontrada: usada como valor inicial do tempo da barra, a conferir no cliente.",
+      "observacoes": "Sem licença (todos os direitos reservados): só ideias foram usadas."
+    },
+    {
+      "id": "ddt_sharp_shooter",
+      "titulo": "DDT Sharp Shooter (tkzt/ddt-sharp-shooter)",
+      "url": "https://github.com/tkzt/ddt-sharp-shooter",
+      "data": "2019-04-18 a 2025-05-22 (arquivado)",
+      "conteudo": "OCR (ddddocr) do vento e do ângulo; posições marcadas à mão no minimapa (largura do retângulo = 10 unidades); força pelo modelo com arrasto linear em forma fechada (R 1,05235, w 5,50187, g −163,566 em 2025; antes as constantes do 52pojie); disparo por tempo (0,04 s por ponto).",
+      "aplicabilidade": "Confirma o formato do modelo físico do JonFlow (gravidade, arrasto linear e vento como aceleração).",
+      "observacoes": "Sem licença: nenhum código copiado."
+    },
+    {
+      "id": "pojie_2020",
+      "titulo": "浅析弹弹堂物理模型 (52pojie)",
+      "url": "https://www.52pojie.cn/thread-1132459-1-1.html",
+      "data": "2020-03-16",
+      "conteudo": "Modelo sem arrasto descartado pelo autor; modelo com arrasto linear R 0,89927, W 5,87092, g −172,065; dados de ajuste com tiro alto em força 90 e ângulo 90−d+2W; nos ângulos fixos F = tabela − W.",
+      "aplicabilidade": "Referência do modelo físico; as constantes são de outro servidor.",
+      "observacoes": "Páginas 2 a 4 exigem login e não foram lidas."
+    },
+    {
+      "id": "ddtankbot_clib",
+      "titulo": "DDTankBot-Clib (vitor-carvalho-ddt)",
+      "url": "https://github.com/vitor-carvalho-ddt/DDTankBot-Clib",
+      "data": "2023-09-25 a 2023-11-06",
+      "conteudo": "Lê só o vento pela tela (moldes de dígitos com limiar 0,85); ângulo, força e turno por leitura de memória (fora do escopo do JonFlow).",
+      "aplicabilidade": "Só a ideia de moldes de dígitos com limiar.",
+      "observacoes": "Sem licença; compra itens sozinho (o JonFlow bloqueia)."
+    },
+    {
+      "id": "ddtool_2012",
+      "titulo": "DDTool — guia de uso",
+      "url": "https://ddtanktool-br.blogspot.com/p/guia-de-uso.html",
+      "data": "2012-12-23",
+      "conteudo": "Alvo e origem fixados à mão quando o inimigo ou o usuário fica invisível; vento manual; trajetória do tridente.",
+      "aplicabilidade": "A ferramenta não estima a posição de invisíveis: só permite fixá-la à mão.",
+      "observacoes": "Fonte histórica."
+    },
+    {
+      "id": "pypi_ddtank",
+      "titulo": "PyPI ddtank 1.1.3 / ddtcv 0.1.1",
+      "url": "https://pypi.org/project/ddtank/",
+      "data": "2023-04-11",
+      "conteudo": "Modelo com arrasto num referencial girado para a linha do alvo (trata o desnível); o próprio personagem achado pela diferença entre duas capturas.",
+      "aplicabilidade": "Ideias de desnível e de achar o próprio personagem.",
+      "observacoes": "Licença declarada MIT sem texto próprio; coordenadas fixas de 1000×600."
     }
   ]
 }

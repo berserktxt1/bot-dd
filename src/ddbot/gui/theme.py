@@ -32,6 +32,9 @@ STATE_STYLES = {
     "emergency": ("#B3261E", "#FFFFFF", "■"),
 }
 RESULT_COLORS = {"erro": "#B3261E", "aviso": "#8A5600", "resultado": "#1F7A4D"}
+# fontes com todos os ícones da faixa: sem o glifo (ex.: "❚❚" na Bahnschrift) o Tk varre as fontes do
+# sistema no primeiro desenho e a interface para por até alguns segundos (medido na CI do Windows)
+ICON_FAMILIES = ["Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols2", "Noto Sans Symbols"]
 
 # ------------------------------------------------------------ espaçamento
 SPACE = {"xs": 4, "s": 8, "m": 12, "l": 16, "xl": 24}
@@ -65,8 +68,16 @@ class Theme:
             "count": tkfont.Font(root, family=display, size=20, weight="bold"),
             "button": tkfont.Font(root, family=body, size=10, weight="bold"),
             "mono": tkfont.Font(root, family=_family(["Consolas", "DejaVu Sans Mono"], "TkFixedFont"), size=9),
+            "icon": tkfont.Font(root, family=_family(ICON_FAMILIES, body), size=14, weight="bold"),
         }
+        self.warm_icons()
         self._apply()
+
+    def warm_icons(self):
+        """Mede os ícones uma vez na abertura: qualquer procura de glifo acontece antes da janela aparecer,
+        e não no meio da rotina (a faixa troca de ícone ao pausar)."""
+        for _, _, icon in STATE_STYLES.values():
+            self.fonts["icon"].measure(icon)
 
     def _detect_scale(self) -> float:
         override = os.environ.get("DDBOT_UI_SCALE")

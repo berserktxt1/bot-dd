@@ -1,171 +1,815 @@
 {
-  "_doc": "Perfis de estratégia por instância. Tudo vem de guias de jogadores do DDTank de 2012-2017 (ver 'fontes' e sources.json); nada foi conferido no cliente do DDClássico. Os alvos e estados especiais são reconhecidos por modelos de imagem que o usuário captura no próprio cliente (Calibração > Alvos da instância): 'alvo_<instancia>_<papel>' e 'status_<instancia>_<estado>'. Sem o modelo de um papel, a etapa usa o marcador genérico de inimigo e avisa. 'escolha': mais_proximo | agrupado (mais inimigos em volta, onde o tiro pega mais) | ameaca (o mais perto do seu personagem, porque avança até você). 'efeito' dos estados: imune (não atira nele), so_por_cima (só tiro alto, ângulo >= 60), pausar (para e pede intervenção). 'suporte': implementado (estratégia própria) | pesquisa (só registro; o bot não joga sozinho com ela).",
-  "versao": 1,
+  "_doc": "Perfis de estratégia por instância. Vêm de guias e vídeos de jogadores (2011-2026), de notícias oficiais do DDClássico e, só como apoio, de emuladores; nada foi conferido no cliente do DDClássico (ver 'fontes' e sources.json). Os alvos e estados especiais são reconhecidos por modelos de imagem que o usuário captura no próprio cliente (Calibração > Alvos): 'alvo_<modelos>_<papel>' e 'status_<modelos>_<estado>'; 'modelos' é o nome da instância, então as dificuldades usam as mesmas capturas. 'base' herda outro perfil; 'etapas_ids' escolhe etapas da base; 'ajustes_etapas' muda campos de uma etapa; 'limites_extra'/'fontes_extra' somam. 'tipo' da etapa: combate | pontuacao (alvos com 'pontos': somar os bons, evitar os que tiram) | corrida (objetivo que não é derrotar alvos). 'evitar': papéis que o disparo não pode atingir. 'escolha': mais_proximo | agrupado (mais alvos em volta) | ameaca (o mais perto do seu personagem). 'efeito' dos estados: imune | so_por_cima (ângulo >= 60) | pausar | vulneravel (prioridade). 'entra_com': papéis que mostram que a etapa começou (a etapa é a que a tela mostra, inclusive fora da ordem). 'suporte': implementado | pesquisa (só registro).",
+  "versao": 2,
   "instancias": [
     {
       "id": "formigueiro",
       "nome": "Formigueiro",
-      "nomes": ["formigueiro", "formiga"],
-      "dificuldades": [],
+      "nomes": [
+        "formigueiro",
+        "formiga",
+        "formigas"
+      ],
+      "dificuldades": [
+        "Fácil",
+        "Normal"
+      ],
       "solo": "possivel",
       "suporte": "implementado",
       "confianca": "media",
-      "resumo": "Duas etapas: primeiro as formigas, depois só a rainha.",
+      "resumo": "Duas etapas nas duas dificuldades: primeiro as formigas (um guia fala em 20), depois só a rainha Pandora.",
       "papeis": [
-        {"id": "rainha", "nome": "Rainha formiga", "chefe": true},
-        {"id": "formiga", "nome": "Formiga"}
+        {
+          "id": "rainha",
+          "nome": "Rainha formiga (Pandora)",
+          "chefe": true
+        },
+        {
+          "id": "formiga",
+          "nome": "Formiga"
+        }
       ],
       "etapas": [
-        {"id": "formigas", "nome": "Formigas", "objetivo": "Matar todas as formigas; atirar onde há mais delas juntas.",
-         "alvos": ["formiga", "inimigo"], "escolha": "agrupado", "max_disparos_sem_progresso": 15},
-        {"id": "rainha", "nome": "Rainha", "objetivo": "Atirar só na rainha; as outras formigas não importam.",
-         "alvos": ["rainha"], "ignorar": ["formiga"], "escolha": "mais_proximo", "entra_com": ["rainha"],
-         "max_disparos_sem_progresso": 20}
+        {
+          "id": "formigas",
+          "nome": "Formigas",
+          "objetivo": "Matar todas as formigas; atirar onde há mais delas juntas.",
+          "condicao": "todas as formigas derrotadas",
+          "alvos": [
+            "formiga",
+            "inimigo"
+          ],
+          "escolha": "agrupado",
+          "max_disparos_sem_progresso": 15
+        },
+        {
+          "id": "rainha",
+          "nome": "Rainha",
+          "objetivo": "Atirar só na rainha; as outras formigas não importam.",
+          "condicao": "rainha derrotada (vitória)",
+          "alvos": [
+            "rainha"
+          ],
+          "ignorar": [
+            "formiga"
+          ],
+          "escolha": "mais_proximo",
+          "entra_com": [
+            "rainha"
+          ],
+          "max_disparos_sem_progresso": 20
+        }
       ],
-      "referencias_de_mira": ["rainha: ângulo 40 força 60", "rainha: ângulo 24 força 100 (posição do jogador não informada)"],
-      "limites": ["Ângulos e forças dos guias são só referência: o bot calcula pela distância, vento e altura lidos."],
-      "fontes": ["ddtdjpj_formigueiro", "dicasddt_formigueiro", "bielpontes_2012"]
+      "referencias_de_mira": [
+        "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem posição nem vento)"
+      ],
+      "limites": [
+        "Ângulos e forças dos guias e vídeos não dizem posição nem vento: são só referência; o bot calcula pela distância, vento e altura lidos.",
+        "Nenhuma fonte descreve os ataques da rainha nem um limite de turnos.",
+        "Sozinho já foi feito em versões antigas (vídeos de 2011 e 2012); no DDClássico não foi conferido."
+      ],
+      "fontes": [
+        "ddtdjpj_formigueiro",
+        "dicasddt_formigueiro",
+        "bielpontes_2012",
+        "ddtdicasjogar_2013",
+        "crieddtank_2012",
+        "yurigameover_2012",
+        "videos_ddclassico_2026"
+      ]
+    },
+    {
+      "id": "formigueiro_facil",
+      "base": "formigueiro",
+      "nome": "Formigueiro — Fácil",
+      "dificuldades": [
+        "Fácil"
+      ],
+      "referencias_de_mira": [
+        "rainha: 23 - 100 (vídeo do Fácil, 01/02/2015; sem posição nem vento)",
+        "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem dificuldade)"
+      ],
+      "limites_extra": [
+        "O Fácil não aparece nas notícias oficiais do DDClássico lidas em 20/10/2026 (só o Normal): confira se existe no seu cliente.",
+        "Diferença para o Normal documentada só no nível recomendado (8 a 12 contra 12 a 15)."
+      ],
+      "fontes_extra": [
+        "videos_formigueiro_2015"
+      ]
+    },
+    {
+      "id": "formigueiro_normal",
+      "base": "formigueiro",
+      "nome": "Formigueiro — Normal",
+      "dificuldades": [
+        "Normal"
+      ],
+      "referencias_de_mira": [
+        "rainha: 28 - 70 (vídeo do Normal, 02/02/2015; sem posição nem vento)",
+        "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem dificuldade)"
+      ],
+      "limites_extra": [
+        "Aparece na notícia oficial 37 do DDClássico (evento de 16 a 22/10/2026).",
+        "Diferença para o Fácil documentada só no nível recomendado (12 a 15 contra 8 a 12)."
+      ],
+      "fontes_extra": [
+        "videos_formigueiro_2015",
+        "ddclassico_noticia_37"
+      ]
     },
     {
       "id": "galinheiro",
       "nome": "Galinheiro (Pintinho Corre Rápido)",
-      "nomes": ["galinheiro", "pintinho", "corre rapido"],
-      "dificuldades": [],
+      "nomes": [
+        "galinheiro",
+        "pintinho",
+        "corre rapido",
+        "pintinho corredor"
+      ],
+      "dificuldades": [
+        "Fácil",
+        "Normal",
+        "Difícil"
+      ],
       "solo": "dificil",
       "suporte": "implementado",
       "confianca": "baixa",
-      "resumo": "Três etapas com inimigos que avançam até você: mata primeiro os que estão mais perto.",
+      "resumo": "Pintinhos que avançam até você, galos e galinhas, a construção do galinheiro e o chefe (Burrinho) com a gaiola; a ordem e o número de etapas mudam com a dificuldade.",
       "papeis": [
-        {"id": "frango", "nome": "Frango/pintinho"},
-        {"id": "galo", "nome": "Galo"},
-        {"id": "galinha", "nome": "Galinha"},
-        {"id": "chefe", "nome": "Chefe da 3ª etapa", "chefe": true}
+        {
+          "id": "frango",
+          "nome": "Pintinho"
+        },
+        {
+          "id": "galo",
+          "nome": "Galo"
+        },
+        {
+          "id": "galinha",
+          "nome": "Galinha"
+        },
+        {
+          "id": "construcao",
+          "nome": "Galinheiro (construção)"
+        },
+        {
+          "id": "chefe",
+          "nome": "Chefe (Burrinho)",
+          "chefe": true
+        },
+        {
+          "id": "gaiola",
+          "nome": "Gaiola"
+        }
       ],
       "etapas": [
-        {"id": "frangos", "nome": "Frangos", "objetivo": "Atirar longe e matar os frangos antes que alcancem você.",
-         "alvos": ["frango", "inimigo"], "escolha": "ameaca", "max_disparos_sem_progresso": 15},
-        {"id": "galos", "nome": "Galos e galinhas", "objetivo": "Matar galos e galinhas, os mais próximos primeiro.",
-         "alvos": ["galo", "galinha", "inimigo"], "escolha": "ameaca", "entra_com": ["galo", "galinha"],
-         "max_disparos_sem_progresso": 15},
-        {"id": "chefe", "nome": "Chefe", "objetivo": "Derrotar o chefe; o veneno dele pega em área.",
-         "alvos": ["chefe", "inimigo"], "escolha": "ameaca", "entra_com": ["chefe"], "max_disparos_sem_progresso": 20}
+        {
+          "id": "pintinhos",
+          "nome": "Pintinhos",
+          "objetivo": "Atirar longe e matar os pintinhos antes que alcancem você.",
+          "condicao": "pintinhos derrotados",
+          "alvos": [
+            "frango",
+            "inimigo"
+          ],
+          "escolha": "ameaca",
+          "max_disparos_sem_progresso": 15
+        },
+        {
+          "id": "galos",
+          "nome": "Galos e galinhas",
+          "objetivo": "Matar galos e galinhas, os mais próximos primeiro.",
+          "condicao": "galos e galinhas derrotados",
+          "alvos": [
+            "galo",
+            "galinha",
+            "inimigo"
+          ],
+          "escolha": "ameaca",
+          "entra_com": [
+            "galo",
+            "galinha"
+          ],
+          "max_disparos_sem_progresso": 15
+        },
+        {
+          "id": "construcao",
+          "nome": "Construção",
+          "objetivo": "Destruir o galinheiro (construção).",
+          "condicao": "construção destruída",
+          "alvos": [
+            "construcao",
+            "inimigo"
+          ],
+          "escolha": "mais_proximo",
+          "entra_com": [
+            "construcao"
+          ],
+          "max_disparos_sem_progresso": 20
+        },
+        {
+          "id": "chefe",
+          "nome": "Chefe e gaiola",
+          "objetivo": "Derrotar o chefe (Burrinho) e quebrar a gaiola; o veneno pega em área.",
+          "condicao": "chefe derrotado e gaiola quebrada",
+          "alvos": [
+            "chefe",
+            "gaiola",
+            "inimigo"
+          ],
+          "escolha": "ameaca",
+          "entra_com": [
+            "chefe",
+            "gaiola"
+          ],
+          "max_disparos_sem_progresso": 20
+        }
       ],
       "referencias_de_mira": [],
-      "limites": ["O guia recomenda jogar com outros jogadores; sozinho, os inimigos podem alcançar o personagem. O bot para após derrotas seguidas (Configurações > limite de derrotas).",
-                  "Os chefes não têm nome nos guias; a 3ª etapa usa o modelo 'chefe' que você capturar."],
-      "fontes": ["ddtdjpj_formigueiro", "dicasddt_galinheiro"]
+      "limites": [
+        "As fontes não concordam no número e na ordem das etapas; a etapa é escolhida pelo alvo que aparece na tela (capture os alvos em Calibração > Alvos).",
+        "O guia recomenda jogar com outros jogadores (2 a 4); sozinho os pintinhos podem alcançar o personagem. O bot para após derrotas seguidas (Configurações > limite de derrotas).",
+        "Nenhuma fonte diz o que faz perder a instância nem o limite de turnos.",
+        "O nome Burrinho vem de uma única fonte (2013)."
+      ],
+      "fontes": [
+        "ddtdjpj_formigueiro",
+        "dicasddt_galinheiro",
+        "ddtdicasjogar_2013",
+        "emulador_ddtank",
+        "videos_ddclassico_2026"
+      ]
+    },
+    {
+      "id": "galinheiro_facil",
+      "base": "galinheiro",
+      "nome": "Galinheiro — Fácil",
+      "dificuldades": [
+        "Fácil"
+      ],
+      "etapas_ids": [
+        "pintinhos",
+        "chefe"
+      ],
+      "limites_extra": [
+        "Fácil com 2 etapas (guia de 2013 e emulador); dois vídeos de 2011 e 2012 mostram uma 3ª etapa.",
+        "O Fácil não aparece nas notícias oficiais do DDClássico lidas em 20/10/2026: confira se existe no seu cliente."
+      ]
+    },
+    {
+      "id": "galinheiro_normal",
+      "base": "galinheiro",
+      "nome": "Galinheiro — Normal",
+      "dificuldades": [
+        "Normal"
+      ],
+      "etapas_ids": [
+        "pintinhos",
+        "construcao",
+        "chefe"
+      ],
+      "limites_extra": [
+        "Normal com 3 etapas: pintinhos, construção, chefe e gaiola (guia de 2013 e emulador).",
+        "No DDClássico aparece num vídeo de jogador de 07/09/2026 ('Pintinho Normal'), não em notícia oficial."
+      ]
+    },
+    {
+      "id": "galinheiro_dificil",
+      "base": "galinheiro",
+      "nome": "Galinheiro — Difícil",
+      "dificuldades": [
+        "Difícil"
+      ],
+      "etapas_ids": [
+        "pintinhos",
+        "galos",
+        "chefe",
+        "construcao"
+      ],
+      "confianca": "baixa",
+      "limites_extra": [
+        "Difícil: o guia de 2013 dá 3 etapas (pintinhos, chefe e gaiola, construção); vídeos de 2011 a 2013 e o emulador mostram 4. A ordem aqui é uma suposição: a etapa real é a que a tela mostra.",
+        "Aparece na notícia oficial 37 do DDClássico (evento de 16 a 22/10/2026); há um vídeo 'Difícil SOLO' de 2013."
+      ],
+      "fontes_extra": [
+        "ddclassico_noticia_37"
+      ]
+    },
+    {
+      "id": "olimpiadas_bugou",
+      "nome": "Olimpíadas Bugou (Olimpíadas Boom)",
+      "nomes": [
+        "olimpiadas",
+        "olimpiada",
+        "olimpiadas bugou",
+        "olimpiadas boom",
+        "desafio de bugous"
+      ],
+      "dificuldades": [
+        "Normal",
+        "Difícil",
+        "Avançado"
+      ],
+      "solo": "desconhecido",
+      "suporte": "pesquisa",
+      "confianca": "media",
+      "resumo": "Não é o Castelo do Reino de Bugou. Balões (99 pontos), corrida de Bugous (só no Normal), Boxiador e, no Difícil e no Avançado, o Juiz ladrão.",
+      "papeis": [
+        {
+          "id": "balao_vermelho",
+          "nome": "Balão vermelho (soma pontos)",
+          "pontos": 3
+        },
+        {
+          "id": "balao_dobro",
+          "nome": "Balão que dobra os pontos (flor ou X)",
+          "pontos": 6
+        },
+        {
+          "id": "balao_verde",
+          "nome": "Balão verde (tira pontos)",
+          "pontos": -2.5
+        },
+        {
+          "id": "meka",
+          "nome": "Meka (alvo prioritário da 2ª etapa, segundo um bot de terceiros)"
+        },
+        {
+          "id": "bugou_rival",
+          "nome": "Bugou do time rival (azul)"
+        },
+        {
+          "id": "boxiador",
+          "nome": "Boxiador (Menino Torto)",
+          "chefe": true
+        },
+        {
+          "id": "juiz",
+          "nome": "Juiz (não acordar)"
+        },
+        {
+          "id": "juiz_ladrao",
+          "nome": "Juiz ladrão",
+          "chefe": true
+        }
+      ],
+      "estados": [
+        {
+          "id": "juiz_ladrao_frente",
+          "nome": "Juiz ladrão de frente",
+          "papel": "juiz_ladrao",
+          "efeito": "imune",
+          "mensagem": "o Juiz ladrão está de frente: só recebe dano pelas costas"
+        }
+      ],
+      "etapas": [
+        {
+          "id": "baloes",
+          "nome": "Balões",
+          "tipo": "pontuacao",
+          "alvos": [
+            "balao_vermelho",
+            "balao_dobro",
+            "balao_verde"
+          ],
+          "objetivo": "Chegar a 99 pontos: estourar os balões vermelhos (1 a 5 pontos) e o que dobra os pontos; nunca os verdes (tiram 1 a 4).",
+          "condicao": "99 pontos (os guias falam em 40 rodadas; o emulador, em 10 turnos por jogador)",
+          "max_disparos_sem_progresso": 12,
+          "requer": [
+            "balao_vermelho",
+            "balao_verde"
+          ]
+        },
+        {
+          "id": "corrida",
+          "nome": "Corrida",
+          "tipo": "corrida",
+          "alvos": [
+            "meka",
+            "bugou_rival"
+          ],
+          "escolha": "agrupado",
+          "entra_com": [
+            "bugou_rival",
+            "meka"
+          ],
+          "objetivo": "Ferir os Bugous do time rival (os muito feridos não andam) para o seu time chegar primeiro ao pódio.",
+          "condicao": "o último Bugou do seu time chega ao pódio antes do último rival",
+          "max_disparos_sem_progresso": 15,
+          "requer": [
+            "bugou_rival"
+          ]
+        },
+        {
+          "id": "boxiador",
+          "nome": "Boxiador",
+          "alvos": [
+            "boxiador",
+            "inimigo"
+          ],
+          "evitar": [
+            "juiz"
+          ],
+          "escolha": "mais_proximo",
+          "entra_com": [
+            "boxiador"
+          ],
+          "objetivo": "Derrotar o Boxiador duas vezes sem atingir o juiz (acordá-lo uma terceira vez mata o personagem).",
+          "condicao": "Boxiador derrotado duas vezes",
+          "max_disparos_sem_progresso": 20
+        },
+        {
+          "id": "juiz_ladrao",
+          "nome": "Juiz ladrão",
+          "alvos": [
+            "juiz_ladrao"
+          ],
+          "escolha": "mais_proximo",
+          "entra_com": [
+            "juiz_ladrao"
+          ],
+          "objetivo": "Atingir o Juiz ladrão só pelas costas (ou no alto do chapéu); estourar a bolha quando ele beber.",
+          "condicao": "Juiz ladrão derrotado",
+          "max_disparos_sem_progresso": 20
+        }
+      ],
+      "limites": [
+        "Olimpíadas Boom, Olimpíadas Bugou e Desafio de Bugous são a mesma instância (nome interno GuluOlympics); o Castelo do Reino de Bugou (GuluKingdom) é outra.",
+        "Não existe Fácil nas fontes. No DDClássico há notícia oficial do Difícil; o Normal aparece em vídeos e num bot de terceiros."
+      ],
+      "fontes": [
+        "ddtdjpj_olimpiadas",
+        "shekinah_olimpiadas_2011",
+        "crieddtank_2012",
+        "yurigameover_2012",
+        "emulador_ddtank",
+        "ddmira",
+        "videos_ddclassico_2026",
+        "ddclassico_noticia_37"
+      ]
+    },
+    {
+      "id": "olimpiadas_bugou_normal",
+      "base": "olimpiadas_bugou",
+      "nome": "Olimpíadas Bugou — Normal",
+      "dificuldades": [
+        "Normal"
+      ],
+      "suporte": "implementado",
+      "confianca": "baixa",
+      "etapas_ids": [
+        "baloes",
+        "corrida",
+        "boxiador"
+      ],
+      "resumo": "Três etapas na versão clássica do Normal: balões (pontuação), corrida de Bugous e Boxiador. Não é o Castelo do Reino de Bugou.",
+      "limites_extra": [
+        "Balões: o bot mira o balão que mais soma, contando o que a explosão pega em volta, e nunca mira um verde; sem os modelos dos balões verdes e de pelo menos um que soma, a etapa pausa. Os valores (vermelho +3, verde -2,5, dobro +6) são médias das fontes, não leituras do jogo.",
+        "Corrida: o bot fere os Bugous rivais onde há mais deles juntos (a dica dos guias é ferir 3 por rodada); um bot de terceiros cita um alvo prioritário chamado Meka no DDClássico, que nenhuma outra fonte descreve. Sem o modelo dos Bugous rivais (ou do Meka), a etapa pausa.",
+        "Boxiador: o bot nunca mira perto do juiz (acordar o juiz anula os efeitos da torcida, mas na 3ª vez o personagem morre); use essa tática você mesmo, com a rotina pausada. Sem o modelo do juiz, a etapa pausa.",
+        "Fontes antigas divergem: 4 etapas na estreia (2011) e 3 por dificuldade em 2015; no DDClássico não foi conferido se o Normal tem a corrida. A etapa é a que a tela mostra.",
+        "Nenhuma fonte diz se dá para jogar sozinho; os dados de base sugerem 3 a 4 jogadores."
+      ]
     },
     {
       "id": "bugou_normal",
       "nome": "Castelo do Reino de Bugou — Normal",
-      "nomes": ["bugou", "castelo do reino", "reino de bugou"],
-      "dificuldades": ["Normal"],
+      "nomes": [
+        "castelo do reino",
+        "reino de bugou",
+        "castelo bugou",
+        "castelo de bugou",
+        "rei bugou"
+      ],
+      "dificuldades": [
+        "Normal"
+      ],
       "solo": "muito_dificil",
       "suporte": "implementado",
       "confianca": "baixa",
       "resumo": "Bugous, Barão (imune de frente), Midas (escudo: só por cima) e Matias (pavio: precisa de gelo).",
       "papeis": [
-        {"id": "bugou", "nome": "Bugou"},
-        {"id": "barao", "nome": "Barão", "chefe": true},
-        {"id": "midas", "nome": "Midas", "chefe": true},
-        {"id": "midas_vermelho", "nome": "Midas (fase vermelha)", "chefe": true},
-        {"id": "matias", "nome": "Matias", "chefe": true},
-        {"id": "bomba", "nome": "Bomba do Matias"}
+        {
+          "id": "bugou",
+          "nome": "Bugou"
+        },
+        {
+          "id": "barao",
+          "nome": "Barão",
+          "chefe": true
+        },
+        {
+          "id": "midas",
+          "nome": "Midas",
+          "chefe": true
+        },
+        {
+          "id": "midas_vermelho",
+          "nome": "Midas (fase vermelha)",
+          "chefe": true
+        },
+        {
+          "id": "matias",
+          "nome": "Matias",
+          "chefe": true
+        },
+        {
+          "id": "bomba",
+          "nome": "Bomba do Matias"
+        }
       ],
       "estados": [
-        {"id": "barao_escudo", "nome": "Barão de frente (escudo)", "papel": "barao", "efeito": "imune",
-         "mensagem": "o Barão está de frente, com o escudo: o dano não entra"},
-        {"id": "midas_escudo", "nome": "Escudo do Midas", "papeis": ["midas", "midas_vermelho"], "efeito": "so_por_cima",
-         "mensagem": "o Midas está com escudo: só tiro por cima"},
-        {"id": "matias_pavio", "nome": "Pavio do Matias aceso", "papel": "matias", "efeito": "pausar",
-         "mensagem": "o Matias acendeu o pavio: só o gelo impede a derrota e o JonFlow não usa itens; use o gelo e clique em Retomar"}
+        {
+          "id": "barao_escudo",
+          "nome": "Barão de frente (escudo)",
+          "papel": "barao",
+          "efeito": "imune",
+          "mensagem": "o Barão está de frente, com o escudo: o dano não entra"
+        },
+        {
+          "id": "midas_escudo",
+          "nome": "Escudo do Midas",
+          "papeis": [
+            "midas",
+            "midas_vermelho"
+          ],
+          "efeito": "so_por_cima",
+          "mensagem": "o Midas está com escudo: só tiro por cima"
+        },
+        {
+          "id": "matias_pavio",
+          "nome": "Pavio do Matias aceso",
+          "papel": "matias",
+          "efeito": "pausar",
+          "mensagem": "o Matias acendeu o pavio: só o gelo impede a derrota e o JonFlow não usa itens; use o gelo e clique em Retomar"
+        }
       ],
       "etapas": [
-        {"id": "bugous", "nome": "Bugous", "objetivo": "Matar todos os Bugous.",
-         "alvos": ["bugou", "inimigo"], "escolha": "agrupado", "max_disparos_sem_progresso": 15},
-        {"id": "barao", "nome": "Barão", "objetivo": "Acertar o Barão só pelas costas; de frente o escudo anula o dano.",
-         "alvos": ["barao", "bugou", "inimigo"], "escolha": "mais_proximo", "entra_com": ["barao"],
-         "max_disparos_sem_progresso": 12},
-        {"id": "midas", "nome": "Midas", "objetivo": "Derrotar as duas vidas do Midas; com escudo, atacar por cima.",
-         "alvos": ["midas", "midas_vermelho", "bugou", "inimigo"], "escolha": "mais_proximo",
-         "entra_com": ["midas", "midas_vermelho"], "max_disparos_sem_progresso": 20},
-        {"id": "matias", "nome": "Matias", "objetivo": "Atacar o Matias e as bombas; pavio aceso exige gelo.",
-         "alvos": ["matias", "bomba", "inimigo"], "escolha": "mais_proximo", "entra_com": ["matias"],
-         "max_disparos_sem_progresso": 20}
+        {
+          "id": "bugous",
+          "nome": "Bugous",
+          "objetivo": "Matar todos os Bugous.",
+          "alvos": [
+            "bugou",
+            "inimigo"
+          ],
+          "escolha": "agrupado",
+          "max_disparos_sem_progresso": 15
+        },
+        {
+          "id": "barao",
+          "nome": "Barão",
+          "objetivo": "Acertar o Barão só pelas costas; de frente o escudo anula o dano.",
+          "alvos": [
+            "barao",
+            "bugou",
+            "inimigo"
+          ],
+          "escolha": "mais_proximo",
+          "entra_com": [
+            "barao"
+          ],
+          "max_disparos_sem_progresso": 12
+        },
+        {
+          "id": "midas",
+          "nome": "Midas",
+          "objetivo": "Derrotar as duas vidas do Midas; com escudo, atacar por cima.",
+          "alvos": [
+            "midas",
+            "midas_vermelho",
+            "bugou",
+            "inimigo"
+          ],
+          "escolha": "mais_proximo",
+          "entra_com": [
+            "midas",
+            "midas_vermelho"
+          ],
+          "max_disparos_sem_progresso": 20
+        },
+        {
+          "id": "matias",
+          "nome": "Matias",
+          "objetivo": "Atacar o Matias e as bombas; pavio aceso exige gelo.",
+          "alvos": [
+            "matias",
+            "bomba",
+            "inimigo"
+          ],
+          "escolha": "mais_proximo",
+          "entra_com": [
+            "matias"
+          ],
+          "max_disparos_sem_progresso": 20
+        }
       ],
-      "referencias_de_mira": ["Barão embaixo: ângulo 20, força 40-50 (conforme a posição)", "Barão em cima: ângulo 45-55, força 45-50",
-                              "Midas: ângulo 20 força 50-55, ângulo 65 força 41-48 ou tiro alto distância 6-8"],
-      "limites": ["Nenhum guia descreve a dificuldade Normal; as 4 etapas vêm do guia de 2012 e da dificuldade Difícil (a Avançada tem um teste de habilidade a mais). Confirme no cliente.",
-                  "Sozinho, o Barão tende a ficar de frente para você (o guia diz 'quase impossível com apenas um jogador'): o bot espera e pausa se não houver progresso.",
-                  "O ponto fraco do Matias é o alto da cabeça; o bot mira o centro do modelo capturado."],
-      "fontes": ["ddtdjpj_bugou", "dicasddt_bugou", "bielpontes_2012"]
+      "referencias_de_mira": [
+        "Barão embaixo: ângulo 20, força 40-50 (conforme a posição)",
+        "Barão em cima: ângulo 45-55, força 45-50",
+        "Midas: ângulo 20 força 50-55, ângulo 65 força 41-48 ou tiro alto distância 6-8"
+      ],
+      "limites": [
+        "Nenhum guia descreve a dificuldade Normal; as 4 etapas vêm do guia de 2012 e da dificuldade Difícil (a Avançada tem um teste de habilidade a mais). Confirme no cliente.",
+        "Sozinho, o Barão tende a ficar de frente para você (o guia diz 'quase impossível com apenas um jogador'): o bot espera e pausa se não houver progresso.",
+        "O ponto fraco do Matias é o alto da cabeça; o bot mira o centro do modelo capturado.",
+        "Fora da lista principal desde a 0.5.0 (substituído por Olimpíadas Bugou — Normal); a estratégia continua disponível para atividades capturadas pelo menu."
+      ],
+      "fontes": [
+        "ddtdjpj_bugou",
+        "dicasddt_bugou",
+        "bielpontes_2012",
+        "ddclassico_noticias"
+      ]
     },
     {
-      "id": "covil_dragao", "nome": "Covil do Dragão", "nomes": ["covil", "dragao"], "dificuldades": ["Normal"],
-      "solo": "muito_dificil", "suporte": "pesquisa", "confianca": "baixa",
+      "id": "covil_dragao",
+      "nome": "Covil do Dragão",
+      "nomes": [
+        "covil",
+        "dragao"
+      ],
+      "dificuldades": [
+        "Normal"
+      ],
+      "solo": "muito_dificil",
+      "suporte": "pesquisa",
+      "confianca": "baixa",
       "resumo": "Pórtico, orcs e duendes (o 3º cura), Teodoro (prende jogadores) e o Dragão (só no olho; sopro exige gelo).",
       "etapas": [
-        {"id": "portico", "nome": "Pórtico", "objetivo": "Atacar só o Pórtico."},
-        {"id": "orcs", "nome": "Orcs e duendes", "objetivo": "Orcs primeiro, depois o Pórtico; o 3º duende cura."},
-        {"id": "teodoro", "nome": "Teodoro", "objetivo": "Libertar aliados presos (fora do escopo solo).", "fora_do_escopo": true},
-        {"id": "dragao", "nome": "Dragão", "objetivo": "Mirar o olho; o sopro de fogo exige gelo.", "fora_do_escopo": true}
+        {
+          "id": "portico",
+          "nome": "Pórtico",
+          "objetivo": "Atacar só o Pórtico."
+        },
+        {
+          "id": "orcs",
+          "nome": "Orcs e duendes",
+          "objetivo": "Orcs primeiro, depois o Pórtico; o 3º duende cura."
+        },
+        {
+          "id": "teodoro",
+          "nome": "Teodoro",
+          "objetivo": "Libertar aliados presos (fora do escopo solo).",
+          "fora_do_escopo": true
+        },
+        {
+          "id": "dragao",
+          "nome": "Dragão",
+          "objetivo": "Mirar o olho; o sopro de fogo exige gelo.",
+          "fora_do_escopo": true
+        }
       ],
-      "limites": ["Depende de gelo e de outros jogadores em várias etapas."],
-      "fontes": ["ddtdjpj_covil", "bielpontes_2012"]
+      "limites": [
+        "Depende de gelo e de outros jogadores em várias etapas."
+      ],
+      "fontes": [
+        "ddtdjpj_covil",
+        "bielpontes_2012"
+      ]
     },
     {
-      "id": "tribo_piatan", "nome": "Tribo Piatan", "nomes": ["piatan", "tribo"], "dificuldades": ["Normal"],
-      "solo": "dificil", "suporte": "pesquisa", "confianca": "baixa",
+      "id": "tribo_piatan",
+      "nome": "Tribo Piatan",
+      "nomes": [
+        "piatan",
+        "tribo"
+      ],
+      "dificuldades": [
+        "Normal"
+      ],
+      "solo": "dificil",
+      "suporte": "pesquisa",
+      "confianca": "baixa",
       "resumo": "Aruanas e airans; curar a planta com Dom de Anjo; dois guerreiros no mesmo turno; chefe com totens.",
       "etapas": [
-        {"id": "mascaras", "nome": "Aruanas e airans", "objetivo": "Aruanas (máscara cinza) primeiro, depois airans."},
-        {"id": "planta", "nome": "Planta", "objetivo": "Curar a planta até 100% com Dom de Anjo.", "fora_do_escopo": true},
-        {"id": "guerreiros", "nome": "Dois guerreiros", "objetivo": "Derrotar os dois no mesmo turno.", "fora_do_escopo": true},
-        {"id": "chefe", "nome": "Chefe", "objetivo": "Duas vidas; destruir os totens na segunda."}
+        {
+          "id": "mascaras",
+          "nome": "Aruanas e airans",
+          "objetivo": "Aruanas (máscara cinza) primeiro, depois airans."
+        },
+        {
+          "id": "planta",
+          "nome": "Planta",
+          "objetivo": "Curar a planta até 100% com Dom de Anjo.",
+          "fora_do_escopo": true
+        },
+        {
+          "id": "guerreiros",
+          "nome": "Dois guerreiros",
+          "objetivo": "Derrotar os dois no mesmo turno.",
+          "fora_do_escopo": true
+        },
+        {
+          "id": "chefe",
+          "nome": "Chefe",
+          "objetivo": "Duas vidas; destruir os totens na segunda."
+        }
       ],
-      "limites": ["Exige itens e coordenação entre jogadores."],
-      "fontes": ["ddtdjpj_piatan", "bielpontes_2012"]
+      "limites": [
+        "Exige itens e coordenação entre jogadores."
+      ],
+      "fontes": [
+        "ddtdjpj_piatan",
+        "bielpontes_2012"
+      ]
     },
     {
-      "id": "castelo_sombrio", "nome": "Castelo Sombrio", "nomes": ["sombrio"], "dificuldades": ["Normal"],
-      "solo": "muito_dificil", "suporte": "pesquisa", "confianca": "baixa",
+      "id": "castelo_sombrio",
+      "nome": "Castelo Sombrio",
+      "nomes": [
+        "sombrio"
+      ],
+      "dificuldades": [
+        "Normal"
+      ],
+      "solo": "muito_dificil",
+      "suporte": "pesquisa",
+      "confianca": "baixa",
       "resumo": "Levar o barril (teste com gelo), lobo e águia com proteção alternada, Minotauro vulnerável só de joelhos.",
       "etapas": [
-        {"id": "barril", "nome": "Barril", "objetivo": "Levar o barril até o portão (gelo e dom).", "fora_do_escopo": true},
-        {"id": "lobo_aguia", "nome": "Lobo e águia", "objetivo": "Atacar quem não está protegido (mira vermelha na águia troca o alvo)."},
-        {"id": "minotauro", "nome": "Minotauro", "objetivo": "Destruir os 3 fogos em 3 turnos; atacar quando ele estiver de joelhos."}
+        {
+          "id": "barril",
+          "nome": "Barril",
+          "objetivo": "Levar o barril até o portão (gelo e dom).",
+          "fora_do_escopo": true
+        },
+        {
+          "id": "lobo_aguia",
+          "nome": "Lobo e águia",
+          "objetivo": "Atacar quem não está protegido (mira vermelha na águia troca o alvo)."
+        },
+        {
+          "id": "minotauro",
+          "nome": "Minotauro",
+          "objetivo": "Destruir os 3 fogos em 3 turnos; atacar quando ele estiver de joelhos."
+        }
       ],
-      "limites": ["A 1ª etapa é teste de habilidade com itens."],
-      "fontes": ["ddtdjpj_sombrio", "bielpontes_2012"]
+      "limites": [
+        "A 1ª etapa é teste de habilidade com itens."
+      ],
+      "fontes": [
+        "ddtdjpj_sombrio",
+        "bielpontes_2012"
+      ]
     },
     {
-      "id": "olimpiadas_boom", "nome": "Olimpíadas Boom", "nomes": ["olimpiadas", "boom"], "dificuldades": ["Difícil"],
-      "solo": "desconhecido", "suporte": "pesquisa", "confianca": "baixa",
-      "resumo": "Balões (99 pontos), corrida de bugous, Boxiador e, no difícil, o Juiz ladrão (só pelas costas).",
-      "etapas": [
-        {"id": "baloes", "nome": "Balões", "objetivo": "Fazer 99 pontos estourando balões.", "fora_do_escopo": true},
-        {"id": "boxiador", "nome": "Boxiador", "objetivo": "Derrotá-lo duas vezes; acordar o juiz no máximo duas vezes."},
-        {"id": "juiz", "nome": "Juiz ladrão", "objetivo": "Só recebe dano pelas costas."}
+      "id": "ilha_enamorados",
+      "nome": "Ilha dos Enamorados",
+      "nomes": [
+        "enamorados",
+        "ilha"
       ],
-      "limites": ["Testes de habilidade e corridas não são combate."],
-      "fontes": ["ddtdjpj_olimpiadas"]
-    },
-    {
-      "id": "ilha_enamorados", "nome": "Ilha dos Enamorados", "nomes": ["enamorados", "ilha"], "dificuldades": [],
-      "solo": "desconhecido", "suporte": "pesquisa", "confianca": "baixa",
+      "dificuldades": [],
+      "solo": "desconhecido",
+      "suporte": "pesquisa",
+      "confianca": "baixa",
       "resumo": "Instância de prêmios a partir do nível 25; selos, veneno e congelamento.",
-      "etapas": [], "limites": ["Etapas pouco descritas; chefe sem nome."], "fontes": ["ddtdjpj_ilha"]
+      "etapas": [],
+      "limites": [
+        "Etapas pouco descritas; chefe sem nome."
+      ],
+      "fontes": [
+        "ddtdjpj_ilha"
+      ]
     },
     {
-      "id": "redemoinho", "nome": "Redemoinho", "nomes": ["redemoinho"], "dificuldades": ["Fácil"],
-      "solo": "desconhecido", "suporte": "pesquisa", "confianca": "nenhuma",
-      "resumo": "Nenhuma descrição encontrada nas fontes consultadas.", "etapas": [], "limites": [], "fontes": ["ddtdjpj_indice"]
+      "id": "redemoinho",
+      "nome": "Redemoinho",
+      "nomes": [
+        "redemoinho"
+      ],
+      "dificuldades": [
+        "Fácil"
+      ],
+      "solo": "desconhecido",
+      "suporte": "pesquisa",
+      "confianca": "nenhuma",
+      "resumo": "Nenhuma descrição encontrada nas fontes consultadas.",
+      "etapas": [],
+      "limites": [],
+      "fontes": [
+        "ddtdjpj_indice"
+      ]
     },
     {
-      "id": "arena_guerreiros", "nome": "Arena de Guerreiros", "nomes": ["arena"], "dificuldades": [],
-      "solo": "desconhecido", "suporte": "pesquisa", "confianca": "baixa",
+      "id": "arena_guerreiros",
+      "nome": "Arena de Guerreiros",
+      "nomes": [
+        "arena"
+      ],
+      "dificuldades": [],
+      "solo": "desconhecido",
+      "suporte": "pesquisa",
+      "confianca": "baixa",
       "resumo": "Provavelmente Pandora e Midas (matar o Midas primeiro, ele cura) e depois Piatan (bloco sem título no guia).",
-      "etapas": [], "limites": ["Atribuição do texto à Arena é incerta."], "fontes": ["ddtdjpj_indice"]
+      "etapas": [],
+      "limites": [
+        "Atribuição do texto à Arena é incerta."
+      ],
+      "fontes": [
+        "ddtdjpj_indice"
+      ]
     }
   ]
 }

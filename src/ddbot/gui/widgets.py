@@ -42,7 +42,7 @@ class StatusBanner(tk.Frame):
         super().__init__(master, background=T.STATE_STYLES["idle"][0])
         self.th = th
         pad = th.px(T.SPACE["l"])
-        self.icon = tk.Label(self, font=th.fonts["banner"], width=2, anchor="center")
+        self.icon = tk.Label(self, font=th.fonts["icon"], width=2, anchor="center")
         self.icon.pack(side="left", padx=(pad, th.px(4)), pady=th.px(8))
         box = tk.Frame(self)
         box.pack(side="left", fill="x", expand=True, pady=th.px(6))

@@ -15,10 +15,21 @@ Travas (na dúvida, não atira):
 - alvo marcado como imune não é atacado; se só ele está visível, espera;
 - chefe que sumiu (invisível) não é trocado na hora: espera algumas leituras;
 - estado com efeito "pausar" ou etapa fora do escopo pede intervenção;
-- disparos demais na mesma etapa sem diminuir os inimigos pede intervenção.
+- disparos demais na mesma etapa sem diminuir os inimigos pede intervenção;
+- papéis marcados para evitar (ex.: o juiz) nunca são alvo, e o disparo não mira perto deles;
+- etapas que exigem reconhecimento (pontuação, corrida, papéis a evitar) pausam sem os modelos,
+  em vez de mirar "qualquer inimigo".
+
+Dificuldades: um perfil pode herdar de outro (``base``) e mudar só o que difere; os modelos de
+imagem ficam no nome da instância (``modelos``), então as dificuldades compartilham as capturas.
+
+Tipos de etapa: ``combate`` (derrotar alvos), ``pontuacao`` (acertar os alvos que somam pontos e
+evitar os que tiram) e ``corrida`` (objetivo que não é derrotar alvos: só segue com o que o perfil
+descreve; sem isso, pausa e explica).
 """
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import math
@@ -31,10 +42,13 @@ log = logging.getLogger(__name__)
 
 GENERIC_ROLE = "inimigo"  # inimigo achado pelo marcador genérico, sem papel reconhecido
 PICKS = ("mais_proximo", "agrupado", "ameaca")
-EFFECTS = ("imune", "so_por_cima", "pausar")
+EFFECTS = ("imune", "so_por_cima", "pausar", "vulneravel")
+STAGE_KINDS = ("combate", "pontuacao", "corrida")
 SUPPORT_LABELS = {"implementado": "estratégia própria", "pesquisa": "só pesquisa (o bot não joga sozinho)"}
 SOLO_LABELS = {"possivel": "possível sozinho", "dificil": "difícil sozinho", "muito_dificil": "muito difícil sozinho",
                "desconhecido": "sozinho: não informado"}
+CONFIDENCE_LABELS = {"alta": "alta", "media": "média", "media-alta": "média-alta", "baixa": "baixa",
+                     "nenhuma": "nenhuma"}
 HIGH_ARC_MIN_ANGLE = 60
 DIFFICULTY_WORDS = ("facil", "normal", "dificil", "avancado", "epico")
 
@@ -44,6 +58,8 @@ class Role:
     key: str
     name: str
     boss: bool = False
+    points: float | None = None   # etapa de pontuação: quanto vale atingir (negativo = tira pontos)
+    avoid: bool = False           # nunca atingir (ex.: o juiz): o disparo não mira perto dele
 
 
 @dataclass(frozen=True)
@@ -66,6 +82,11 @@ class Stage:
     enters_with: tuple[str, ...] = ()
     max_shots: int = 15
     out_of_scope: bool = False
+    kind: str = "combate"          # combate | pontuacao | corrida
+    avoid: tuple[str, ...] = ()    # papéis que o disparo não pode atingir nesta etapa
+    needs_models: bool = False     # sem os modelos dos papéis desta etapa, pausa (não mira qualquer inimigo)
+    goal: str = ""                 # condição de avanço descrita pelas fontes (só informativa)
+    required: tuple[str, ...] = ()  # papéis sem os quais a etapa não age (em vez da regra padrão do tipo)
 
 
 @dataclass
@@ -84,21 +105,59 @@ class InstanceProfile:
     aim_refs: tuple[str, ...] = ()
     limits: tuple[str, ...] = ()
     sources: tuple[str, ...] = ()
+    models: str = ""               # prefixo dos modelos de imagem (o mesmo nas dificuldades da instância)
+    base: str | None = None        # perfil de que este herdou (mesma instância, outra dificuldade)
 
     @property
     def runnable(self) -> bool:
         return self.support == "implementado" and bool(self.stages)
 
+    @property
+    def model_key(self) -> str:
+        return self.models or self.key
+
     def role_template(self, role: str) -> str:
-        return f"alvo_{self.key}_{role}"
+        return f"alvo_{self.model_key}_{role}"
 
     def status_template(self, status: str) -> str:
-        return f"status_{self.key}_{status}"
+        return f"status_{self.model_key}_{status}"
 
     def templates(self) -> dict[str, str]:
         """Modelos que a Calibração pede para esta instância (nome -> descrição)."""
         out = {self.role_template(r.key): f"Alvo: {r.name} ({self.name})" for r in self.roles.values()}
         out.update({self.status_template(s.key): f"Estado: {s.name} ({self.name})" for s in self.statuses.values()})
+        return out
+
+    def blocking_roles(self, st: Stage, known=lambda role: False) -> list[str]:
+        """Papéis cujo modelo falta e sem os quais a etapa não pode agir com segurança.
+
+        - papéis a evitar: sem reconhecê-los, o disparo pode cair neles;
+        - pontuação: os alvos que tiram pontos (um alvo bom colado num ruim não seria percebido) e pelo
+          menos um alvo que soma;
+        - corrida (e outros tipos que não são combate comum): pelo menos um dos alvos da etapa.
+        Combate comum não bloqueia: sem o modelo do papel, mira qualquer inimigo e avisa.
+        """
+        if not st.needs_models:
+            return []
+        named = [r for r in st.targets if r in self.roles]
+        out = [r for r in st.avoid if r in self.roles and not known(r)]
+        if st.required:
+            out += [r for r in st.required if not known(r)]
+        elif st.kind == "pontuacao":
+            out += [r for r in named if (self.roles[r].points or 0) < 0 and not known(r)]
+            good = [r for r in named if (self.roles[r].points or 0) > 0]
+            if good and not any(known(r) for r in good):
+                out += good[:1]
+        elif st.kind != "combate" and named and not any(known(r) for r in named):
+            out += named[:1]
+        return list(dict.fromkeys(out))
+
+    def required_templates(self) -> dict[str, str]:
+        """Modelos sem os quais alguma etapa não age (pontuação, corrida, papéis a evitar)."""
+        out = {}
+        for st in self.stages:
+            for role in self.blocking_roles(st):
+                out[self.role_template(role)] = f"Alvo: {self.roles[role].name} ({self.name})"
         return out
 
     def describe(self) -> str:
@@ -114,7 +173,9 @@ class InstanceProfile:
         for r in raw.get("papeis", []):
             if not valid_name(r.get("id")) or r["id"] == GENERIC_ROLE:
                 raise ValueError(f"{key}: papel inválido {r.get('id')!r}")
-            roles[r["id"]] = Role(r["id"], str(r.get("nome", r["id"])), bool(r.get("chefe")))
+            points = r.get("pontos")
+            roles[r["id"]] = Role(r["id"], str(r.get("nome", r["id"])), bool(r.get("chefe")),
+                                  None if points is None else float(points), bool(r.get("evitar")))
         known = set(roles) | {GENERIC_ROLE}
         statuses = {}
         for s in raw.get("estados", []):
@@ -128,25 +189,74 @@ class InstanceProfile:
             if not valid_name(st.get("id")):
                 raise ValueError(f"{key}: etapa inválida {st.get('id')!r}")
             targets = tuple(st.get("alvos", []))
-            refs = set(targets) | set(st.get("ignorar", [])) | set(st.get("entra_com", []))
+            avoid = tuple(st.get("evitar", [])) + tuple(r for r in roles if roles[r].avoid
+                                                         and r not in st.get("evitar", []))
+            refs = set(targets) | set(st.get("ignorar", [])) | set(st.get("entra_com", [])) | set(avoid) \
+                | set(st.get("requer", []))
             if refs - known:
                 raise ValueError(f"{key}/{st['id']}: papéis desconhecidos {sorted(refs - known)}")
             pick = st.get("escolha", "mais_proximo")
             if pick not in PICKS:
                 raise ValueError(f"{key}/{st['id']}: escolha inválida {pick!r}")
+            kind = st.get("tipo", "combate")
+            if kind not in STAGE_KINDS:
+                raise ValueError(f"{key}/{st['id']}: tipo de etapa inválido {kind!r}")
+            if set(targets) & set(avoid):
+                raise ValueError(f"{key}/{st['id']}: o mesmo papel não pode ser alvo e evitado")
+            if kind == "pontuacao" and not any(roles[r].points for r in targets if r in roles):
+                raise ValueError(f"{key}/{st['id']}: etapa de pontuação sem alvos com pontos")
+            # pontuação e corrida não são "derrotar qualquer inimigo": sem reconhecer os papéis, não age
+            needs = bool(st.get("requer_modelos", kind != "combate" or bool(avoid)))
             stages.append(Stage(st["id"], str(st.get("nome", st["id"])), str(st.get("objetivo", "")), targets,
                                 tuple(st.get("ignorar", [])), pick, tuple(st.get("entra_com", [])),
                                 max(3, int(st.get("max_disparos_sem_progresso", 15))),
-                                bool(st.get("fora_do_escopo"))))
+                                bool(st.get("fora_do_escopo")), kind, avoid, needs, str(st.get("condicao", "")),
+                                tuple(st.get("requer", []))))
         support = raw.get("suporte", "pesquisa")
         if support not in SUPPORT_LABELS:
             raise ValueError(f"{key}: suporte inválido {support!r}")
-        if support == "implementado" and any(not s.targets or s.out_of_scope for s in stages):
+        if support == "implementado" and any((not s.targets and s.kind != "corrida") or s.out_of_scope
+                                             for s in stages):
             raise ValueError(f"{key}: estratégia implementada precisa de alvos em todas as etapas")
+        models = raw.get("modelos") or ""
+        if models and not valid_name(models):
+            raise ValueError(f"{key}: prefixo de modelos inválido {models!r}")
         return cls(key, str(raw.get("nome", key)), tuple(raw.get("nomes", [])), tuple(raw.get("dificuldades", [])),
                    raw.get("solo", "desconhecido"), support, raw.get("confianca", "baixa"), str(raw.get("resumo", "")),
                    roles, statuses, stages, tuple(raw.get("referencias_de_mira", [])), tuple(raw.get("limites", [])),
-                   tuple(raw.get("fontes", [])))
+                   tuple(raw.get("fontes", [])), models, raw.get("base"))
+
+
+def _resolve(item: dict, by_id: dict[str, dict], seen=()) -> dict:
+    """Perfil com a herança aplicada: o que o filho define substitui; ``ajustes_etapas`` muda só campos
+    de etapas existentes; ``limites_extra``/``fontes_extra`` somam; os modelos de imagem são os da base."""
+    base_id = item.get("base")
+    if not base_id:
+        return item
+    if base_id in seen or base_id not in by_id:
+        raise ValueError(f"{item.get('id')}: base inválida {base_id!r}")
+    base = _resolve(by_id[base_id], by_id, seen + (item.get("id"),))
+    out = copy.deepcopy(base)
+    for k, v in item.items():
+        if k not in ("ajustes_etapas", "limites_extra", "fontes_extra", "etapas_ids"):
+            out[k] = copy.deepcopy(v)
+    if "etapas_ids" in item:
+        # a dificuldade usa só algumas etapas da instância, na ordem dada (ex.: o Normal tem a corrida)
+        by_stage = {st.get("id"): st for st in base.get("etapas", [])}
+        unknown = [sid for sid in item["etapas_ids"] if sid not in by_stage]
+        if unknown:
+            raise ValueError(f"{item.get('id')}: etapas desconhecidas na base {unknown}")
+        out["etapas"] = [copy.deepcopy(by_stage[sid]) for sid in item["etapas_ids"]]
+    if "modelos" not in item:
+        out["modelos"] = base.get("modelos") or base.get("id")
+    stages = {st.get("id"): st for st in out.get("etapas", [])}
+    for sid, changes in (item.get("ajustes_etapas") or {}).items():
+        if sid not in stages:
+            raise ValueError(f"{item.get('id')}: ajuste de etapa desconhecida {sid!r}")
+        stages[sid].update(copy.deepcopy(changes))
+    out["limites"] = list(out.get("limites", [])) + list(item.get("limites_extra", []))
+    out["fontes"] = list(dict.fromkeys(list(out.get("fontes", [])) + list(item.get("fontes_extra", []))))
+    return out
 
 
 def load_profiles(path: Path) -> tuple[dict[str, InstanceProfile], list[str]]:
@@ -155,10 +265,12 @@ def load_profiles(path: Path) -> tuple[dict[str, InstanceProfile], list[str]]:
         raw = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
         return {}, [f"{Path(path).name}: {exc}"]
+    items = [i for i in raw.get("instancias", []) if isinstance(i, dict)]
+    by_id = {i.get("id"): i for i in items}
     out, errors = {}, []
-    for item in raw.get("instancias", []):
+    for item in items:
         try:
-            p = InstanceProfile.from_raw(item)
+            p = InstanceProfile.from_raw(_resolve(item, by_id))
             out[p.key] = p
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             errors.append(str(exc))
@@ -176,7 +288,13 @@ def match_profile(name: str, profiles: dict[str, InstanceProfile]) -> InstancePr
         # "Bugou Avançado" não é o perfil do Normal (a Avançada tem uma etapa a mais)
         own = {slug(d) for d in p.difficulties}
         return not (own and said and not said & own)
-    hits = [p for p in profiles.values() if fits(p)]
+    hits = [p for p in profiles.values() if p.runnable and fits(p)]
+    if said and len(hits) > 1:
+        exact = [p for p in hits if {slug(d) for d in p.difficulties} == said]
+        hits = exact or hits
+    if not said:
+        # sem dificuldade no nome: só o perfil geral da instância; um de dificuldade seria um chute
+        hits = [p for p in hits if p.base is None]
     return hits[0] if len(hits) == 1 else None
 
 
@@ -201,11 +319,13 @@ class StrategyPlanner:
     COUNT_WINDOW = 5       # leituras usadas para contar os inimigos de forma estável
 
     def __init__(self, profile: InstanceProfile, has_template=lambda name: False, on_event=None,
-                 cluster_radius: float = 1.0):
+                 cluster_radius: float = 1.0, reach: float = 0.6, avoid_radius: float = 1.0):
         self.p = profile
         self.has = has_template
         self.on_event = on_event or (lambda kind, msg: None)
         self.cluster_radius = cluster_radius  # régua: inimigos a essa distância contam como "juntos"
+        self.reach = reach                    # régua: o que a explosão pega em volta do ponto de mira
+        self.avoid_radius = avoid_radius      # régua: distância mínima entre o ponto de mira e um papel a evitar
         self.reset_run()
 
     # ------------------------------------------------------------------ estado
@@ -237,8 +357,8 @@ class StrategyPlanner:
         self._fewest: int | None = None
         self._counts: list[int] = []
 
-    def _advance(self, idx: int, why: str):
-        if idx <= self.index or idx >= len(self.p.stages):
+    def _advance(self, idx: int, why: str, back_ok: bool = False):
+        if idx == self.index or idx >= len(self.p.stages) or (idx < self.index and not back_ok):
             return
         self.index = idx
         self._last, self._missing_reads = None, 0
@@ -327,33 +447,96 @@ class StrategyPlanner:
                                              -dist(e)))
         return min(group, key=dist)  # mais_proximo e ameaca: o mais perto do seu personagem
 
+    def _missing_models(self, st: Stage) -> list[str]:
+        return self.p.blocking_roles(st, self._known)
+
+    def _score_plan(self, st: Stage, foes, avoid, me, unit: float) -> Plan:
+        """Etapa de pontuação: o alvo que mais soma, contando o que a explosão pega em volta dele.
+
+        Alvos que tiram pontos nunca são mirados, e um alvo bom colado num que tira pontos (ou num
+        papel a evitar) só é escolhido se o total esperado continuar positivo.
+        """
+        valued = [e for e in foes if e.kind in st.targets and self.p.roles.get(e.kind) is not None
+                  and self.p.roles[e.kind].points is not None]
+
+        def near(a, b, radius):
+            return math.hypot(a.x - b.x, a.y - b.y) <= radius * unit
+
+        def dist(e):
+            return abs(e.x - me.x) if me is not None else e.x
+        best, best_total, blocked = None, 0.0, False
+        for e in valued:
+            if self.p.roles[e.kind].points <= 0:
+                continue
+            if any(near(e, a, self.avoid_radius) for a in avoid):
+                blocked = True
+                continue
+            total = sum(self.p.roles[o.kind].points for o in valued if near(e, o, self.reach))
+            if total <= 0:
+                blocked = True
+                continue
+            if best is None or total > best_total or (total == best_total and dist(e) < dist(best)):
+                best, best_total = e, total
+        if best is None:
+            why = ("os alvos que somam pontos estão colados nos que tiram (ou num alvo a evitar): aguardando"
+                   if blocked else f"nenhum alvo que some pontos visível na etapa {st.name}")
+            return Plan(stage=st, reason=why)
+        name = self.p.roles[best.kind].name
+        return Plan(best, best.kind, st, f"etapa {st.name}: {name} ({best_total:+g} pontos esperados)")
+
     def update(self, enemies: list, statuses: list, me, unit_px: float) -> Plan:
         """Uma leitura: avança a etapa quando há evidência e escolhe o alvo."""
         visible = {e.kind for e in enemies}
-        for idx in range(self.index + 1, len(self.p.stages)):
-            st = self.p.stages[idx]
-            if st.enters_with and visible & set(st.enters_with):
+        cur = self.stage
+        own = (set(cur.targets) | set(cur.enters_with)) - {GENERIC_ROLE}
+        own_bosses = {r for r in cur.targets if r in self.p.roles and self.p.roles[r].boss}
+        for idx, st in enumerate(self.p.stages):
+            if idx == self.index or not st.enters_with:
+                continue
+            # a etapa é a que a tela mostra: as fontes não garantem a ordem (ex.: no Galinheiro Difícil o
+            # chefe vem antes da construção). Voltar a uma etapa anterior só sem nada da atual na tela, e
+            # nunca deixar uma etapa com o chefe dela ainda visível (ele continuaria atacando sem ser alvo)
+            switch_ok = (idx > self.index or not (visible & own)) and not ((visible & own_bosses) - set(st.targets))
+            if switch_ok and visible & set(st.enters_with):
                 self._enter_reads[idx] = self._enter_reads.get(idx, 0) + 1
                 if self._enter_reads[idx] >= self.STAGE_CONFIRM:
                     who = next(self.p.roles[r].name for r in st.enters_with if r in visible)
-                    self._advance(idx, f"{who} apareceu")
+                    self._advance(idx, f"{who} apareceu", back_ok=True)
                     break
             else:
                 self._enter_reads[idx] = 0
         st = self.stage
+        confirming = any(n > 0 for n in self._enter_reads.values())
         if st.out_of_scope:
             return Plan(stage=st, pause=f"a etapa {st.name} não é combate que o bot faça sozinho ({st.objective})")
+        unit = max(unit_px, 1.0)
+        avoid = [e for e in enemies if e.kind in st.avoid]
+        foes = [e for e in enemies if e.kind not in st.avoid]
         # progresso = menos inimigos de forma estável: o maior número das últimas leituras (um quadro
         # vazio de explosão ou câmera não conta) caiu em relação ao anterior; ondas novas sobem a referência
-        self._counts.append(len(enemies))
+        self._counts.append(len(foes))
         del self._counts[:-self.COUNT_WINDOW]
         stable = max(self._counts)
         if self._fewest is not None and stable < self._fewest:
             self._shots = 0
         self._fewest = stable
-        effects, pause = self._effects(enemies, statuses, unit_px)
+        effects, pause = self._effects(foes, statuses, unit_px)
         if pause:
             return Plan(stage=st, pause=pause)
+        if confirming and (st.needs_models or st.kind == "corrida"):
+            # outra etapa pode estar começando: não pausa nem atira numa etapa que talvez já tenha acabado
+            return Plan(stage=st, reason="conferindo se a etapa mudou")
+        if st.needs_models:
+            missing = self._missing_models(st)
+            if missing:
+                names = ", ".join(self.p.roles[r].name for r in missing)
+                return Plan(stage=st, pause=f"{self.p.name}, etapa {st.name}: o bot precisa reconhecer {names} "
+                            "antes de agir (capture em Calibração > Alvos); sem isso ele não atira")
+        if st.kind == "corrida" and not st.targets:
+            return Plan(stage=st, pause=f"etapa {st.name}: {st.objective} Não é um combate comum e o JonFlow não "
+                        "tem como agir nela sozinho; jogue esta etapa e clique em Retomar")
+        if st.kind == "pontuacao":
+            return self._score_plan(st, foes, avoid, me, unit)
 
         targets = [r for r in st.targets if r not in st.ignore]
         if not any(self._known(r) for r in targets if r != GENERIC_ROLE) and any(r != GENERIC_ROLE for r in targets):
@@ -361,13 +544,17 @@ class StrategyPlanner:
             self._warn_once(f"generico_{st.key}", f"{self.p.name}, etapa {st.name}: sem o modelo de {names} "
                             "(Calibração > Alvos), o bot mira qualquer inimigo visível")
             targets = [GENERIC_ROLE]
-            pool = [e for e in enemies if e.kind not in st.ignore]
+            pool = [e for e in foes if e.kind not in st.ignore]
         else:
-            pool = enemies
-        immune = []
+            pool = foes
+        immune, close_to_avoid = [], []
         for role in targets:
             group = [e for e in pool if e.kind == role and effects.get(id(e)) != "imune"]
             immune += [e for e in pool if e.kind == role and effects.get(id(e)) == "imune"]
+            safe = [e for e in group if all(math.hypot(e.x - a.x, e.y - a.y) > self.avoid_radius * unit
+                                            for a in avoid)]
+            close_to_avoid += [e for e in group if e not in safe]
+            group = [e for e in safe if effects.get(id(e)) == "vulneravel"] or safe
             if not group:
                 if self._last is not None and self._last[0] == role and role in self.p.roles \
                         and self.p.roles[role].boss and not any(e.kind == role for e in pool):
@@ -382,6 +569,9 @@ class StrategyPlanner:
             eff = effects.get(id(choice))
             label = self.p.roles[role].name if role in self.p.roles else "inimigo"
             return Plan(choice, role, st, f"etapa {st.name}: {label}", high_arc=eff == "so_por_cima")
+        if close_to_avoid:
+            names = sorted({self.p.roles[e.kind].name for e in avoid if e.kind in self.p.roles})
+            return Plan(stage=st, reason=f"alvo perto de {', '.join(names)}, que não pode ser atingido: aguardando")
         if immune:
             names = sorted({self.p.roles[e.kind].name for e in immune if e.kind in self.p.roles})
             return Plan(stage=st, reason=f"{', '.join(names) or 'alvo'} imune agora: aguardando")

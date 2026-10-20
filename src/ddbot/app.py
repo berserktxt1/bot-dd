@@ -52,7 +52,8 @@ def _selftest(home: Path | None) -> int:
         def resources():
             k = svc.paths.knowledge
             files = sorted(p.name for p in k.glob("*.json"))
-            for need in ("angle_tables.json", "mechanics.json", "model_params.json", "sources.json", "instances.json"):
+            for need in ("angle_tables.json", "mechanics.json", "model_params.json", "sources.json", "instances.json",
+                         "catalogo.json"):
                 assert need in files, f"faltando {need}"
             assert svc.paths.config_file.exists(), "config.json não criado"
             return files
@@ -93,9 +94,27 @@ def _selftest(home: Path | None) -> int:
             return runner.counters.as_dict()
 
         def estrategias():
-            # instâncias prioritárias, uma execução simulada de cada (simulação: não prova o jogo real)
+            # as seis atividades pré-cadastradas, uma execução simulada de cada, escolhendo a própria opção e
+            # dificuldade no menu (simulação: não prova o jogo real)
+            from .catalog import build_activity
             out = {}
-            for p in svc.strategies():
+            defs = [build_activity(e, svc.catalog) for e in svc.catalog.entries]
+            assert [d.key for d in defs] == ["formigueiro_facil", "formigueiro_normal", "galinheiro_facil",
+                                             "galinheiro_normal", "galinheiro_dificil", "olimpiadas_bugou_normal"]
+            for d in defs:
+                p = svc.profile_for(d)
+                runner, client, _, _, cleanup = simulated_activity(svc.kb, svc.params, d, runs=1, profile=p)
+                try:
+                    status = drive(runner)
+                finally:
+                    cleanup()
+                assert status.value == "concluido", (d.key, status, runner.reason)
+                menu = [t for screen, t in client.clicks if screen == "menu_instancias"]
+                assert menu == [d.option, f"dificuldade_{d.difficulty}"], (d.key, menu)
+                out[d.key] = f"{runner.counters.battles} batalhas, {runner.counters.victories} vitória(s) simulada(s)"
+            # perfis gerais das atividades capturadas pelo menu (versões anteriores)
+            for key in ("formigueiro", "galinheiro", "bugou_normal"):
+                p = svc.profiles[key]
                 d = activity_from_option(f"instancia_{p.key}", p.name, strategy=p.key)
                 runner, client, _, _, cleanup = simulated_activity(svc.kb, svc.params, d, runs=1, profile=p)
                 try:
@@ -104,7 +123,6 @@ def _selftest(home: Path | None) -> int:
                     cleanup()
                 assert status.value == "concluido", (p.key, status, runner.reason)
                 out[p.key] = f"{runner.counters.battles} batalhas, {runner.counters.victories} vitória(s) simulada(s)"
-            assert {"formigueiro", "galinheiro", "bugou_normal"} <= set(out), out
             return out
 
         def entrada():

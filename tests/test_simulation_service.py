@@ -44,7 +44,10 @@ def test_service_simulated_run(home, monkeypatch):
         assert svc.paths.config_file.exists()
         d = svc.create_activity("instancia_teste", "Teste", "instancia", "pve")
         defs, errors = svc.activities()
-        assert [x.key for x in defs] == [d.key] and not errors
+        # as pré-cadastradas vêm primeiro; a capturada pelo usuário aparece depois, uma vez só
+        keys = [x.key for x in defs]
+        assert keys[-1] == d.key and keys.count(d.key) == 1 and not errors
+        assert all(x.builtin for x in defs[:-1]) and not defs[-1].builtin
         ok, why = svc.start(d, 0, simulated=True)
         assert ok, why
         time.sleep(1.0)

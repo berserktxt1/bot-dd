@@ -62,7 +62,8 @@
       "face_right": "right"
     },
     "power_mode": "timed",
-    "power_full_time_s": 4.0,
+    "power_full_time_s": 3.33,
+    "power_start_delay_s": 0.06,
     "power_offset": 0.0,
     "forbidden_templates": [],
     "allowed_paid_templates": [],
