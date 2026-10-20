@@ -7,6 +7,18 @@ partidas e instâncias PvE do DDTank no servidor DDClássico**. Você escolhe o 
 bot entra na atividade, mira, atira, passa as etapas, reconhece vitória e derrota e recomeça quantas vezes você
 pedir.
 
+### Baixar (última versão)
+
+| Arquivo | Link direto |
+|---|---|
+| **`JonFlow.zip`** (recomendado) | [**Baixar JonFlow.zip**](https://github.com/berserktxt1/bot-dd/releases/latest/download/JonFlow.zip) |
+| `JonFlow.exe` (arquivo único) | [Baixar JonFlow.exe](https://github.com/berserktxt1/bot-dd/releases/latest/download/JonFlow.exe) |
+| Conferência (SHA-256) | [SHA256SUMS.txt](https://github.com/berserktxt1/bot-dd/releases/latest/download/SHA256SUMS.txt) |
+
+Todas as versões e notas: [**Releases**](https://github.com/berserktxt1/bot-dd/releases/latest). Os
+programas prontos ficam **só** lá: na lista de arquivos do código (aba *Code*) não há `.exe`, e o
+`build_windows.bat` que aparece ali serve só para quem quer compilar. Não precisa rodá-lo.
+
 > ⚠️ **Leia antes de usar.** Não foi possível verificar as regras do DDClássico sobre programas de automação (o site
 > bloqueou o acesso durante a pesquisa). Muitos servidores punem bots com banimento. Leia os Termos do servidor
 > antes de usar o modo automático. **O uso é por sua conta e risco.**
@@ -59,7 +71,9 @@ Você vai precisar de:
 
 ### Passo 1 — Baixar e abrir
 
-Baixe na página de **Releases** do repositório no GitHub. Escolha **um** dos dois formatos:
+Baixe pelos [links do topo](#baixar-última-versão) ou na página de
+[**Releases**](https://github.com/berserktxt1/bot-dd/releases/latest), em *Assets* (não use "Source code":
+é só o código, sem o programa). Escolha **um** dos dois formatos:
 
 | Formato | Como usar | Quando escolher |
 |---|---|---|

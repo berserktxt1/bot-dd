@@ -1,6 +1,6 @@
 # Andamento
 
-Última atualização: 2026-10-20. Versão 0.4.3 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-20. Versão 0.4.4 (**JonFlow**, antes *DDClássico Bot*).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
@@ -27,6 +27,18 @@ da CI).
 Na CI, um passo novo roda em **125%** os testes de janelas reais (num venv, 3 vezes cada) e depois a suíte
 completa, e volta a escala para 100% no fim.
 
+### "O `.exe` não está no GitHub, só o `.bat`"
+
+Investigado antes de mudar qualquer coisa. A compilação e a publicação **funcionavam**: a Release v0.4.3 (CI
+39362371149, commit `1000526`) tem `JonFlow.exe` (75.374.179 bytes, PE32+ x86-64 GUI), `JonFlow.zip` (pasta
+`JonFlow/` com `JonFlow.exe`, `_internal/` com `python312.dll` e o LEIA-ME, 1156 arquivos), `SHA256SUMS.txt` e
+`build-info.json`. Baixados de novo, as somas SHA-256 conferem e o `build-info.json` aponta o commit e a execução
+da tag. Os builds de desenvolvimento ficam no artefato `JonFlow-windows` de cada execução do Actions.
+
+| Causa encontrada | Correção |
+|---|---|
+| Os programas só existem nos *Assets* da Release (`release/` está no `.gitignore` de propósito: binário não entra no histórico). Na aba *Code* aparece o `build_windows.bat`, e o README só dizia "baixe na página de Releases", sem link. O repositório é **privado**: os links só abrem logado numa conta com acesso | O README abre com uma tabela **Baixar** com links diretos (`releases/latest/download/JonFlow.zip` e `.exe`, que sempre apontam para a última Release) e explica que o `.bat` é só para compilar. As notas da Release dizem que os arquivos ficam em *Assets* e que "Source code" não traz o programa. Teste novo `test_release_publishes_the_programs_and_readme_links_them`: o job `release` anexa os 4 arquivos, confere o commit, e o README mantém os links |
+
 ### Parada da interface no `--gui-smoke` (Windows)
 
 O teste da interface falhou 2 vezes na CI desta branch (39422650761 e 39425409626) com a interface parada 2,4 a
@@ -48,6 +60,12 @@ seguintes ela também não voltou. **Causa ainda não encontrada**: se voltar, o
 | Linux (`ubuntu-24.04`, Xvfb) | 249 aprovados, 4 pulados (só no Windows) |
 | Linux dev: `pyflakes`, `--selftest` | sem avisos; OK |
 | Linux dev: `--simulate 50` | 40,0% sem calibração, 96,2% com calibração, 0 turnos perdidos (igual à 0.4.3) |
+
+CI da branch `release/0.4.4` (execução 39434463429, commit `19e32e9`, com a versão 0.4.4 e os links de
+download): Windows 254 de 254 aprovados em 100% e em 125%; janelas reais num venv com o Chrome aberto 12 de 12 e
+em 125% 12 de 12; `.exe` da pasta e de arquivo único com a versão 0.4.4, autoteste e interface OK (atraso máximo
+259 e 197 ms); Linux 250 aprovados, 4 pulados (só no Windows). Os números da compilação publicada estão no
+`build-info.json` da Release.
 
 Documentação: o README foi reescrito passo a passo para quem nunca usou o programa (como o bot funciona, passos
 numerados, teclas de atalho, problemas comuns e glossário). O AGENTS.md registra a regra da escala do Windows, os
