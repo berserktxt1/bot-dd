@@ -54,9 +54,12 @@ Comparação com versões anteriores, `--simulate 15` medido agora na mesma máq
 | pytest, Linux de desenvolvimento (sem tela) | 245 aprovados, 5 pulados (interface: sem display; 4 só no Windows) |
 | pytest, container Ubuntu 24.04 + Xvfb | 246 aprovados, 4 pulados (só no Windows) |
 | `--gui-smoke 8` (container + Xvfb) | OK: 25 verificações, atraso máximo 108 ms |
-| Windows | ver a CI da branch `feature/simulacao-primeiro-turno` (abaixo) |
+| CI 39351639925, Linux (`ubuntu-24.04`, Xvfb) | 246 aprovados, 4 pulados (só no Windows) |
+| CI 39351639925, Windows (`windows-2025`), código-fonte | 250 de 250 aprovados, 0 pulados (inclui interface e janelas/processos reais de teste) |
+| CI 39351639925, `.exe` da pasta e de arquivo único | autoteste e interface OK (atraso máximo 119 ms) |
 
-RESULTADOS_CI_SIM
+A CI rodou no commit `8f187e8` (só documentação sobre `b17d179`, mesmo código). Sem versão nova nem Release: a
+correção afeta só a medição do `--simulate`; entra na próxima versão.
 
 ## Versão 0.4.1 (hotfix)
 
