@@ -15,7 +15,7 @@ ainda na animação de abertura do Windows; nas três execuções anteriores, co
 espera o jogo terminar de desenhar (até 10 s) e continua reprovando se a imagem nunca for a do jogo. O programa
 não mudou. A tag `v0.4.0` ficou sem Release (o pacote dela não passou na CI); a Release é a `v0.4.1`.
 
-RESULTADOS_041
+CI 39347014865 (commit `70aef23`, branch `hotfix/0.4.1`): Linux e Windows aprovados (245 passed, 4 skipped in 136.29s (0:02:16) / 249 passed, 2 warnings in 290.64s (0:04:50)), compilação e testes do `.exe` (pasta e arquivo único) aprovados. Os números finais da Release estão no `build-info.json` publicado com ela.
 
 ## Versão 0.4.0
 
