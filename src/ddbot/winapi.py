@@ -394,6 +394,28 @@ if IS_WINDOWS:
             gdi32.DeleteDC(mem)
             user32.ReleaseDC(hwnd, hdc)
 
+    user32.GetDpiForWindow.argtypes = [wintypes.HWND]
+    user32.GetDpiForWindow.restype = wintypes.UINT
+    user32.MonitorFromWindow.argtypes = [wintypes.HWND, wintypes.DWORD]
+    user32.MonitorFromWindow.restype = wintypes.HANDLE
+
+    def window_dpi(hwnd) -> tuple[int, int] | None:
+        """(DPI em que a janela desenha, DPI efetivo do monitor dela); diferentes = o Windows amplia a janela.
+
+        Programas sem suporte a DPI desenham a 96 DPI e o Windows estica a imagem na tela (escala de 125%,
+        150%...). None se o Windows não informar (versões antigas).
+        """
+        try:
+            own = int(user32.GetDpiForWindow(hwnd))
+            mon = user32.MonitorFromWindow(hwnd, 2)  # MONITOR_DEFAULTTONEAREST
+            x, y = wintypes.UINT(), wintypes.UINT()
+            if not own or not mon or ctypes.WinDLL("shcore").GetDpiForMonitor(
+                    wintypes.HANDLE(mon), 0, ctypes.byref(x), ctypes.byref(y)) != 0:  # MDT_EFFECTIVE_DPI
+                return None
+            return own, int(x.value)
+        except (AttributeError, OSError):
+            return None
+
     # ------------------------------------------------- escolher a janela com um clique
     user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
     user32.GetAsyncKeyState.restype = ctypes.c_short
@@ -460,6 +482,9 @@ else:  # Linux/macOS: só para desenvolvimento e testes
         return {}
 
     def print_window(hwnd, width: int, height: int):
+        return None
+
+    def window_dpi(hwnd):
         return None
 
     def cursor_pos() -> tuple[int, int]:

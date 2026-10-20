@@ -88,6 +88,38 @@ jobs:
           if ($fail.Count) { Write-Error "falharam: $($fail -join '; ')"; exit 1 }
           Write-Host "todos os testes de janelas reais passaram 3 vezes no venv"
 
+      - name: Testes com a escala do Windows em 125% (janelas reais 3 vezes cada, depois a suíte completa)
+        # como num PC com escala de 125%: o Python das janelas de teste (como muitos jogos) não tem suporte a
+        # DPI e o Windows amplia a imagem dele na tela; a captura precisa trazer a imagem inteira do jogo
+        shell: pwsh
+        run: |
+          try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop } catch { Write-Host "resolução mantida: $_" }
+          python tools/display_scale.py 125
+          if ($LASTEXITCODE -ne 0) { Write-Error "não foi possível pôr a tela em 125%"; exit 1 }
+          $py = "$env:RUNNER_TEMP\venv-janelas\Scripts\python.exe"
+          $out = "$env:RUNNER_TEMP\escala-125"
+          $tests = @("test_launcher_then_game_in_child_process", "test_pick_at_real_window",
+                     "test_two_launchers_game_linked_to_the_one_that_opened_it", "test_capture_of_covered_game_is_the_game")
+          $fail = @()
+          try {
+            foreach ($i in 1..3) {
+              foreach ($t in $tests) {
+                & $py -m pytest -q "tests/test_windows_real.py::$t" -p no:cacheprovider --basetemp "$out\$t-$i"
+                if ($LASTEXITCODE -ne 0) { $fail += "$t (rodada $i)" }
+              }
+            }
+            & $py -m pytest -q tests -rs -p no:cacheprovider --basetemp "$out\suite" --junitxml=test-results/pytest-windows-125.xml
+            if ($LASTEXITCODE -ne 0) { $fail += "suíte completa" }
+          } finally {
+            python tools/display_scale.py 100
+            # capturas recusadas pelos testes (diagnóstico); só as imagens, nada da pasta de dados dos testes
+            Get-ChildItem $out -Recurse -Filter *.png -ErrorAction SilentlyContinue | ForEach-Object {
+              New-Item -ItemType Directory -Force test-results/escala-125 | Out-Null
+              Copy-Item $_.FullName "test-results/escala-125/$($_.Directory.Parent.Name)-$($_.Directory.Name)-$($_.Name)" }
+          }
+          if ($fail.Count) { Write-Error "falharam em 125%: $($fail -join '; ')"; exit 1 }
+          Write-Host "em 125%: janelas reais 3 vezes cada e a suíte completa aprovados"
+
       - name: Compilar (build_windows.bat)
         shell: cmd
         run: build_windows.bat --sem-testes
