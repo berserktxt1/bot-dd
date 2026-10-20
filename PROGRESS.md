@@ -8,6 +8,21 @@
 
 ## Versão 0.4.4
 
+### Conferência da distribuição (2026-10-20, antes do teste no jogo real)
+
+| Item | Resultado |
+|---|---|
+| Release | v0.4.4 publicada como *Latest*, não é rascunho nem pré-release |
+| Tag × `main` | `v0.4.4` = `origin/main` = `97e4a24` (merge da `release/0.4.4`); `develop` sem diferença de código para a `main` |
+| Assets | `JonFlow.exe` (75.377.582 bytes), `JonFlow.zip` (75.690.692 bytes), `SHA256SUMS.txt`, `build-info.json`, `relatorios-de-teste.zip` |
+| Integridade | baixados de novo pelo `gh`: SHA-256 conferem com `SHA256SUMS.txt`; o ZIP tem `JonFlow/JonFlow.exe`, `_internal/`, `LEIA-ME.md` e `COMO-USAR.txt` |
+| `build-info.json` | versão 0.4.4, commit `97e4a24`, `refs/tags/v0.4.4`, CI 39437768488 (sucesso), Windows 254 de 254 |
+| Links diretos | só abrem **logado numa conta com acesso** (repositório privado): sem login, `releases/download/v0.4.4/JonFlow.exe` e `.zip` respondem 404 |
+| CI da `develop` 39437781992 (mesmo código) | falhou só no `--gui-smoke` do Windows (interface parada 5,3 s depois de Parar): o defeito intermitente já conhecido do ícone da faixa. Correção adiada para a próxima versão |
+
+Roteiro do primeiro teste com o launcher e o cliente reais: [`docs/ROTEIRO_TESTE_REAL.md`](docs/ROTEIRO_TESTE_REAL.md).
+Nada foi validado no jogo ainda.
+
 ### Captura do jogo com a escala do Windows acima de 100%
 
 Falha relatada no PC do usuário: a captura do jogo de teste tinha média BGR 43, 108, 22 (64% do verde da janela
