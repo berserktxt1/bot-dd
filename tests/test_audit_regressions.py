@@ -628,3 +628,21 @@ def test_fit_to_area_only_scales_like_windows():
     black_right[280:, :] = 0
     assert unpainted_edges(black_right, screen)
     assert not unpainted_edges(black_right, black_right)           # a tela também é preta ali (fora do monitor)
+
+
+def test_release_publishes_the_programs_and_readme_links_them():
+    """O usuário procurou o .exe na aba Code e só achou o build_windows.bat: o programa fica só na Release."""
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    wf = (root / ".github" / "workflows" / "windows-build.yml").read_text(encoding="utf-8")
+    release = wf[wf.index("\n  release:"):]
+    assert "startsWith(github.ref, 'refs/tags/v')" in release and "needs: [test-linux, build-windows]" in release
+    files = re.search(r'files="([^"]+)"', release).group(1).split()
+    for name in ("JonFlow.zip", "JonFlow.exe", "SHA256SUMS.txt", "build-info.json"):
+        assert f"pacote/{name}" in files                                # anexado à Release
+        assert f"release/{name}" in wf                                  # e no artefato do Actions
+    assert 'info["commit"] == os.environ["GITHUB_SHA"]' in release      # nunca um binário de outro commit
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    for name in ("JonFlow.zip", "JonFlow.exe"):
+        assert f"https://github.com/berserktxt1/bot-dd/releases/latest/download/{name}" in readme

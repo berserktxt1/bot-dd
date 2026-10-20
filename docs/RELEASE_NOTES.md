@@ -53,6 +53,8 @@ janela do jogo ainda na animação de abertura). A tag v0.4.0 não teve Release 
 
 ## Qual arquivo baixar
 
+Os arquivos ficam em **Assets**, no fim desta página. "Source code" é só o código-fonte, sem o programa pronto, e não é preciso rodar o `build_windows.bat`.
+
 | Arquivo | Para quê |
 |---|---|
 | **JonFlow.zip** | Recomendado. Pasta completa: extraia e abra `JonFlow/JonFlow.exe`. Abre mais rápido e traz o LEIA-ME. |
