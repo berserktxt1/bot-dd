@@ -22,6 +22,13 @@ def test_calibration_improves_hit_rate(kb, params):
     assert learned.hit_rate > plain.hit_rate
 
 
+def test_simulation_does_not_lose_the_first_turn_of_each_battle(kb, params):
+    """Regressão: o laço de --simulate lia o fim da batalha uma vez só e o motor exige leituras seguidas;
+    o turno da batalha anterior continuava valendo e o 1º turno de cada batalha esgotava sem disparo."""
+    r = run_simulation(kb, params, battles=6, settings=SimSettings(seed=11), calibrate=True)
+    assert r.skipped_turns == 0, r.as_dict()
+
+
 def test_invisible_targets_handled(kb, params):
     r = run_simulation(kb, params, battles=4, settings=SimSettings(seed=4, hide_probability=0.4))
     assert r.shots > 0 and r.battles == 4

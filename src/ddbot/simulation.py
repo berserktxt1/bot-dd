@@ -225,10 +225,13 @@ def run_simulation(kb: KnowledgeBase, params: PhysicsParams, battles: int = 20,
     try:
         for _ in range(battles):
             world.new_battle()
+            # como o ActivityRunner (on_battle_start): batalha nova, turno novo. Antes o laço só lia o fim
+            # da batalha uma vez, mas o motor exige leituras seguidas para aceitá-lo: o turno da batalha
+            # anterior (já com disparo) continuava valendo e o 1º turno de cada batalha era perdido
+            engine.reset_battle()
             for _ in range(max_steps_per_battle):
                 engine.step()
                 if world.state.over:
-                    engine.step()  # consome o fim de batalha
                     break
             wins += world.state.over == "vitoria"
             skipped += world.state.skipped_turns
