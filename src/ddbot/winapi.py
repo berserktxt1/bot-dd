@@ -271,8 +271,27 @@ if IS_WINDOWS:
     kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
     kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
 
+    kernel32.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+
+    def process_created(pid: int) -> int | None:
+        """Hora de criação do processo (unidades de 100 ns) ou None se não der para consultar."""
+        h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not h:
+            return None
+        try:
+            t = [wintypes.FILETIME() for _ in range(4)]
+            if not kernel32.GetProcessTimes(h, *(ctypes.byref(x) for x in t)):
+                return None
+            return (t[0].dwHighDateTime << 32) | t[0].dwLowDateTime
+        finally:
+            kernel32.CloseHandle(h)
+
     def process_parents() -> dict[int, int]:
-        """pid -> pid do processo que o abriu (lista de processos do Windows; nada é aberto)."""
+        """pid -> pid do processo que o abriu (lista de processos do Windows; nada é aberto).
+
+        Ligações com pai que já terminou e cujo pid foi reaproveitado são descartadas
+        (``prune_stale_parents``).
+        """
         out: dict[int, int] = {}
         snap = kernel32.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
         if not snap or snap == wintypes.HANDLE(-1).value:
@@ -285,7 +304,13 @@ if IS_WINDOWS:
                 ok = kernel32.Process32NextW(snap, ctypes.byref(e))
         finally:
             kernel32.CloseHandle(snap)
-        return out
+        created: dict[int, int | None] = {}
+
+        def when(pid):
+            if pid not in created:
+                created[pid] = process_created(pid)
+            return created[pid]
+        return prune_stale_parents(out, when)
 
     # ------------------------------------------------- captura pela própria janela
     gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
@@ -426,6 +451,25 @@ else:  # Linux/macOS: só para desenvolvimento e testes
 
     def mouse_click(x: int, y: int):
         raise RuntimeError("Cliques só são suportados no Windows")
+
+
+def prune_stale_parents(parents: dict[int, int], created) -> dict[int, int]:
+    """Remove ligações filho -> pai em que o "pai" é mais novo que o filho.
+
+    O Windows guarda só o pid do pai e reaproveita pids: se quem abriu o jogo (ex.: um
+    atualizador) terminou e o pid dele passou a outro programa aberto depois (ex.: um
+    segundo launcher), o jogo pareceria filho desse outro programa. ``created(pid)`` devolve
+    a hora de criação ou None (sem acesso: a ligação é mantida, não há prova de que é falsa).
+    """
+    out = {}
+    for pid, ppid in parents.items():
+        if ppid and ppid in parents:
+            c, p = created(pid), created(ppid)
+            if c is not None and p is not None and p > c:
+                out[pid] = 0
+                continue
+        out[pid] = ppid
+    return out
 
 
 def key_supported(key: str | None) -> bool:

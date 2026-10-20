@@ -17,7 +17,8 @@ concurrency:
 
 jobs:
   test-linux:
-    runs-on: ubuntu-latest
+    # imagem fixa: o ubuntu-latest passa a ser o Ubuntu 26 a partir de 2026-10-19
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -34,7 +35,7 @@ jobs:
         run: xvfb-run -a python -m pytest -q tests -rs
 
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 45
     env:
       CI: "1"
@@ -212,7 +213,7 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [test-linux, build-windows]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
@@ -232,6 +233,16 @@ jobs:
         run: |
           set -euo pipefail
           (cd pacote && sha256sum -c SHA256SUMS.txt)
+          # o pacote precisa ser deste commit e desta versão (nunca um binário antigo com a versão nova)
+          python3 - <<'PY'
+          import json, os
+          info = json.load(open("pacote/build-info.json", encoding="utf-8-sig"))
+          tag = os.environ["TAG"]
+          assert info["commit"] == os.environ["GITHUB_SHA"], (info["commit"], os.environ["GITHUB_SHA"])
+          assert "v" + info["versao"] == tag, (info["versao"], tag)
+          assert " 0 falhas" in info["testes_windows"].replace("(", " "), info["testes_windows"]
+          print("pacote confere:", info["versao"], info["commit"], info["testes_windows"])
+          PY
           (cd relatorios && zip -qr ../relatorios-de-teste.zip .)
           files="pacote/JonFlow.zip pacote/JonFlow.exe pacote/SHA256SUMS.txt pacote/build-info.json relatorios-de-teste.zip"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

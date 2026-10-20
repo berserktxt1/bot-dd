@@ -35,10 +35,15 @@ HIST_ICONS = {"resultado": "✓", "aviso": "!", "erro": "✕", "fim": "■", "co
 OPTIONAL_FIELDS = {"automation.keys.pass_turn"}
 
 
-def demo_activity(kind: str) -> ActivityDef:
-    name = "Instância de demonstração" if kind == "instancia" else "Partida de demonstração"
-    d = activity_from_option(f"{kind}_teste", name, kind, "pve")
-    d.key = DEMO_KEY + kind
+def demo_activity(kind: str, profile=None) -> ActivityDef:
+    if profile is not None:
+        d = activity_from_option(f"instancia_{profile.key}", f"{profile.name} (demonstração)", "instancia", "pve",
+                                 strategy=profile.key)
+        d.key = DEMO_KEY + profile.key
+    else:
+        name = "Instância de demonstração" if kind == "instancia" else "Partida de demonstração"
+        d = activity_from_option(f"{kind}_teste", name, kind, "pve")
+        d.key = DEMO_KEY + kind
     d.description = "Simulação interna para conhecer o programa. Nada é enviado ao jogo."
     return d
 
@@ -59,6 +64,8 @@ class MainWindow:
         self._kind_keys: list[str] = []
         self.live_diag = tk.BooleanVar(value=False)
         self.simulated = tk.BooleanVar(value=False)
+        self._starting = False  # Iniciar no jogo real em andamento (em thread)
+        self._missing_required = ""  # calibração obrigatória que falta para a atividade escolhida
         self._diag_queue: "queue.Queue[tuple]" = queue.Queue(maxsize=2)
         self._diag_busy = False
         self._tiles: list = []
@@ -103,6 +110,7 @@ class MainWindow:
         self._bind_keys()
         self.refresh_windows()
         self.refresh_activities()
+        self._fill_strategy_page()
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         root.after(200, self._tick)
 
@@ -358,6 +366,25 @@ class MainWindow:
         ttk.Button(f, text="Ver opções conhecidas nesta captura", command=self.check_visible_options).grid(
             row=5, column=0, sticky="we", pady=(px(4), 0))
 
+        f = page("Alvos", "Instâncias com estratégia própria: escolha a estratégia da atividade selecionada no "
+                 "Início e, numa batalha, capture cada alvo e estado especial (2 ou 3 amostras).")
+        ttk.Label(f, text="Estratégia da atividade", style="Surface.TLabel").grid(row=1, column=0, sticky="w")
+        self._strategy_keys: list[str | None] = [None] + [p.key for p in self.svc.strategies()]
+        self.cb_strategy = ttk.Combobox(f, state="readonly", values=["Genérica (inimigo mais à esquerda)"]
+                                        + [p.name for p in self.svc.strategies()])
+        self.cb_strategy.grid(row=2, column=0, sticky="we")
+        self.cb_strategy.bind("<<ComboboxSelected>>", lambda e: self.set_strategy())
+        ttk.Label(f, text="Alvo ou estado a capturar", style="Surface.TLabel").grid(row=3, column=0, sticky="w",
+                                                                                   pady=(px(8), 0))
+        self.cb_role = ttk.Combobox(f, state="readonly")
+        self.cb_role.grid(row=4, column=0, sticky="we")
+        self._role_keys: list[str] = []
+        self.btn_role = ttk.Button(f, text="Salvar alvo ou estado", command=self.save_role_template)
+        self.btn_role.grid(row=5, column=0, sticky="we", pady=(px(6), 0))
+        self.lbl_strategy = ttk.Label(f, text="", style="SurfaceMuted.TLabel", wraplength=px(320), justify="left")
+        self.lbl_strategy.grid(row=6, column=0, sticky="w", pady=(px(6), 0))
+        sub.bind("<<NotebookTabChanged>>", lambda e: self._fill_strategy_page(), add="+")
+
         ttk.Separator(s).grid(row=3, column=0, sticky="we", pady=px(14))
         ttk.Label(s, text="Conferir os controles", style="SurfaceSection.TLabel").grid(row=4, column=0, sticky="w")
         ttk.Label(s, text="No seu turno, aperta ↑ e depois ↓ e confere se o ângulo mudou. Não atira.",
@@ -579,6 +606,7 @@ class MainWindow:
         self._show_window_label()
 
     def _show_window_label(self):
+        self._update_buttons()  # Iniciar no jogo real depende da janela conectada
         w = self.svc.window
         if w is not None:
             title = (w.title or w.exe or "janela").strip()
@@ -627,7 +655,9 @@ class MainWindow:
         for e in errors:
             self.notice(f"Arquivo de atividade inválido: {e}", True)
         if self.simulated.get():
-            defs = [demo_activity("instancia"), demo_activity("partida")] + defs
+            from ..simulation import DEMO_SCENARIOS
+            demos = [demo_activity("instancia", p) for p in self.svc.strategies() if p.key in DEMO_SCENARIOS]
+            defs = demos + [demo_activity("instancia"), demo_activity("partida")] + defs
         self.activities = {d.key: d for d in defs}
         self._fill_activity_list()
 
@@ -653,10 +683,12 @@ class MainWindow:
             self._chosen[self.area.get()] = d.key
         self._describe()
         self._update_buttons()
+        if hasattr(self, "cb_strategy"):
+            self._fill_strategy_page()
 
     def _label(self, d: ActivityDef):
         if d.key.startswith(DEMO_KEY):
-            return f"{d.name} (simulação)"
+            return d.name if "demonstração" in d.name else f"{d.name} (simulação)"
         tag = "" if d.validated else " (ainda não validada no jogo)"
         return f"{d.name}, {CATEGORIES.get(d.category, d.category)}{tag}"
 
@@ -673,13 +705,21 @@ class MainWindow:
             self.lbl_desc.configure(text=f"Nenhuma {what} capturada ainda. Com o jogo conectado, abra o menu de "
                                     f"{what}s no jogo e clique em Capturar opções do jogo.{demo}")
             return
+        prof = self.svc.profile_for(d)
         if d.key.startswith(DEMO_KEY):
+            extra = f" Estratégia {prof.name}: {' → '.join(st.name for st in prof.stages)}." if prof else ""
             self.lbl_desc.configure(text="Simulação para testar o programa: lobby, menu, sala, batalha e resultado "
                                     "acontecem num jogo de mentira. Nada é enviado ao DDClássico e os resultados não "
-                                    "são do jogo real.")
+                                    f"são do jogo real.{extra}")
             return
         auto = "O bot joga sozinho." if d.auto_allowed else "Envolve outros jogadores: o bot não joga sozinho."
-        self.lbl_desc.configure(text=f"{d.description} {auto}")
+        if prof is not None:
+            how = f"Estratégia {prof.name}: {' → '.join(st.name for st in prof.stages)}."
+        elif d.kind == "instancia":
+            how = "Sem estratégia de instância: mira o inimigo mais à esquerda (troque em Calibração > Alvos)."
+        else:
+            how = ""
+        self.lbl_desc.configure(text=f"{auto} {how}".strip())
 
     def _show_readiness(self, d):
         """Diz antes de iniciar o que falta calibrar para a atividade rodar sozinha no jogo."""
@@ -688,6 +728,7 @@ class MainWindow:
             self.btn_goto_calib.configure(text="Capturar opções do jogo", command=self._goto_options)
             self.btn_goto_calib.grid()
             return
+        self._missing_required = ""
         if d.key.startswith(DEMO_KEY) or self.simulated.get():
             self.lbl_ready.grid_remove()
             self.btn_goto_calib.grid_remove()
@@ -695,6 +736,7 @@ class MainWindow:
         self.lbl_ready.grid()
         from ..readiness import summary
         missing = summary(self.svc.readiness(d), limit=6)
+        self._missing_required = missing
         if missing:
             self.lbl_ready.configure(text=f"Para jogar sozinho, falta calibrar: {missing}.",
                                      style="SurfaceError.TLabel")
@@ -732,7 +774,36 @@ class MainWindow:
             self.notice("Escolha a janela do jogo no topo antes de iniciar.", True)
             return
         self.btn_start.state(["disabled"])
-        ok, why = self.svc.start(d, self._runs(), simulated=simulated)
+        if simulated:
+            self._start_finished(self.svc.start(d, self._runs(), simulated=True), True)
+            return
+        # no jogo real, iniciar procura a janela e espera o jogo vir para a frente (até ~2 s):
+        # fora da thread da interface, que não pode travar
+        self._starting = True
+        result: "queue.Queue[tuple[bool, str]]" = queue.Queue(maxsize=1)
+        runs = self._runs()
+
+        def work():
+            try:
+                result.put(self.svc.start(d, runs, simulated=False))
+            except Exception as exc:  # erro inesperado vira mensagem, não trava o botão
+                log.exception("falha ao iniciar")
+                result.put((False, str(exc)))
+
+        def wait():
+            try:
+                res = result.get_nowait()
+            except queue.Empty:
+                self.root.after(100, wait)
+                return
+            self._starting = False
+            self._start_finished(res, False)
+        self.notice("Iniciando: conferindo a janela do jogo...")
+        threading.Thread(target=work, daemon=True, name="iniciar").start()
+        self.root.after(100, wait)
+
+    def _start_finished(self, res: tuple[bool, str], simulated: bool):
+        ok, why = res
         if not ok:
             tip = advice(why)
             self.notice(f"Não foi possível iniciar: {why}. {tip}".strip(), True)
@@ -762,8 +833,14 @@ class MainWindow:
         st = self.svc.status
         running = self.svc.runner is not None and self.svc.runner.alive
         d = self.selected_activity()
+        demo = d is not None and (d.key.startswith(DEMO_KEY) or self.simulated.get())
         ready = d is not None and (d.auto_allowed or d.key.startswith(DEMO_KEY))
-        self.btn_start.state(["disabled"] if running or not ready else ["!disabled"])
+        if ready and not demo:
+            # no jogo real: só com o jogo conectado e a calibração obrigatória completa (o motivo aparece
+            # na faixa de estado e embaixo da atividade)
+            ready = self.svc.window is not None and not self._missing_required
+        busy = running or self._starting
+        self.btn_start.state(["disabled"] if busy or not ready else ["!disabled"])
         if self._minimized_for_run and (not running or st != RunStatus.RUNNING):
             # pausou (precisa de você), terminou ou falhou: a janela volta para mostrar o motivo
             self._minimized_for_run = False
@@ -814,6 +891,55 @@ class MainWindow:
         n = len(self.svc.templates.get(key))
         self.lbl_tpl.configure(text=f"{self.cb_tpl.get()}: {n} amostra(s).")
         self.notice(f"Modelo salvo: {self.cb_tpl.get()}.")
+
+    def _strategy_target(self):
+        """Atividade do Início que a página Alvos edita (as de demonstração não são gravadas)."""
+        d = self.selected_activity()
+        return None if d is None or d.key.startswith(DEMO_KEY) or d.kind != "instancia" else d
+
+    def _fill_strategy_page(self):
+        d = self._strategy_target()
+        prof = self.svc.profile_for(d) if d else None
+        key = prof.key if prof else None
+        self.cb_strategy.current(self._strategy_keys.index(key) if key in self._strategy_keys else 0)
+        self.cb_strategy.state(["!disabled"] if d else ["disabled"])
+        tpls = prof.templates() if prof else {}
+        self._role_keys = list(tpls)
+        self.cb_role["values"] = [f"{label} — {len(self.svc.templates.get(k))} amostra(s)" for k, label in tpls.items()]
+        if tpls:
+            self.cb_role.current(0)
+        else:
+            self.cb_role.set("")
+        for w in (self.cb_role, self.btn_role):
+            w.state(["!disabled"] if tpls else ["disabled"])
+        if d is None:
+            text = "Escolha no Início uma instância capturada do jogo."
+        elif prof is None:
+            text = "Sem estratégia: o bot mira o inimigo mais à esquerda em todas as etapas."
+        else:
+            text = (f"{prof.describe()} Confiança das fontes: {prof.confidence}. " + " ".join(prof.limits[:2])).strip()
+        self.lbl_strategy.configure(text=text)
+
+    def set_strategy(self):
+        d = self._strategy_target()
+        if d is None:
+            return
+        try:
+            self.svc.set_strategy(d, self._strategy_keys[max(0, self.cb_strategy.current())])
+        except (ValueError, OSError) as exc:
+            self.notice(f"Não foi possível trocar a estratégia: {exc}", True)
+        self._fill_strategy_page()
+        self._describe()
+
+    def save_role_template(self):
+        img = self.calib_canvas.selection_image()
+        if img is None or not self._role_keys or self.cb_role.current() < 0:
+            self.notice("Escolha a estratégia, capture a tela da batalha e arraste sobre o alvo.", True)
+            return
+        key = self._role_keys[self.cb_role.current()]
+        self.svc.templates.add(key, img)
+        self._fill_strategy_page()
+        self.notice(f"Modelo salvo: {key}.")
 
     def learn_digits(self):
         frame = self.calib_canvas.frame
@@ -1077,7 +1203,8 @@ class MainWindow:
             self._drain_events()
             self._drain_locate()
             self._ticks = getattr(self, "_ticks", 0) + 1
-            if self._ticks % 15 == 0 and not (self.svc.runner and self.svc.runner.alive):
+            # não procura durante o Iniciar em thread: a troca de janela fecharia a captura do runner novo
+            if self._ticks % 15 == 0 and not self._starting and not (self.svc.runner and self.svc.runner.alive):
                 self.refresh_windows()  # a cada ~3 s: o jogo pode abrir/fechar pelo launcher
             self._drain_logs()
             self._drain_diag()
@@ -1141,7 +1268,7 @@ class MainWindow:
         obs = eng.last_observation if eng else None
         alive = bool(r and r.alive)
         return UiSnapshot(
-            has_window=self.svc.window is not None, demo=self.simulated.get(),
+            has_window=self.svc.window is not None, demo=self.simulated.get() or self.svc.simulated,
             activity_name=(r.d.name if alive else (d.name if d else None)),
             activity_auto=(d.auto_allowed if d else True),
             status=self.svc.status, alive=alive, reason=(r.reason if r else ""),
@@ -1183,8 +1310,12 @@ class MainWindow:
                 if not obs.target_visible:
                     target += " (invisível: posição estimada)"
                 target += ". "
-            self.lbl_target.configure(text=f"{target}{method_label(bst.method)}, chance estimada "
+            stage = f"Etapa {obs.stage}. " if obs is not None and obs.stage else ""
+            self.lbl_target.configure(text=f"{stage}{target}{method_label(bst.method)}, chance estimada "
                                            f"{bst.hit_probability:.0%}.")
+        elif obs is not None and (obs.wait_reason or obs.pause_reason):
+            stage = f"Etapa {obs.stage}: " if obs.stage else ""
+            self.lbl_target.configure(text=f"{stage}{obs.pause_reason or obs.wait_reason}.")
         if obs is not None:
             self.ro_wind.set(None if obs.wind is None else f"{obs.wind:+.1f}".replace(".", ","))
 
@@ -1224,6 +1355,10 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
         app.run_mode.set("cont")
         app._update_status()
         check("demonstracao_listada", app.selected_activity() is not None)
+        demos = {d.strategy for d in app.activities.values() if d.key.startswith(DEMO_KEY) and d.strategy}
+        check("estrategias_listadas", {"formigueiro", "galinheiro", "bugou_normal"} <= demos)
+        check("demonstracao_com_estrategia", (app.selected_activity() or demo_activity("instancia")).strategy
+              is not None)
         check("faixa_pronto", app.banner.kind == "ready")
 
     def s_start():
@@ -1295,6 +1430,12 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
         app.area.set("instancia")
         app._fill_activity_list()
         check("instancia_continua_escolhida", (app.selected_activity() or d).kind == "instancia")
+        # sem o modo demonstração e sem o jogo: Iniciar fica desativado (no jogo real precisa da janela)
+        app.simulated.set(False)
+        app.refresh_activities()
+        check("iniciar_bloqueado_sem_jogo", app.btn_start.instate(["disabled"]))
+        app.simulated.set(True)
+        app.refresh_activities()
 
     def s_emergency():
         app.run_mode.set("cont")

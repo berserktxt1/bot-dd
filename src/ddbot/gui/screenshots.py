@@ -192,13 +192,19 @@ def run_screenshots(app, out: Path, report: dict, done):
 
         def show(i):
             if i >= len(tabs):
-                root.after(300, final)
+                root.after(300, alvos)
                 return
             app.nb.select(tabs[i])
             if tabs[i] is app.tab_aim:
                 app.calc_aim()
             root.after(700, lambda: (snap(names[i]), show(i + 1)))
         show(0)
+
+    def alvos():
+        # página Alvos da Calibração (estratégias por instância), com a última aba visível
+        app.nb.select(app.tab_calib)
+        app.calib_nb.select(len(app.calib_nb.tabs()) - 1)
+        root.after(700, lambda: (snap("16_calibracao_alvos"), root.after(300, final)))
 
     def final():
         problems = {k: v for k, v in layout.items() if v}

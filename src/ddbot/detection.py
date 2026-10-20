@@ -213,8 +213,13 @@ def detect(windows: list[WindowInfo], parents: dict[int, int], own_pid: int, key
             return opener_window(top.pid), False
         if c.window.parent:
             return top, True
-        known = [w for w in fam_tops if w.hwnd in launcher_tops and w.hwnd != top.hwnd]
-        return (max(known, key=lambda w: w.area) if known else None), False
+        # sem parentesco de processos, só um launcher conhecido é evidência suficiente; com vários
+        # abertos, escolher "o maior" ou "o primeiro" associaria o jogo ao launcher errado
+        known = {w.pid: w for w in fam_tops if w.hwnd in launcher_tops and w.hwnd != top.hwnd}
+        if len(known) == 1:
+            pid = next(iter(known))
+            return max((w for w in fam_tops if w.pid == pid and w.hwnd in launcher_tops), key=lambda w: w.area), False
+        return None, False
 
     if not cands:
         launchers = [w for w in fam_tops if w.hwnd in launcher_tops or is_launcher_rule(w)]

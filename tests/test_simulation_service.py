@@ -27,9 +27,12 @@ def test_invisible_targets_handled(kb, params):
     assert r.shots > 0 and r.battles == 4
 
 
-def test_service_simulated_run(home):
+def test_service_simulated_run(home, monkeypatch):
     from ddbot.service import BotService
     svc = BotService(home, input_backend=RecordingBackend(), start_hotkey=False)
+    # a área de trabalho de quem roda a suíte não pode entrar no teste: num PC com o DDTank (ou
+    # outra janela com "DDTank" no título) aberto, o bot conectava nela e a recusa era pelas regras
+    monkeypatch.setattr(svc, "inventory", lambda ranked=True: [])
     try:
         assert svc.paths.config_file.exists()
         d = svc.create_activity("instancia_teste", "Teste", "instancia", "pve")
@@ -94,3 +97,25 @@ def test_gui_smoke(tmp_path):
                          env=env, capture_output=True, text=True, timeout=120)
     report = json.loads(out.read_text(encoding="utf-8"))
     assert res.returncode == 0 and report["resultado"] == "OK", json.dumps(report, indent=1) + res.stderr
+
+
+def test_service_real_start_order_with_game_found(home, monkeypatch):
+    """Com uma fonte de imagem conectada e sem autorização: recusa pelas regras (e não pela janela).
+
+    O modo demonstração continua sem precisar de janela nem de autorização (não envia nada ao jogo).
+    """
+    from ddbot.capture import ArraySource
+    from ddbot.service import BotService
+    svc = BotService(home, input_backend=RecordingBackend(), start_hotkey=False)
+    monkeypatch.setattr(svc, "inventory", lambda ranked=True: [])
+    try:
+        d = svc.create_activity("instancia_teste", "Teste", "instancia", "pve")
+        assert not svc.config.get("automation.server_rules_confirmed")
+        ok, why = svc.start(d, 1, simulated=True)
+        assert ok, why
+        svc.stop()
+        svc.set_source(ArraySource(None))
+        ok, why = svc.start(d, 1, simulated=False)
+        assert not ok and "regras" in why and "janela" not in why
+    finally:
+        svc.close()

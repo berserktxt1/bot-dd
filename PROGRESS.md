@@ -1,10 +1,67 @@
 # Andamento
 
-Última atualização: 2026-10-16. Versão 0.3.0 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-19. Versão 0.4.0 (**JonFlow**, antes *DDClássico Bot*).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Versão 0.4.0
+
+### Problemas investigados e causas
+
+| Problema | Causa encontrada | Correção | Teste de regressão |
+|---|---|---|---|
+| `test_service_simulated_run` recebia "automação não autorizada" em vez de "janela" | A mensagem ("…nas Configurações") vem de `CombatEngine.auto_allowed`, alcançada só **depois** de `auto_connect()` conectar a uma janela: no PC com o DDTank (ou outra janela com "DDTank" no título) aberto, o teste conectava nela. A ordem do serviço está certa; o teste não era isolado da área de trabalho | Teste isolado (`inventory` simulado) e um teste novo para "jogo conectado sem autorização → regras"; a demonstração continua sem janela e sem autorização | `test_simulation_service.py` |
+| Jogo associado ao launcher errado | (1) `process_parents` confiava no pid do pai guardado pelo Windows, que reaproveita pids: se o processo que abriu o jogo terminou e o pid passou a outro launcher aberto depois, o jogo parecia filho dele; (2) sem parentesco, `launcher_for` escolhia o maior launcher conhecido | Ligação descartada quando o "pai" é mais novo que o filho (`GetProcessTimes`); com vários launchers e sem parentesco, launcher desconhecido em vez de chute | `test_audit_regressions.py` (pid reaproveitado; vários launchers) e `test_windows_real.py` (dois launchers reais, só o segundo abre o jogo) |
+| Captura do jogo coberto trazia a janela da frente | (1) `covered()` testava só 5 pontos: uma janela menor entre eles passava e a cópia da tela trazia os pixels dela; (2) a imagem do `PrintWindow` era aceita sem conferência (alguns drivers e sessões remotas devolvem o que está na tela) | Grade de 8×6 pontos; a imagem da janela é conferida com a tela: onde há outra janela por cima não pode ser igual à tela, onde o jogo está descoberto precisa coincidir. Sem confirmação, a captura recusa e explica | `test_audit_regressions.py` (falham no código antigo) |
+| `test_actor_refuses_click_when_window_resized` | Já corrigido na 0.2.1 (o teste consultava o Windows de verdade no ponto do clique; a área de trabalho agora é simulada, com os casos tamanho errado, janela por cima e fora da tela) | — | continua passando |
+| Partida de demonstração parada no lobby | Já corrigido na 0.3.0 (o simulador não tinha o menu de partidas) | — | `test_demo_flows.py` (uma, três seguidas, contínua) |
+| `test-linux` com exit code 1 | Primeiro erro real: `test_gui_smoke` (atraso de 1985 ms após "Detectar jogo": minimizar no Xvfb sem gerenciador de janelas trava o Tk). Runner já era `ubuntu-24.04` (imagem 20261012.334.1): **não** era a migração do `ubuntu-latest`. Corrigido em `7f7143e` | Agora os jobs Linux estão fixados em `ubuntu-24.04` (o `ubuntu-latest` vira Ubuntu 26 a partir de 2026-10-19) e o Windows em `windows-2025` | CI |
+| Iniciar travava a interface no jogo real | `svc.start` rodava na thread do Tk e esperava até 2 s o jogo vir para a frente | Iniciar no jogo real em thread | — (o teste de interface só cobre a demonstração) |
+| Iniciar ativo sem pré-requisitos | Habilitado com qualquer atividade; a recusa só vinha depois do clique | No jogo real, só com o jogo conectado e a calibração obrigatória completa | `--gui-smoke` (`iniciar_bloqueado_sem_jogo`) |
+
+### Estratégias por instância
+
+`strategy.py` + `data/knowledge/instances.json` (fontes em `sources.json`, pesquisa em `docs/RESEARCH.md`).
+
+| Instância | Estado | O que foi validado |
+|---|---|---|
+| Formigueiro | estratégia implementada (formigas → rainha) | simulação e imagem sintética |
+| Galinheiro / Pintinho Corre Rápido | estratégia implementada (frangos → galos e galinhas → chefe; o mais perto primeiro) | simulação |
+| Castelo do Reino de Bugou — Normal | estratégia implementada (Bugous → Barão → Midas → Matias; imune, só por cima, pausa no pavio) | simulação; o número de etapas do Normal é **inferido** |
+| Covil, Piatan, Sombrio, Olimpíadas, Ilha, Redemoinho, Arena | só pesquisa (não jogam sozinhas) | — |
+
+Os cenários simulados são fictícios (vida, posições e quantidades inventadas para exercitar a lógica); passar
+neles não diz nada sobre o jogo real.
+
+### Resultados
+
+Confirmados na CI 39344826477 (commit `875fd21`, branch `feature/estrategias-instancias`):
+
+| Onde | Resultado |
+|---|---|
+| Linux (CI, `ubuntu-24.04`, Xvfb) | 245 aprovados, 4 pulados (só Windows) |
+| Windows (CI, `windows-2025`), código-fonte | 249 de 249 aprovados, 0 pulados; inclui o teste de interface e os 4 testes com janelas e processos reais (novo: dois launchers, só o segundo abre o jogo → associado a ele) |
+| `.exe` da pasta (ZIP extraído, sem Python no PATH) | autoteste OK (inclui as três estratégias simuladas); interface OK (atraso máximo 103 ms) |
+| `.exe` de arquivo único | autoteste OK; interface OK (atraso máximo 197 ms) |
+| Linux (dev, Rocky 10, sem tela) | 244 aprovados, 5 pulados (interface e só Windows) |
+| Linux (dev, container Ubuntu 24.04 + Xvfb) | 240 aprovados, 4 pulados; `--gui-smoke` OK (25 verificações, atraso máximo 105 ms); capturas a 100/125/150% em 1920×1080 sem texto cortado nem área fora da janela (fontes DejaVu, não Segoe UI) |
+
+Falha encontrada pela CI durante o trabalho (execução 39342416224): no Windows, `test_capture_of_covered_game_is_the_game`
+recusou a imagem **certa** da janela, porque o jogo de teste passava da borda do monitor do runner (1024×768) e os
+pontos fora da tela contavam como "descobertos". A recusa era segura; corrigido em `893107f` (pontos fora da tela
+saem da conferência; sem a imagem da janela, a cópia da tela não é usada). Uma revisão independente do diff achou
+mais 7 pontos (o principal: o pavio do Matias era ignorado quando o chefe saía só pelo marcador genérico),
+corrigidos com testes em `875fd21`.
+
+### O que ainda depende do seu computador
+
+1. Tudo o que está na lista da 0.3.0 abaixo (launcher real, calibração, uma execução real com o dedo no F12).
+2. Capturar os alvos e estados das três instâncias e conferir no Diagnóstico ao vivo.
+3. Confirmar no cliente as etapas de cada instância (em especial as 4 etapas do Bugou Normal) e como aparecem o
+   escudo do Barão, o escudo do Midas e o pavio do Matias.
+4. Ler os termos do DDClássico (https://ddclassico.com/classic/terms): o site bloqueou todas as leituras.
 
 ## Versão 0.3.0
 

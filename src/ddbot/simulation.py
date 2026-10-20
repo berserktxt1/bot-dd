@@ -77,7 +77,7 @@ class SimulatedWorld:
         self.state = SimState()
         self.new_battle()
 
-    def new_battle(self):
+    def new_battle(self, stage: int = 0):
         s, r = self.s, self.rng
         st = SimState(me_x=r.uniform(8.0, 10.0))
         st.direction = -1 if r.random() < s.left_probability else 1
@@ -302,7 +302,7 @@ class SimulatedClient:
                 self._start_battle()
         if self.screen == "batalha" and self.world.state.over:
             result = self.world.state.over
-            stages = int(self.faults.get("stage_battles", 1))
+            stages = int(self.faults.get("stage_battles", getattr(self.world, "stage_count", 1)))
             if result == "vitoria" and self.stage + 1 < stages:
                 self.stage += 1
                 self.screen = "etapa_concluida"
@@ -313,7 +313,7 @@ class SimulatedClient:
         return ScreenState(self.screen, 0.95)
 
     def _start_battle(self):
-        self.world.new_battle()
+        self.world.new_battle(self.stage)
         self.battles_started += 1
         self.screen = "batalha"
 
@@ -358,6 +358,178 @@ class SimulatedClient:
             self._popup = False
 
 
+# ------------------------------------------------------- instâncias simuladas (estratégias)
+@dataclass
+class SimEnemy:
+    role: str
+    x: float
+    hp: int = 1
+    y: float = 0.0
+    advance: float = 0.0          # quanto anda na direção do seu personagem por turno
+    hidden: int = 0               # turnos ainda invisível
+    status: str | None = None     # estado ativo agora (chave do perfil)
+    status_key: str | None = None  # estado que alterna (ex.: escudo do Barão)
+    status_every: int = 0         # alterna o estado a cada N turnos (0 = nunca)
+    becomes: str | None = None    # ao morrer vira outro papel (segunda vida, ex.: Midas vermelho)
+
+
+# Cenários FICTÍCIOS para a demonstração e os testes: usam os papéis e estados de cada perfil
+# para exercitar a estratégia (etapas, prioridade, imunidade, tiro por cima, perseguição). Vida,
+# posições e quantidades não são dados do jogo.
+DEMO_SCENARIOS = {
+    "formigueiro": [
+        {"inimigos": [("formiga", 3, {})], "vence": None},
+        {"inimigos": [("rainha", 1, {"hp": 3}), ("formiga", 2, {})], "vence": ["rainha"]},
+    ],
+    "galinheiro": [
+        {"inimigos": [("frango", 3, {"advance": 0.5})], "vence": None},
+        {"inimigos": [("galo", 1, {"hp": 2, "advance": 0.4}), ("galinha", 2, {"advance": 0.4})], "vence": None},
+        {"inimigos": [("chefe", 1, {"hp": 3, "advance": 0.2})], "vence": None},
+    ],
+    "bugou_normal": [
+        {"inimigos": [("bugou", 3, {})], "vence": None},
+        {"inimigos": [("barao", 1, {"hp": 3, "status": "barao_escudo", "status_every": 2}), ("bugou", 1, {})],
+         "vence": ["barao"]},
+        {"inimigos": [("midas", 1, {"hp": 2, "status": "midas_escudo", "status_every": 3,
+                                    "becomes": "midas_vermelho"})], "vence": ["midas", "midas_vermelho"]},
+        {"inimigos": [("matias", 1, {"hp": 3}), ("bomba", 1, {})], "vence": ["matias"]},
+    ],
+}
+
+
+class InstanceWorld(SimulatedWorld):
+    """Batalha simulada com vários inimigos, etapas e estados, decidida pela mesma estratégia
+    (``StrategyPlanner``) usada no jogo real. ``fuse_at``: (etapa, turno) em que o Matias acende
+    o pavio (estado "pausar"), para testar a pausa."""
+
+    def __init__(self, base: PhysicsParams, profile, planner, settings: SimSettings | None = None,
+                 fuse_at: tuple[int, int] | None = None):
+        self.profile = profile
+        self.planner = planner
+        self.scenario = DEMO_SCENARIOS[profile.key]
+        self.stage_count = len(self.scenario)
+        self.fuse_at = fuse_at
+        self.enemies: list[SimEnemy] = []
+        self.stage = 0
+        self.plans: list = []
+        self.shots_log: list[dict] = []  # disparos de todas as batalhas (o estado é zerado a cada uma)
+        super().__init__(base, settings or SimSettings(max_turns=40, distance_range=(4.0, 12.0)))
+
+    def new_battle(self, stage: int = 0):
+        super().new_battle()
+        r, st = self.rng, self.state
+        st.me_x = r.uniform(0.8, 1.5)
+        self.stage = min(stage, self.stage_count - 1)
+        self.enemies = []
+        for role, n, kw in self.scenario[self.stage]["inimigos"]:
+            kw = dict(kw)
+            if "status" in kw:
+                kw["status_key"] = kw.pop("status")
+            for _ in range(n):
+                e = SimEnemy(role, st.me_x + r.uniform(*self.s.distance_range), y=-r.uniform(-0.6, 0.6), **kw)
+                e.status = e.status_key
+                self.enemies.append(e)
+
+    def extinguish(self):
+        """O usuário usou o gelo: o pavio apagou."""
+        for e in self.enemies:
+            if e.status == "matias_pavio":
+                e.status = None
+
+    def _next_turn(self):
+        super()._next_turn()
+        st, r = self.state, self.rng
+        for e in self.enemies:
+            if e.advance:
+                e.x = max(st.me_x + 0.5, e.x - e.advance)
+            if e.status_every and e.status != "matias_pavio":
+                e.status = e.status_key if (st.turn // e.status_every) % 2 == 0 else None
+            if e.hidden:
+                e.hidden -= 1
+            elif self.profile.roles.get(e.role) and self.profile.roles[e.role].boss \
+                    and r.random() < self.s.hide_probability:
+                e.hidden = self.s.hide_turns
+        if self.fuse_at and (self.stage, st.turn) == self.fuse_at:
+            for e in self.enemies:
+                if e.role == "matias":
+                    e.status = "matias_pavio"
+        if any(e.advance and e.x - st.me_x < 0.8 for e in self.enemies) and st.over is None:
+            st.over = "derrota"  # os frangos alcançaram o seu personagem
+        st.target_x = st.me_x + 5  # não usado (a estratégia escolhe entre os inimigos)
+
+    def observe(self) -> BattleObservation:
+        from .strategy import apply_plan
+        from .vision.perception import Character
+        st, s, r = self.state, self.s, self.rng
+        if st.over or not st.my_turn:
+            return super().observe()
+        st.reads_this_turn += 1
+        if st.reads_this_turn > s.turn_timeout_reads:
+            st.my_turn = False
+            st.skipped_turns += 1
+            return BattleObservation(True, False)
+        me = Character(st.me_x, 0.0, 0.95, "eu", "simulado")
+        seen = [(e, Character(e.x + r.gauss(0, s.read_sigma_distance), e.y, 0.95, e.role, "simulado"))
+                for e in self.enemies if not e.hidden]
+        statuses = [Character(c.x, c.y, 0.95, e.status, "simulado") for e, c in seen if e.status]
+        plan = self.planner.update([c for _, c in seen], statuses, me, 1.0)
+        self.plans.append(plan)
+        wind_read = st.wind_screen + r.gauss(0, s.read_sigma_wind)
+        obs = BattleObservation(True, True, me_x=st.me_x, me_y=0.0, wind_screen=wind_read, wind_confidence=0.95,
+                                confidence=0.95)
+        target = apply_plan(obs, plan)
+        obs.target_id = f"{plan.role or 'alvo'}"
+        if target is None:
+            obs.target_visible = False
+            return obs
+        obs.direction = 1 if target.x >= st.me_x else -1
+        obs.distance = abs(target.x - st.me_x)
+        obs.wind = wind_read * obs.direction
+        obs.dy = -target.y
+        obs.target_x, obs.target_y = target.x, target.y
+        return obs
+
+    def fire(self, angle: float, force: float, direction: int = 1) -> ShotOutcome:
+        from .aiming import hit_half_width
+        st, s = self.state, self.s
+        f = min(100.0, max(0.0, force + self.rng.gauss(0, s.exec_sigma_force)))
+        wind = st.wind_screen * direction
+        hw = hit_half_width(s.target_width, 0.25)
+        lands = {}
+        for e in self.enemies:  # o projétil cai na altura de cada inimigo
+            xe = float(landing_x(angle, f, wind, -e.y, self.true_params))
+            if np.isfinite(xe) and abs(e.x - (st.me_x + direction * xe)) <= hw:
+                lands[id(e)] = abs(e.x - (st.me_x + direction * xe))
+        x = float(landing_x(angle, f, wind, 0.0, self.true_params))
+        land = st.me_x + direction * x if np.isfinite(x) else float("nan")
+        near = [e for e in self.enemies if id(e) in lands]
+        hit = bool(near)
+        damaged = blocked = False
+        if near:
+            e = min(near, key=lambda e: lands[id(e)])
+            rule = self.profile.statuses.get(e.status) if e.status else None
+            blocked = rule is not None and (rule.effect == "imune" or (rule.effect == "so_por_cima" and angle < 60))
+            if not blocked:
+                damaged = True
+                e.hp -= 1
+                if e.hp <= 0:
+                    self.enemies.remove(e)
+                    if e.becomes:
+                        self.enemies.append(SimEnemy(e.becomes, e.x, 2, e.y, status_key=e.status_key,
+                                                     status_every=e.status_every))
+        st.hits += damaged
+        st.log.append({"turno": st.turn, "angulo": angle, "forca": force, "impacto": x,
+                       "alvo": abs(land - st.me_x) if np.isfinite(land) else 0.0, "acerto": hit,
+                       "oculto": False, "dano": damaged, "bloqueado": blocked})
+        self.shots_log.append(st.log[-1])
+        st.my_turn = False
+        wins = self.scenario[self.stage]["vence"]
+        alive = [e for e in self.enemies if wins is None or e.role in wins]
+        if not alive:
+            st.over = "vitoria"
+        return ShotOutcome(impact_x=x if np.isfinite(x) else None, hit=damaged)
+
+
 def demo_option(definition, default="instancia_teste") -> str:
     """Opção (modelo do menu) que a definição clica: o cliente simulado a mostra no menu certo."""
     return next((a.target for acts in definition.flow.values() for a in acts
@@ -366,12 +538,25 @@ def demo_option(definition, default="instancia_teste") -> str:
 
 def simulated_activity(kb: KnowledgeBase, params: PhysicsParams, definition, runs=2, faults=None,
                        settings: SimSettings | None = None, calibrate=True, store_path: Path | None = None,
-                       limits=None, config_overrides: dict | None = None):
-    """Monta ``ActivityRunner`` + combate sobre o cliente simulado (sem tempo real)."""
+                       limits=None, config_overrides: dict | None = None, profile=None, fuse_at=None,
+                       on_event=None):
+    """Monta ``ActivityRunner`` + combate sobre o cliente simulado (sem tempo real).
+
+    Com ``profile`` (``strategy.InstanceProfile``), a batalha tem vários inimigos e etapas e
+    quem decide o alvo é a mesma estratégia usada no jogo real.
+    """
     from .activities import ActivityRunner, RunLimits
 
-    settings = settings or SimSettings()
-    world = SimulatedWorld(params, settings)
+    planner = None
+    if profile is not None:
+        from .strategy import StrategyPlanner
+        planner = StrategyPlanner(profile, has_template=lambda name: True,
+                                  on_event=lambda kind, msg: on_event(kind, msg) if on_event else None)
+        world = InstanceWorld(params, profile, planner, settings, fuse_at=fuse_at)
+        settings = world.s
+    else:
+        settings = settings or SimSettings()
+        world = SimulatedWorld(params, settings)
     client = SimulatedClient(world, option=demo_option(definition), faults=faults)
     tmpdir = None
     if store_path is None:
@@ -392,9 +577,16 @@ def simulated_activity(kb: KnowledgeBase, params: PhysicsParams, definition, run
                           TargetTracker(max_move_per_turn=settings.move_per_turn * 1.2), kill, cfg,
                           source="simulado")
     engine.set_mode(Mode.AUTO)
+    engine.planner = planner
     clock = FakeClock()
+
+    def battle_start():
+        engine.reset_battle()
+        if planner is not None:
+            planner.on_battle_start()
     runner = ActivityRunner(definition, client, client, engine.step, kill, cfg,
-                            limits or RunLimits(runs=runs), clock=clock, on_battle_start=engine.reset_battle)
+                            limits or RunLimits(runs=runs), clock=clock, on_battle_start=battle_start,
+                            on_activity_start=planner.reset_run if planner is not None else None)
     # sem esperas reais: o relógio falso avança a cada pausa
     runner._sleep = lambda s: clock.advance(max(s, 0.05))  # type: ignore[method-assign]
     runner.POLL_S = 0.4

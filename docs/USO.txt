@@ -8,6 +8,8 @@ JonFlow - bot para DDTank (DDClassico) - como usar (resumo)
    ele espera: entre no jogo pelo launcher e ele conecta quando o jogo aparecer.
    Confira a previa e clique em Pronto (ou "Sim, e o jogo").
 3. Primeira vez: aba "Calibracao" (veja LEIA-ME.md, secao "Primeira configuracao").
+   Formigueiro, Galinheiro e Castelo de Bugou (Normal) tem estrategia propria:
+   capture os alvos e estados deles em Calibracao > Alvos.
 4. Aba "Configuracoes": leia o aviso e marque a autorizacao do modo automatico.
 5. Aba "Inicio": escolha Instancias ou Partidas automaticas, a atividade, quantas vezes,
    e clique em Iniciar (F5). Pausar/Retomar: F6. Parar: F8.
@@ -15,7 +17,8 @@ JonFlow - bot para DDTank (DDClassico) - como usar (resumo)
 6. Parada de emergencia: tecla F12 (configuravel), a qualquer momento, mesmo no jogo.
 
 Para conhecer a interface sem o jogo, ligue "Modo demonstracao" no canto superior direito:
-aparecem uma instancia e uma partida simuladas (nada e enviado ao jogo).
+aparecem as tres instancias com estrategia, uma instancia e uma partida simuladas
+(nada e enviado ao jogo).
 Os dados (configuracao, modelos capturados, historico de disparos) ficam na pasta
 "dados", ao lado do JonFlow.exe. Para levar para outro computador, copie a
 pasta inteira.

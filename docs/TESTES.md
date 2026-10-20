@@ -19,8 +19,11 @@ Para rodar: `python -m pytest -q tests` (com `PYTHONPATH=src`, ou pelo `build_wi
 | `test_integration.py` | integração | tela de jogo falsa que reage às teclas: captura → visão → mira → setas até o ângulo exibido bater → espaço segurado até a força; modo visual da barra; leitura de tela + clique com o deslocamento da janela; clique duplicado bloqueado; emergência durante a carga solta a tecla |
 | `test_detection.py` | unitário | Detectar jogo sem nomes fixos: launcher aberto e jogo fechado; jogo aberto pelo launcher em outro processo (também com um processo intermediário sem janela); jogo dentro da janela do launcher (área interna, a mais funda); launcher fechado depois de abrir o jogo; janela nova durante a espera; duas candidatas parecidas → escolha; perfil salvo desempata; a janela do próprio bot nunca é escolhida; área recusada → espera; janela pequena ignorada; janela sob o ponto clicado (camada de seleção) |
 | `test_demo_flows.py` | cenário | demonstração: uma partida e uma instância completas (lobby → menu → sala → batalha → resultado → lobby); três partidas seguidas; repetição contínua até parar; botão ausente no lobby → aviso em 5 s e pausa (sem laço infinito); opção ausente no menu → pausa; partida pela camada de serviço com threads e esperas reais |
-| `test_windows_real.py` | integração (só Windows) | janelas e processos **reais** de teste: launcher que abre o jogo num processo filho (espera → conecta sozinho, launcher reconhecido, captura é do jogo); captura do jogo coberto por outra janela (pela janela ou recusa, nunca a janela da frente); janela sob o ponto |
-| `test_simulation_service.py` | cenário/regressão/interface | a calibração melhora a precisão; inimigos invisíveis na simulação; serviço completo em modo simulado (iniciar, pausar, retomar e parar em menos de 3,5 s); recusas sem janela e sem autorização; emergência e reinício; `--selftest` pela linha de comando; **teste de interface** `--gui-smoke` (precisa de tkinter: roda na CI Windows e na CI Linux com Xvfb) |
+| `test_windows_real.py` | integração (só Windows) | janelas e processos **reais** de teste: launcher que abre o jogo num processo filho (espera → conecta sozinho, launcher reconhecido, captura é do jogo); **dois launchers abertos, só o segundo abre o jogo** (o jogo é associado a ele); captura do jogo coberto por outra janela (pela janela ou recusa, nunca a janela da frente); janela sob o ponto |
+| `test_strategy.py` | unitário/cenário/visão | perfis de instância carregados, com fontes registradas; associação pelo nome respeitando a dificuldade; **Formigueiro** (onde há mais formigas; a rainha abre a etapa 2 só após leituras seguidas; na etapa da rainha não atira nas formigas); sem o modelo do alvo, mira qualquer inimigo e avisa uma vez; **Galinheiro** (o mais perto primeiro); **Bugou** (Barão imune de frente; escudo do Midas força ângulo ≥ 60; pavio do Matias pausa só após leituras seguidas); sem progresso pede ajuda; chefe que some espera e depois troca; papéis reconhecidos numa imagem sintética sem duplicar o marcador genérico; as três instâncias completas na simulação, 1 e 3 vezes seguidas, passando por todas as etapas; repetição contínua até parar; nenhum disparo anulado por escudo (sem a estratégia, o mesmo cenário desperdiça disparos); pavio pausa a rotina e, depois do gelo, Retomar termina; serviço: estratégia associada, alvos como recomendação, demonstração com pausa/retomada/parada |
+| `test_audit_regressions.py` | regressão | cada defeito das auditorias. Na 0.4.0: pid do pai reaproveitado por outro launcher; vários launchers sem parentesco não são "chutados"; imagem da janela que mostra a janela da frente é recusada; captura simulada no Windows com cobertura entre os 5 pontos antigos |
+| `test_gui_states.py` | unitário | textos da faixa de estado; demonstração sempre identificada como simulação (executando, pausada, concluída) |
+| `test_simulation_service.py` | cenário/regressão/interface | a calibração melhora a precisão; inimigos invisíveis na simulação; serviço completo em modo simulado (iniciar, pausar, retomar e parar em menos de 3,5 s); recusas sem janela e sem autorização (isoladas da área de trabalho real: antes, num PC com o DDTank aberto, o bot conectava no jogo e a recusa vinha pelas regras); demonstração sem autorização nem janela; emergência e reinício; `--selftest` pela linha de comando; **teste de interface** `--gui-smoke` (precisa de tkinter: roda na CI Windows e na CI Linux com Xvfb) |
 
 ## Teste de interface (`--gui-smoke`)
 
@@ -29,7 +32,9 @@ Abre a janela de verdade e, em modo de demonstração, aciona os botões: lista 
 *Parar* (o clique precisa retornar em menos de 500 ms), abre *Detectar jogo* (a janela principal precisa ficar
 minimizada) e fecha (precisa voltar ao normal, com o modo demonstração e a atividade preservados), troca entre
 Partidas e Instâncias (a partida de demonstração aparece, o Iniciar fica ativo e a escolha de cada seção é mantida)
-e por fim a parada de emergência com a rotina em andamento. Durante o teste mede o atraso do laço de eventos da
+e por fim a parada de emergência com a rotina em andamento. Desde a 0.4.0 também confere que as demonstrações
+das três instâncias com estratégia aparecem, que a demonstração escolhida usa estratégia e que, sem o modo
+demonstração e sem o jogo, o Iniciar fica desativado. Durante o teste mede o atraso do laço de eventos da
 janela: se passar de 1,5 s, a interface é considerada travada. O resultado vai para `DDBOT_SMOKE_OUT`.
 
 As capturas da CI (`capturas-da-interface`) incluem a janela Detectar jogo nos estados procurando, escolher e
@@ -41,6 +46,19 @@ A CI (`.github/workflows/windows-build.yml`) compila com `build_windows.bat` e c
 LEIA-ME e os dados embutidos existem. Depois extrai o ZIP numa pasta nova, tira o Python do `PATH` e roda o `.exe`
 com `--selftest` (recursos, configuração, mira, visão e fluxo simulado) e com `--gui-smoke`. Por fim confere que a
 pasta portátil `dados\config.json` foi criada ao lado do executável.
+
+## Rodar no Linux sem Xvfb instalado
+
+No Rocky Linux 10 (ambiente de desenvolvimento) não há pacote do Xvfb. Os testes de interface e as capturas
+rodam num container Ubuntu 24.04, igual ao runner da CI:
+
+```bash
+docker run --rm -v "$PWD":/src:ro ubuntu:24.04 ...   # apt install python3-tk xvfb; pip install -r requirements*.txt
+xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest -q tests -rs
+DDBOT_UI_SCALE=1.5 xvfb-run -a -s "-screen 0 1920x1080x24" python -m ddbot --screenshots capturas/
+```
+
+Sem gerenciador de janelas, minimizar não é verificável no Xvfb (conferido só no Windows).
 
 ## Resultados
 
@@ -85,3 +103,15 @@ primeira validação:
 4. Marque a autorização e use Calibração > *Teste de controles* no seu turno. Depois rode uma instância **uma vez** e
    acompanhe com o dedo no F12.
 5. Registre o resultado dos disparos para a calibração aprender.
+
+### Instâncias com estratégia (pendente no cliente)
+
+Para Formigueiro, Galinheiro e Castelo do Reino de Bugou (Normal):
+
+1. Crie a atividade pela Calibração > Menu com o nome da instância: a estratégia é associada sozinha (confira em
+   Calibração > Alvos).
+2. Numa batalha da instância, capture em Calibração > Alvos cada alvo (rainha, formiga, frango, Barão, Midas...) e
+   cada estado (escudo do Barão, escudo do Midas, pavio do Matias), com 2 ou 3 amostras.
+3. Diagnóstico ao vivo: confira se cada inimigo aparece com o papel certo.
+4. Rode **uma vez** com o dedo no F12 e anote: as etapas que o bot anunciou no Histórico batem com as do jogo? O
+   Normal do Bugou tem mesmo 4 etapas? O bot esperou com o Barão de frente? Pausou no pavio?

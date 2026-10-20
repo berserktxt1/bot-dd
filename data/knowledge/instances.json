@@ -1,0 +1,171 @@
+{
+  "_doc": "Perfis de estratégia por instância. Tudo vem de guias de jogadores do DDTank de 2012-2017 (ver 'fontes' e sources.json); nada foi conferido no cliente do DDClássico. Os alvos e estados especiais são reconhecidos por modelos de imagem que o usuário captura no próprio cliente (Calibração > Alvos da instância): 'alvo_<instancia>_<papel>' e 'status_<instancia>_<estado>'. Sem o modelo de um papel, a etapa usa o marcador genérico de inimigo e avisa. 'escolha': mais_proximo | agrupado (mais inimigos em volta, onde o tiro pega mais) | ameaca (o mais perto do seu personagem, porque avança até você). 'efeito' dos estados: imune (não atira nele), so_por_cima (só tiro alto, ângulo >= 60), pausar (para e pede intervenção). 'suporte': implementado (estratégia própria) | pesquisa (só registro; o bot não joga sozinho com ela).",
+  "versao": 1,
+  "instancias": [
+    {
+      "id": "formigueiro",
+      "nome": "Formigueiro",
+      "nomes": ["formigueiro", "formiga"],
+      "dificuldades": [],
+      "solo": "possivel",
+      "suporte": "implementado",
+      "confianca": "media",
+      "resumo": "Duas etapas: primeiro as formigas, depois só a rainha.",
+      "papeis": [
+        {"id": "rainha", "nome": "Rainha formiga", "chefe": true},
+        {"id": "formiga", "nome": "Formiga"}
+      ],
+      "etapas": [
+        {"id": "formigas", "nome": "Formigas", "objetivo": "Matar todas as formigas; atirar onde há mais delas juntas.",
+         "alvos": ["formiga", "inimigo"], "escolha": "agrupado", "max_disparos_sem_progresso": 15},
+        {"id": "rainha", "nome": "Rainha", "objetivo": "Atirar só na rainha; as outras formigas não importam.",
+         "alvos": ["rainha"], "ignorar": ["formiga"], "escolha": "mais_proximo", "entra_com": ["rainha"],
+         "max_disparos_sem_progresso": 20}
+      ],
+      "referencias_de_mira": ["rainha: ângulo 40 força 60", "rainha: ângulo 24 força 100 (posição do jogador não informada)"],
+      "limites": ["Ângulos e forças dos guias são só referência: o bot calcula pela distância, vento e altura lidos."],
+      "fontes": ["ddtdjpj_formigueiro", "dicasddt_formigueiro", "bielpontes_2012"]
+    },
+    {
+      "id": "galinheiro",
+      "nome": "Galinheiro (Pintinho Corre Rápido)",
+      "nomes": ["galinheiro", "pintinho", "corre rapido"],
+      "dificuldades": [],
+      "solo": "dificil",
+      "suporte": "implementado",
+      "confianca": "baixa",
+      "resumo": "Três etapas com inimigos que avançam até você: mata primeiro os que estão mais perto.",
+      "papeis": [
+        {"id": "frango", "nome": "Frango/pintinho"},
+        {"id": "galo", "nome": "Galo"},
+        {"id": "galinha", "nome": "Galinha"},
+        {"id": "chefe", "nome": "Chefe da 3ª etapa", "chefe": true}
+      ],
+      "etapas": [
+        {"id": "frangos", "nome": "Frangos", "objetivo": "Atirar longe e matar os frangos antes que alcancem você.",
+         "alvos": ["frango", "inimigo"], "escolha": "ameaca", "max_disparos_sem_progresso": 15},
+        {"id": "galos", "nome": "Galos e galinhas", "objetivo": "Matar galos e galinhas, os mais próximos primeiro.",
+         "alvos": ["galo", "galinha", "inimigo"], "escolha": "ameaca", "entra_com": ["galo", "galinha"],
+         "max_disparos_sem_progresso": 15},
+        {"id": "chefe", "nome": "Chefe", "objetivo": "Derrotar o chefe; o veneno dele pega em área.",
+         "alvos": ["chefe", "inimigo"], "escolha": "ameaca", "entra_com": ["chefe"], "max_disparos_sem_progresso": 20}
+      ],
+      "referencias_de_mira": [],
+      "limites": ["O guia recomenda jogar com outros jogadores; sozinho, os inimigos podem alcançar o personagem. O bot para após derrotas seguidas (Configurações > limite de derrotas).",
+                  "Os chefes não têm nome nos guias; a 3ª etapa usa o modelo 'chefe' que você capturar."],
+      "fontes": ["ddtdjpj_formigueiro", "dicasddt_galinheiro"]
+    },
+    {
+      "id": "bugou_normal",
+      "nome": "Castelo do Reino de Bugou — Normal",
+      "nomes": ["bugou", "castelo do reino", "reino de bugou"],
+      "dificuldades": ["Normal"],
+      "solo": "muito_dificil",
+      "suporte": "implementado",
+      "confianca": "baixa",
+      "resumo": "Bugous, Barão (imune de frente), Midas (escudo: só por cima) e Matias (pavio: precisa de gelo).",
+      "papeis": [
+        {"id": "bugou", "nome": "Bugou"},
+        {"id": "barao", "nome": "Barão", "chefe": true},
+        {"id": "midas", "nome": "Midas", "chefe": true},
+        {"id": "midas_vermelho", "nome": "Midas (fase vermelha)", "chefe": true},
+        {"id": "matias", "nome": "Matias", "chefe": true},
+        {"id": "bomba", "nome": "Bomba do Matias"}
+      ],
+      "estados": [
+        {"id": "barao_escudo", "nome": "Barão de frente (escudo)", "papel": "barao", "efeito": "imune",
+         "mensagem": "o Barão está de frente, com o escudo: o dano não entra"},
+        {"id": "midas_escudo", "nome": "Escudo do Midas", "papeis": ["midas", "midas_vermelho"], "efeito": "so_por_cima",
+         "mensagem": "o Midas está com escudo: só tiro por cima"},
+        {"id": "matias_pavio", "nome": "Pavio do Matias aceso", "papel": "matias", "efeito": "pausar",
+         "mensagem": "o Matias acendeu o pavio: só o gelo impede a derrota e o JonFlow não usa itens; use o gelo e clique em Retomar"}
+      ],
+      "etapas": [
+        {"id": "bugous", "nome": "Bugous", "objetivo": "Matar todos os Bugous.",
+         "alvos": ["bugou", "inimigo"], "escolha": "agrupado", "max_disparos_sem_progresso": 15},
+        {"id": "barao", "nome": "Barão", "objetivo": "Acertar o Barão só pelas costas; de frente o escudo anula o dano.",
+         "alvos": ["barao", "bugou", "inimigo"], "escolha": "mais_proximo", "entra_com": ["barao"],
+         "max_disparos_sem_progresso": 12},
+        {"id": "midas", "nome": "Midas", "objetivo": "Derrotar as duas vidas do Midas; com escudo, atacar por cima.",
+         "alvos": ["midas", "midas_vermelho", "bugou", "inimigo"], "escolha": "mais_proximo",
+         "entra_com": ["midas", "midas_vermelho"], "max_disparos_sem_progresso": 20},
+        {"id": "matias", "nome": "Matias", "objetivo": "Atacar o Matias e as bombas; pavio aceso exige gelo.",
+         "alvos": ["matias", "bomba", "inimigo"], "escolha": "mais_proximo", "entra_com": ["matias"],
+         "max_disparos_sem_progresso": 20}
+      ],
+      "referencias_de_mira": ["Barão embaixo: ângulo 20, força 40-50 (conforme a posição)", "Barão em cima: ângulo 45-55, força 45-50",
+                              "Midas: ângulo 20 força 50-55, ângulo 65 força 41-48 ou tiro alto distância 6-8"],
+      "limites": ["Nenhum guia descreve a dificuldade Normal; as 4 etapas vêm do guia de 2012 e da dificuldade Difícil (a Avançada tem um teste de habilidade a mais). Confirme no cliente.",
+                  "Sozinho, o Barão tende a ficar de frente para você (o guia diz 'quase impossível com apenas um jogador'): o bot espera e pausa se não houver progresso.",
+                  "O ponto fraco do Matias é o alto da cabeça; o bot mira o centro do modelo capturado."],
+      "fontes": ["ddtdjpj_bugou", "dicasddt_bugou", "bielpontes_2012"]
+    },
+    {
+      "id": "covil_dragao", "nome": "Covil do Dragão", "nomes": ["covil", "dragao"], "dificuldades": ["Normal"],
+      "solo": "muito_dificil", "suporte": "pesquisa", "confianca": "baixa",
+      "resumo": "Pórtico, orcs e duendes (o 3º cura), Teodoro (prende jogadores) e o Dragão (só no olho; sopro exige gelo).",
+      "etapas": [
+        {"id": "portico", "nome": "Pórtico", "objetivo": "Atacar só o Pórtico."},
+        {"id": "orcs", "nome": "Orcs e duendes", "objetivo": "Orcs primeiro, depois o Pórtico; o 3º duende cura."},
+        {"id": "teodoro", "nome": "Teodoro", "objetivo": "Libertar aliados presos (fora do escopo solo).", "fora_do_escopo": true},
+        {"id": "dragao", "nome": "Dragão", "objetivo": "Mirar o olho; o sopro de fogo exige gelo.", "fora_do_escopo": true}
+      ],
+      "limites": ["Depende de gelo e de outros jogadores em várias etapas."],
+      "fontes": ["ddtdjpj_covil", "bielpontes_2012"]
+    },
+    {
+      "id": "tribo_piatan", "nome": "Tribo Piatan", "nomes": ["piatan", "tribo"], "dificuldades": ["Normal"],
+      "solo": "dificil", "suporte": "pesquisa", "confianca": "baixa",
+      "resumo": "Aruanas e airans; curar a planta com Dom de Anjo; dois guerreiros no mesmo turno; chefe com totens.",
+      "etapas": [
+        {"id": "mascaras", "nome": "Aruanas e airans", "objetivo": "Aruanas (máscara cinza) primeiro, depois airans."},
+        {"id": "planta", "nome": "Planta", "objetivo": "Curar a planta até 100% com Dom de Anjo.", "fora_do_escopo": true},
+        {"id": "guerreiros", "nome": "Dois guerreiros", "objetivo": "Derrotar os dois no mesmo turno.", "fora_do_escopo": true},
+        {"id": "chefe", "nome": "Chefe", "objetivo": "Duas vidas; destruir os totens na segunda."}
+      ],
+      "limites": ["Exige itens e coordenação entre jogadores."],
+      "fontes": ["ddtdjpj_piatan", "bielpontes_2012"]
+    },
+    {
+      "id": "castelo_sombrio", "nome": "Castelo Sombrio", "nomes": ["sombrio"], "dificuldades": ["Normal"],
+      "solo": "muito_dificil", "suporte": "pesquisa", "confianca": "baixa",
+      "resumo": "Levar o barril (teste com gelo), lobo e águia com proteção alternada, Minotauro vulnerável só de joelhos.",
+      "etapas": [
+        {"id": "barril", "nome": "Barril", "objetivo": "Levar o barril até o portão (gelo e dom).", "fora_do_escopo": true},
+        {"id": "lobo_aguia", "nome": "Lobo e águia", "objetivo": "Atacar quem não está protegido (mira vermelha na águia troca o alvo)."},
+        {"id": "minotauro", "nome": "Minotauro", "objetivo": "Destruir os 3 fogos em 3 turnos; atacar quando ele estiver de joelhos."}
+      ],
+      "limites": ["A 1ª etapa é teste de habilidade com itens."],
+      "fontes": ["ddtdjpj_sombrio", "bielpontes_2012"]
+    },
+    {
+      "id": "olimpiadas_boom", "nome": "Olimpíadas Boom", "nomes": ["olimpiadas", "boom"], "dificuldades": ["Difícil"],
+      "solo": "desconhecido", "suporte": "pesquisa", "confianca": "baixa",
+      "resumo": "Balões (99 pontos), corrida de bugous, Boxiador e, no difícil, o Juiz ladrão (só pelas costas).",
+      "etapas": [
+        {"id": "baloes", "nome": "Balões", "objetivo": "Fazer 99 pontos estourando balões.", "fora_do_escopo": true},
+        {"id": "boxiador", "nome": "Boxiador", "objetivo": "Derrotá-lo duas vezes; acordar o juiz no máximo duas vezes."},
+        {"id": "juiz", "nome": "Juiz ladrão", "objetivo": "Só recebe dano pelas costas."}
+      ],
+      "limites": ["Testes de habilidade e corridas não são combate."],
+      "fontes": ["ddtdjpj_olimpiadas"]
+    },
+    {
+      "id": "ilha_enamorados", "nome": "Ilha dos Enamorados", "nomes": ["enamorados", "ilha"], "dificuldades": [],
+      "solo": "desconhecido", "suporte": "pesquisa", "confianca": "baixa",
+      "resumo": "Instância de prêmios a partir do nível 25; selos, veneno e congelamento.",
+      "etapas": [], "limites": ["Etapas pouco descritas; chefe sem nome."], "fontes": ["ddtdjpj_ilha"]
+    },
+    {
+      "id": "redemoinho", "nome": "Redemoinho", "nomes": ["redemoinho"], "dificuldades": ["Fácil"],
+      "solo": "desconhecido", "suporte": "pesquisa", "confianca": "nenhuma",
+      "resumo": "Nenhuma descrição encontrada nas fontes consultadas.", "etapas": [], "limites": [], "fontes": ["ddtdjpj_indice"]
+    },
+    {
+      "id": "arena_guerreiros", "nome": "Arena de Guerreiros", "nomes": ["arena"], "dificuldades": [],
+      "solo": "desconhecido", "suporte": "pesquisa", "confianca": "baixa",
+      "resumo": "Provavelmente Pandora e Midas (matar o Midas primeiro, ele cura) e depois Piatan (bloco sem título no guia).",
+      "etapas": [], "limites": ["Atribuição do texto à Arena é incerta."], "fontes": ["ddtdjpj_indice"]
+    }
+  ]
+}

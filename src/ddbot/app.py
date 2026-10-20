@@ -52,7 +52,7 @@ def _selftest(home: Path | None) -> int:
         def resources():
             k = svc.paths.knowledge
             files = sorted(p.name for p in k.glob("*.json"))
-            for need in ("angle_tables.json", "mechanics.json", "model_params.json", "sources.json"):
+            for need in ("angle_tables.json", "mechanics.json", "model_params.json", "sources.json", "instances.json"):
                 assert need in files, f"faltando {need}"
             assert svc.paths.config_file.exists(), "config.json não criado"
             return files
@@ -92,6 +92,21 @@ def _selftest(home: Path | None) -> int:
             assert status.value == "concluido", (status, runner.reason)
             return runner.counters.as_dict()
 
+        def estrategias():
+            # instâncias prioritárias, uma execução simulada de cada (simulação: não prova o jogo real)
+            out = {}
+            for p in svc.strategies():
+                d = activity_from_option(f"instancia_{p.key}", p.name, strategy=p.key)
+                runner, client, _, _, cleanup = simulated_activity(svc.kb, svc.params, d, runs=1, profile=p)
+                try:
+                    status = drive(runner)
+                finally:
+                    cleanup()
+                assert status.value == "concluido", (p.key, status, runner.reason)
+                out[p.key] = f"{runner.counters.battles} batalhas, {runner.counters.victories} vitória(s) simulada(s)"
+            assert {"formigueiro", "galinheiro", "bugou_normal"} <= set(out), out
+            return out
+
         def entrada():
             # a parte mais frágil do executável: teclado global e envio de teclas (pynput)
             try:
@@ -118,6 +133,7 @@ def _selftest(home: Path | None) -> int:
         check("mira", aim)
         check("visao", vision)
         check("simulacao", simulation)
+        check("estrategias", estrategias)
         check("entrada", entrada)
         check("interface", gui_import)
     finally:

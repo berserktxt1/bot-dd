@@ -1,0 +1,91 @@
+# AGENTS.md
+
+Guia para agentes de código (Claude Code, Codex etc.) que trabalham neste repositório. Para usuários finais, veja
+o [`README.md`](README.md).
+
+## O projeto
+
+**JonFlow** (antes *DDClássico Bot*): app para Windows 10/11 64 bits que joga sozinho partidas e instâncias PvE
+do DDTank no servidor DDClássico. Captura a tela do jogo, reconhece estados e turnos por modelos de imagem
+capturados pelo usuário, calcula a mira e envia teclas/cliques com travas de segurança. Interface em Tkinter,
+empacotado com PyInstaller.
+
+- O pacote Python continua se chamando `ddbot` (`src/ddbot`); o nome do produto é `APP_NAME` em
+  `src/ddbot/__init__.py`.
+- O ambiente de desenvolvimento é **Linux, sem o jogo**. Nada foi validado no cliente nem no launcher reais:
+  todos os testes usam simulação, imagens sintéticas ou janelas de teste. Não afirme que algo "funciona no jogo".
+- Andamento e pendências: [`PROGRESS.md`](PROGRESS.md). Pesquisa e fontes da física/mira:
+  [`docs/RESEARCH.md`](docs/RESEARCH.md). O que cada teste cobre: [`docs/TESTES.md`](docs/TESTES.md).
+
+## Idioma
+
+Tudo em **português do Brasil**: textos da interface, mensagens de log, docstrings, comentários, documentação e
+mensagens de commit. Identificadores de código (funções, classes, variáveis) em inglês, como no código existente.
+
+## Estrutura
+
+```
+src/ddbot/
+  detection.py, game_window.py, winapi.py   jogo e launcher (Detectar jogo, perfil, foco, Win32)
+  capture.py, vision/                       percepção (captura, regiões, modelos, dígitos, menu)
+  aiming.py, physics.py, calibration.py,    decisão (mira, modelo físico, calibração,
+  tracking.py, combat.py, activities.py     rastreio de alvo, combate, fluxo das atividades)
+  readiness.py                              o que falta calibrar antes de jogar sozinho
+  automation/                               execução: SendInput (input.py) e travas (safety.py)
+  service.py, gui/                          camada de serviço e interface Tkinter
+  simulation.py                             jogo simulado (modo demonstração, testes, --selftest)
+  app.py                                    linha de comando e ponto de entrada
+data/knowledge/                             tabelas de ângulo, mecânicas, parâmetros do modelo, fontes
+config/default_config.json                  configuração padrão
+packaging/                                  specs do PyInstaller, version_info.txt, run_ddbot.py
+tests/                                      pytest (fixtures em conftest.py e fixtures/)
+tools/fit_model.py                          reajuste das constantes físicas
+```
+
+## Comandos
+
+```bash
+source .venv/bin/activate                     # ou: pip install -r requirements.txt -r requirements-dev.txt
+python -m pyflakes src tools tests            # lint (a CI falha com qualquer aviso)
+python -m pytest -q tests -rs                 # testes; no Linux sem tela: xvfb-run -a python -m pytest -q tests -rs
+PYTHONPATH=src python -m ddbot --selftest     # recursos, mira, visão e fluxo simulado
+PYTHONPATH=src python -m ddbot --simulate 50  # precisão com e sem calibração
+PYTHONPATH=src python -m ddbot --gui-smoke 8  # exercita a interface em modo simulado (precisa de tkinter)
+```
+
+Variáveis de ambiente: `DDBOT_HOME` (pasta de dados; os testes usam a fixture `home`), `DDBOT_HEADLESS`,
+`DDBOT_UI_SCALE`, `DDBOT_SELFTEST_OUT`, `DDBOT_SMOKE_OUT`.
+
+O build do `.exe` só roda no Windows (`build_windows.bat`); a CI (`.github/workflows/windows-build.yml`) testa no
+Linux com Xvfb e no Windows, compila e testa os executáveis. `test_windows_real.py` e alguns testes de interface
+só rodam no Windows: são pulados no Linux, e isso é esperado.
+
+## Regras do código
+
+- **Segurança vem antes de tudo.** Não enfraqueça as travas de `automation/safety.py` e de `combat.py`/
+  `activities.py`: parada de emergência, entrada só com o jogo em foco, um disparo por turno, autorização explícita
+  do modo automático, nada de PvP automático, botões pagos/loja bloqueados, nenhum comando ao launcher, nenhuma
+  tecla às cegas. Na dúvida, o bot **pausa e explica** em vez de agir.
+- **Nada inventado sobre o jogo.** Coordenadas, telas e botões vêm das capturas do usuário; constantes físicas
+  vêm de `data/knowledge` com fonte registrada em `sources.json`. Não fixe nomes de janela/processo nem posições.
+- Telas e fins de batalha só valem após leituras seguidas; leitura com baixa confiança não dispara.
+- A interface nunca pode travar: trabalho pesado fica fora da thread do Tk (o `--gui-smoke` falha se o laço de
+  eventos atrasar mais de 1,5 s).
+- Dados do usuário: use `paths.py` (pasta `dados` portátil ao lado do `.exe` ou `%LOCALAPPDATA%\JonFlow`, com
+  compatibilidade com `DDClassicoBot`). Gravação atômica; não grave caminhos pessoais nos logs.
+- Dependências com versão fixa em `requirements*.txt`; actions da CI fixadas por SHA. Não adicione dependência sem
+  necessidade clara.
+- Todo defeito corrigido ganha teste de regressão (ver `tests/test_audit_regressions.py`). Mudanças de interface
+  devem continuar cabendo em 1080p a 100/125/150% de escala.
+- Siga o estilo vizinho: `from __future__ import annotations`, `logging.getLogger(__name__)`, docstrings curtas.
+
+## Git e versões
+
+Git Flow: `main` (produção, com tags `vX.Y.Z`), `develop` (integração), `feature/*` a partir de `develop`,
+`release/*` e `hotfix/*` mesclados em `main` e `develop`. Commits no estilo Conventional Commits em português
+(`feat:`, `fix(gui):`, `test:`, `docs:`, `ci:`, `build:`). Para uma versão nova, atualize
+`src/ddbot/__init__.py`, `packaging/version_info.txt`, `docs/RELEASE_NOTES.md` e `PROGRESS.md`; a tag dispara a
+Release na CI.
+
+Ao terminar uma mudança relevante, registre em `PROGRESS.md` o que foi feito e o que **ainda não** foi validado
+no jogo real.

@@ -30,8 +30,9 @@ Não precisa instalar Python nem nenhum outro programa.
    (o executável não tem assinatura digital).
 
 Quer conhecer a tela antes de configurar o jogo? Ligue **Modo demonstração** no canto superior direito: aparecem
-uma instância e uma partida de demonstração. Clique em **Iniciar**. Nesse modo nada é enviado ao jogo, e os
-resultados são de um jogo simulado, não do DDClássico.
+o Formigueiro, o Galinheiro e o Castelo de Bugou (Normal) simulados, uma instância e uma partida de demonstração.
+Clique em **Iniciar**. Nesse modo nada é enviado ao jogo, a faixa de estado diz "Demonstração" e os resultados são
+de um jogo simulado, não do DDClássico.
 
 Quem já usava o *DDClássico Bot*: substitua os arquivos e mantenha a pasta `dados`. Se os dados estavam em
 `%LOCALAPPDATA%\DDClassicoBot`, o JonFlow continua usando essa pasta.
@@ -70,9 +71,14 @@ resolução e a sua versão do jogo, e nada é inventado. Com o jogo aberto, dei
 3. **Opções do menu.** Abra no jogo o menu de instâncias (ou de partidas), capture e clique em *Detectar opções*.
    Escolha cada opção na lista, dê um nome, escolha o tipo e a categoria e clique em *Criar atividade*. É assim que
    a lista do Início é montada: só aparece o que o seu jogo realmente mostra.
-4. Aba **Diagnóstico** → *Analisar agora*: confira se o bot encontra seu personagem, o inimigo, o vento, o ângulo
+4. **Alvos da instância** (Formigueiro, Galinheiro, Castelo do Reino de Bugou — Normal). Se o nome que você deu
+   contém o nome da instância, a estratégia própria dela é associada sozinha (o Histórico avisa). Confira ou troque
+   em Calibração > **Alvos**. Depois, numa batalha da instância, capture ali cada alvo (rainha, formiga, frango,
+   Barão, Midas...) e cada estado especial (escudo do Barão, escudo do Midas, pavio do Matias). Sem esses modelos
+   a etapa mira qualquer inimigo visível e o bot avisa.
+5. Aba **Diagnóstico** → *Analisar agora*: confira se o bot encontra seu personagem, o inimigo, o vento, o ângulo
    e o turno. Cada leitura mostra a confiança.
-5. Aba **Configurações**: confira as teclas (ângulo, disparo), leia o aviso, marque a autorização do modo
+6. Aba **Configurações**: confira as teclas (ângulo, disparo), leia o aviso, marque a autorização do modo
    automático e clique em *Salvar*.
 
 ### 3. Jogar sozinho
@@ -81,7 +87,8 @@ Na aba **Início**:
 
 1. Em **O que jogar**, escolha **Instâncias** ou **Partidas automáticas** e a atividade na lista. Logo abaixo
    aparece o que ainda falta calibrar para essa atividade rodar sozinha (por exemplo "tela Lobby, números do
-   vento"), com um atalho para a Calibração. Enquanto faltar algo, Iniciar no jogo é recusado com essa lista.
+   vento"), com um atalho para a Calibração. Enquanto faltar algo (ou o jogo não estiver conectado), Iniciar fica
+   desativado no jogo real.
 2. Em **Quantas vezes**, escolha **Uma vez**, **Repetir N vezes** ou **Até eu parar**.
 3. Clique em **Iniciar** (ou F5). **Pausar/Retomar** é o mesmo botão (F6). **Parar** encerra a rotina (F8).
 4. **Parada de emergência: tecla F12** (configurável), a qualquer momento, mesmo com o jogo em foco. O rodapé
@@ -115,6 +122,12 @@ A faixa colorida no alto diz o que o bot está fazendo e, quando ele precisa de 
 - Com o inimigo invisível, usa a última posição vista e calcula o quanto ele pode ter andado. Se a incerteza for
   grande, espera o inimigo reaparecer em vez de atirar às cegas.
 - Desconexão: para e avisa. Ele não faz login sozinho.
+- **Instâncias com estratégia própria** (Formigueiro, Galinheiro, Bugou Normal): o bot acompanha a etapa (anuncia
+  no Histórico), escolhe o alvo da etapa (só a rainha no fim do Formigueiro; o mais perto no Galinheiro), não atira
+  no Barão de frente com o escudo, usa só tiro por cima no Midas com escudo e **pausa** quando o Matias acende o
+  pavio (só o gelo resolve, e o bot não usa itens). Depois de vários disparos numa etapa sem diminuir os inimigos,
+  pausa e pede para você conferir. As etapas vêm de guias de jogadores de 2012–2017, **não confirmados no
+  DDClássico** (veja `docs/RESEARCH.md`). As demais instâncias ficaram só como pesquisa.
 
 ### Melhorar a mira
 
