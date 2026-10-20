@@ -1,5 +1,5 @@
 """Detectar jogo: cenários do launcher sem nomes fixos (janelas e processos simulados)."""
-from ddbot.detection import CHOOSE, GAME, LAUNCHER_ONLY, NOTHING, detect
+from ddbot.detection import CHOOSE, GAME, LAUNCHER_ONLY, NOTHING, detect, pick_at
 from ddbot.game_window import GameWindowProfile, WindowRule
 from ddbot.winapi import WindowInfo
 
@@ -140,3 +140,22 @@ def test_game_opened_through_windowless_helper_process():
     parents = {10: EXPLORER, 15: 10, 20: 15}
     d = run([LAUNCHER, GAME_WIN], parents=parents)
     assert d.state == GAME and d.game.hwnd == 200 and d.launcher.hwnd == 100 and d.confident
+
+
+def test_pick_at_follows_the_window_windows_reports_under_the_point():
+    """Janela de outro programa antes do jogo na lista (ex.: navegador oculto pelo Windows ou transparente
+    ao clique): no clique vale a janela que o Windows diz estar no ponto, não a primeira da lista."""
+    browser = WindowInfo(300, "Navegador", 0, 0, 1920, 1040, pid=70, exe="chrome.exe", cls="Chrome_WidgetWin_1")
+    d3d = WindowInfo(301, "Intermediate D3D Window", 0, 0, 1920, 1040, pid=70, exe="chrome.exe",
+                     cls="Intermediate D3D Window", parent=300)
+    game = WindowInfo(400, "Cliente", 260, 180, 1000, 620, pid=80, exe="python.exe", cls="TkTopLevel")
+    order = [browser, d3d, game]                          # ordem das janelas: o navegador vem antes
+    root = {300: 300, 301: 300, 400: 400}.get
+    got = pick_at(order, 360, 280, OWN, hit=400, root_of=root)
+    assert got.hwnd == 400
+    # sem a resposta do Windows (contorno ao passar o mouse), uma janela oculta não conta
+    hidden = WindowInfo(300, "Navegador", 0, 0, 1920, 1040, pid=70, exe="chrome.exe", visible=False)
+    assert pick_at([hidden, d3d, game], 360, 280, OWN).hwnd == 400
+    # se o Windows aponta a janela do próprio bot (camada ainda na tela), vale a ordem das janelas
+    bot = WindowInfo(500, "JonFlow", 0, 0, 1920, 1080, pid=OWN, exe="JonFlow.exe")
+    assert pick_at([bot, game], 360, 280, OWN, hit=500, root_of=lambda h: h).hwnd == 400

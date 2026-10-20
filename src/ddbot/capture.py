@@ -150,7 +150,8 @@ class WindowCapture(FrameSource):
         sct = getattr(self._local, "sct", None)
         if sct is None:
             import mss
-            sct = mss.mss()
+            # mss.MSS a partir do MSS 10 (mss.mss ficou obsoleto); mss.mss nas versões antigas
+            sct = (getattr(mss, "MSS", None) or mss.mss)()
             self._local.sct = sct
             with self._lock:
                 self._all[id(sct)] = sct
