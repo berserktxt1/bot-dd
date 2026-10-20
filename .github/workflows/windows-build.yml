@@ -98,6 +98,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { Write-Error "não foi possível pôr a tela em 125%"; exit 1 }
           $py = "$env:RUNNER_TEMP\venv-janelas\Scripts\python.exe"
           $out = "$env:RUNNER_TEMP\escala-125"
+          New-Item -ItemType Directory -Force $out | Out-Null  # o --basetemp do pytest não cria a pasta-mãe
           $tests = @("test_launcher_then_game_in_child_process", "test_pick_at_real_window",
                      "test_two_launchers_game_linked_to_the_one_that_opened_it", "test_capture_of_covered_game_is_the_game")
           $fail = @()
