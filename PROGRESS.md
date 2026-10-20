@@ -37,7 +37,23 @@ neles não diz nada sobre o jogo real.
 
 ### Resultados
 
-RESULTADOS_040
+Confirmados na CI 39344826477 (commit `875fd21`, branch `feature/estrategias-instancias`):
+
+| Onde | Resultado |
+|---|---|
+| Linux (CI, `ubuntu-24.04`, Xvfb) | 245 aprovados, 4 pulados (só Windows) |
+| Windows (CI, `windows-2025`), código-fonte | 249 de 249 aprovados, 0 pulados; inclui o teste de interface e os 4 testes com janelas e processos reais (novo: dois launchers, só o segundo abre o jogo → associado a ele) |
+| `.exe` da pasta (ZIP extraído, sem Python no PATH) | autoteste OK (inclui as três estratégias simuladas); interface OK (atraso máximo 103 ms) |
+| `.exe` de arquivo único | autoteste OK; interface OK (atraso máximo 197 ms) |
+| Linux (dev, Rocky 10, sem tela) | 244 aprovados, 5 pulados (interface e só Windows) |
+| Linux (dev, container Ubuntu 24.04 + Xvfb) | 240 aprovados, 4 pulados; `--gui-smoke` OK (25 verificações, atraso máximo 105 ms); capturas a 100/125/150% em 1920×1080 sem texto cortado nem área fora da janela (fontes DejaVu, não Segoe UI) |
+
+Falha encontrada pela CI durante o trabalho (execução 39342416224): no Windows, `test_capture_of_covered_game_is_the_game`
+recusou a imagem **certa** da janela, porque o jogo de teste passava da borda do monitor do runner (1024×768) e os
+pontos fora da tela contavam como "descobertos". A recusa era segura; corrigido em `bb5c8c1` (pontos fora da tela
+saem da conferência; sem a imagem da janela, a cópia da tela não é usada). Uma revisão independente do diff achou
+mais 7 pontos (o principal: o pavio do Matias era ignorado quando o chefe saía só pelo marcador genérico),
+corrigidos com testes em `875fd21`.
 
 ### O que ainda depende do seu computador
 
