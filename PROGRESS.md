@@ -61,6 +61,12 @@ seguintes ela também não voltou. **Causa ainda não encontrada**: se voltar, o
 | Linux dev: `pyflakes`, `--selftest` | sem avisos; OK |
 | Linux dev: `--simulate 50` | 40,0% sem calibração, 96,2% com calibração, 0 turnos perdidos (igual à 0.4.3) |
 
+CI da branch `release/0.4.4` (execução 39434463429, commit `19e32e9`, com a versão 0.4.4 e os links de
+download): Windows 254 de 254 aprovados em 100% e em 125%; janelas reais num venv com o Chrome aberto 12 de 12 e
+em 125% 12 de 12; `.exe` da pasta e de arquivo único com a versão 0.4.4, autoteste e interface OK (atraso máximo
+259 e 197 ms); Linux 250 aprovados, 4 pulados (só no Windows). Os números da compilação publicada estão no
+`build-info.json` da Release.
+
 Documentação: o README foi reescrito passo a passo para quem nunca usou o programa (como o bot funciona, passos
 numerados, teclas de atalho, problemas comuns e glossário). O AGENTS.md registra a regra da escala do Windows, os
 passos da CI no Windows e a vigia do `--gui-smoke`.
