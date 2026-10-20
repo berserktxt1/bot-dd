@@ -365,12 +365,40 @@ if IS_WINDOWS:
                     ("biYPelsPerMeter", ctypes.c_long), ("biClrUsed", wintypes.DWORD),
                     ("biClrImportant", wintypes.DWORD)]
 
+    try:
+        user32.GetWindowDpiAwarenessContext.argtypes = [wintypes.HWND]
+        user32.GetWindowDpiAwarenessContext.restype = wintypes.HANDLE
+        user32.SetThreadDpiAwarenessContext.argtypes = [wintypes.HANDLE]
+        user32.SetThreadDpiAwarenessContext.restype = wintypes.HANDLE
+        _DPI_CONTEXT = True
+    except AttributeError:  # Windows 10 anterior à versão 1607
+        _DPI_CONTEXT = False
+
     def print_window(hwnd, width: int, height: int):
         """Imagem BGRA da área cliente pedida à própria janela (funciona com ela coberta por outra).
 
-        Usa PrintWindow com PW_CLIENTONLY | PW_RENDERFULLCONTENT. Devolve None se o Windows recusar;
-        alguns jogos devolvem imagem preta (quem chama confere).
+        Usa PrintWindow com PW_CLIENTONLY | PW_RENDERFULLCONTENT, no DPI da própria janela. Um programa
+        sem suporte a DPI desenha no tamanho de 100% e o Windows estica a imagem na tela (125%, 150%...):
+        pedida no tamanho da tela (``width``×``height``), a imagem do jogo vinha num canto e o resto preto.
+        Por isso a imagem vem no tamanho em que a janela desenha; quem chama a amplia para a tela
+        (``capture.fit_to_area``). Devolve None se o Windows recusar; alguns jogos devolvem imagem preta
+        (quem chama confere).
         """
+        old = None
+        if _DPI_CONTEXT:
+            ctx = user32.GetWindowDpiAwarenessContext(hwnd)
+            if ctx:
+                old = user32.SetThreadDpiAwarenessContext(ctx)  # só nesta thread, desfeito abaixo
+        try:
+            rc = wintypes.RECT()
+            if user32.GetClientRect(hwnd, ctypes.byref(rc)) and rc.right > 0 and rc.bottom > 0:
+                width, height = rc.right - rc.left, rc.bottom - rc.top  # tamanho no DPI da janela
+            return _print_window(hwnd, width, height)
+        finally:
+            if old:
+                user32.SetThreadDpiAwarenessContext(old)
+
+    def _print_window(hwnd, width: int, height: int):
         import numpy as np
         if width <= 0 or height <= 0:
             return None
