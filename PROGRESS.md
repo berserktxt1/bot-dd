@@ -41,6 +41,11 @@ Aviso de depreciação: com o MSS 10.2.0 fixado, `mss.mss()` está obsoleto; a c
 | Linux dev: `pyflakes`, `--selftest` | sem avisos; OK |
 | Linux dev: `--simulate 50` | 40,0% de acerto sem calibração, 96,2% com calibração, 0 turnos perdidos (igual à 0.4.2: o código da simulação não mudou) |
 
+CI da branch `release/0.4.3` (execução 39360961060, commit `77b2db4`, com a versão 0.4.3): Windows 251 de 251
+aprovados, sem avisos; janelas reais num venv com o Chrome aberto, 12 de 12; Linux 247 aprovados, 4 pulados (só no
+Windows); `.exe` da pasta e de arquivo único aprovados. Os números da compilação publicada estão no
+`build-info.json` da Release.
+
 A **v0.4.2** ficou sem Release: a publicação foi cancelada quando estas falhas foram relatadas. A 0.4.3 inclui a
 correção do `--simulate` da 0.4.2.
 
