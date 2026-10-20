@@ -1,6 +1,6 @@
 # Andamento
 
-Última atualização: 2026-10-20. Versão 0.4.3 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-20. Versão 0.4.4 (**JonFlow**, antes *DDClássico Bot*).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da

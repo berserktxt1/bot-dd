@@ -1,5 +1,16 @@
 **JonFlow** (antes *DDClássico Bot*): aplicativo para Windows 10/11 (64 bits) que joga partidas e instâncias PvE do DDTank (servidor DDClássico) sozinho, com mira calculada e calibrada pelos seus disparos e interface em português.
 
+## Novidades da 0.4.4
+
+- **Escala do Windows em 125%, 150%...:** a captura do jogo acompanha a escala. Um jogo sem suporte a DPI desenha
+  no tamanho de 100% e o Windows o amplia na tela; antes, a imagem lida pelo bot vinha menor, num canto, com o
+  resto preto. Agora ela é pedida no tamanho em que o jogo desenha e ampliada como o Windows faz. Se ainda vier
+  incompleta, o bot não a usa: pausa e explica. Testado com janelas de teste em 125% na CI, **ainda não com o
+  cliente do DDClássico**.
+- **LEIA-ME passo a passo** para quem nunca usou o programa: como o bot funciona, passos numerados, teclas de
+  atalho, problemas comuns e um glossário.
+- A CI passou a rodar os testes de janelas reais e a suíte completa também com a escala do Windows em 125%.
+
 ## Novidades da 0.4.3
 
 - **Mostrar onde está o jogo:** o clique escolhe a janela que o Windows diz estar sob o ponto. Janelas ocultas pelo
