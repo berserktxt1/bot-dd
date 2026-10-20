@@ -50,7 +50,7 @@ Confirmados na CI 39344826477 (commit `875fd21`, branch `feature/estrategias-ins
 
 Falha encontrada pela CI durante o trabalho (execução 39342416224): no Windows, `test_capture_of_covered_game_is_the_game`
 recusou a imagem **certa** da janela, porque o jogo de teste passava da borda do monitor do runner (1024×768) e os
-pontos fora da tela contavam como "descobertos". A recusa era segura; corrigido em `bb5c8c1` (pontos fora da tela
+pontos fora da tela contavam como "descobertos". A recusa era segura; corrigido em `893107f` (pontos fora da tela
 saem da conferência; sem a imagem da janela, a cópia da tela não é usada). Uma revisão independente do diff achou
 mais 7 pontos (o principal: o pavio do Matias era ignorado quando o chefe saía só pelo marcador genérico),
 corrigidos com testes em `875fd21`.
