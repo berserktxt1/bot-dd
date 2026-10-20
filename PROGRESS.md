@@ -1,12 +1,17 @@
 # Andamento
 
-Última atualização: 2026-10-19. Versão 0.4.1 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-20. Versão 0.4.2 (**JonFlow**, antes *DDClássico Bot*).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
 
-## Depois da 0.4.1 (em `develop`, sem versão nova)
+## Versão 0.4.2
+
+Publica a correção do `--simulate` descrita abaixo (commit `b17d179`). O programa no jogo real, a demonstração e
+as estratégias não mudaram. Resultados da CI da tag: RESULTADOS_042
+
+## Correção do `--simulate` (entrou na 0.4.2)
 
 ### Simulação de precisão (`--simulate`) e defeito encontrado nela
 
@@ -58,8 +63,7 @@ Comparação com versões anteriores, `--simulate 15` medido agora na mesma máq
 | CI 39351639925, Windows (`windows-2025`), código-fonte | 250 de 250 aprovados, 0 pulados (inclui interface e janelas/processos reais de teste) |
 | CI 39351639925, `.exe` da pasta e de arquivo único | autoteste e interface OK (atraso máximo 119 ms) |
 
-A CI rodou no commit `8f187e8` (só documentação sobre `b17d179`, mesmo código). Sem versão nova nem Release: a
-correção afeta só a medição do `--simulate`; entra na próxima versão.
+A CI rodou no commit `8f187e8` (só documentação sobre `b17d179`, mesmo código). Publicada na 0.4.2.
 
 ## Versão 0.4.1 (hotfix)
 
