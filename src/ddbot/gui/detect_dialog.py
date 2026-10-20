@@ -439,7 +439,17 @@ class PickOverlay(tk.Toplevel):
         self.canvas.coords(self.rect, x, y, x + w.width, y + w.height)
 
     def _click(self, e):
-        self._finish(pick_at(self.windows, e.x_root, e.y_root, self.own))
+        # a resposta do próprio Windows sobre o que está no ponto, com a camada escondida (ela recebe o
+        # clique, que não chega ao jogo)
+        x, y = e.x_root, e.y_root
+        try:
+            self.withdraw()
+            self.update_idletasks()
+            self.update()
+        except tk.TclError:
+            pass
+        hit = winapi.window_at(x, y)
+        self._finish(pick_at(self.windows, x, y, self.own, hit=hit, root_of=winapi.root_of))
 
     def _finish(self, w):
         if self._done:
