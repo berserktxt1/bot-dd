@@ -94,3 +94,14 @@ def test_options_deduplicated():
 def test_paused_title_not_repeated():
     b = describe(snap(alive=True, status=RunStatus.PAUSED, reason="pausado pelo usuário"))
     assert b.title == "Pausado pelo usuário"
+
+
+def test_demo_run_always_labeled_as_simulation():
+    """Nenhuma simulação pode parecer partida ou vitória real."""
+    for st, screen in ((RunStatus.RUNNING, "batalha"), (RunStatus.PAUSED, "sala"), (RunStatus.RUNNING, "lobby")):
+        b = describe(snap(alive=True, status=st, screen=screen, demo=True, my_turn=True))
+        assert b.title.startswith("Demonstração") and "Simulação" in b.detail
+        assert not describe(snap(alive=True, status=st, screen=screen, demo=False, my_turn=True)).title.startswith(
+            "Demonstração")
+    done = describe(snap(alive=False, status=RunStatus.FINISHED, demo=True, reason="quantidade concluída"))
+    assert done.title == "Demonstração · Concluído" and "nada disto aconteceu no jogo" in done.detail

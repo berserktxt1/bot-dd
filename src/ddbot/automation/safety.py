@@ -25,6 +25,10 @@ class InputBlocked(Aborted):
     """O Windows recusou o envio de teclas/cliques (ex.: jogo aberto como administrador)."""
 
 
+class NeedsAttention(Aborted):
+    """A estratégia não deve continuar sozinha (estado do chefe, etapa ou falta de progresso): pausa."""
+
+
 class KillSwitch:
     """Uma vez acionado, nenhuma entrada é enviada até ``reset()`` explícito."""
 

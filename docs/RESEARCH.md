@@ -1,7 +1,7 @@
 # Pesquisa — referências e conclusões
 
-Este documento junta a pesquisa de 2026-10-15 (tabelas, regras de vento e modelo físico) e a de 2026-10-16
-(bots, calculadoras e fórmulas citados no pedido). A lista de fontes legível pelo programa fica em
+Este documento junta a pesquisa de 2026-10-15 (tabelas, regras de vento e modelo físico), a de 2026-10-16
+(bots, calculadoras e fórmulas citados no pedido) e a de 2026-10-19 (instâncias e mais uma calculadora). A lista de fontes legível pelo programa fica em
 `data/knowledge/sources.json`.
 
 ## Como a pesquisa orientou a implementação
@@ -20,6 +20,9 @@ Este documento junta a pesquisa de 2026-10-15 (tabelas, regras de vento e modelo
 | Passar o turno quando não consegue ler o ângulo | qozi | tecla `automation.keys.pass_turn` |
 | Detecção de travamento e recuperação | qozi (log parado 240 s) | `stuck_timeout_s`, `_recover` (fecha aviso/ESC, depois pausa) |
 | Guardar a tela das falhas para re-treino | qozi | `on_failure_frame` → `dados/capturas/falha_*.png` |
+| Uma estratégia por atividade, com contrato comum (`FarmAction`) | DavidBarishev | perfis em `data/knowledge/instances.json` + `strategy.py::StrategyPlanner` (mesmo motor de mira) |
+| Etapas e alvos prioritários por instância (formigas → rainha; Barão, Midas, Matias) | guias de instância (2012–2017) | `instances.json`, `strategy.py` |
+| Chefe imune de frente, escudo que só se vence por cima, pavio que exige gelo | bielpontes 2012, ddtdjpj | estados `imune`, `so_por_cima`, `pausar` em `strategy.py` |
 
 **Licenças.** Nenhum código de terceiros foi copiado: qozi/windors, HexorCatZ, BoomShot e ddcalculator não têm
 licença (todos os direitos reservados); DavidBarishev é GPL-3.0 e Stardust é AGPL-3.0; ddladora declara MIT sem
@@ -39,6 +42,52 @@ invisibilidade **não foram confirmados**. Por isso:
 **Modalidades.** A matéria do Mobile Gamer (08/2026) confirma PvE (instâncias), PvP por turnos, ranqueadas e
 partidas casuais. O bot só joga sozinho atividades das categorias PvE/solo. Fila e PvP envolvem outros jogadores:
 nesses casos o bot oferece apenas a mira assistida e nunca entra sozinho em ranqueadas.
+
+---
+
+## Pesquisa de 2026-10-19 (instâncias e calculadoras)
+
+Método: as páginas foram baixadas e o texto foi lido do HTML bruto. Os resumos automáticos de ferramentas de busca
+erraram pelo menos uma vez (disseram que a página do Formigueiro não tratava do Galinheiro, e tratava), por isso
+nada foi aceito só pelo resumo. Licenças conferidas pela API do GitHub.
+
+### Fontes de instâncias
+
+| Fonte | Data | O que traz | Limitações | Confiança |
+|---|---|---|---|---|
+| [Índice de instâncias](https://ddtankdejogadorparajogador.blogspot.com/p/inst.html) (blog "DDTank de jogador para jogador") | barra lateral "Atualizado (10/2017)"; comentários de 2014–2024 | lista de instâncias; Redemoinho e Arena de Guerreiros sem página; bloco sem título (provavelmente da Arena): Pandora e Midas, depois Piatan | DDTank oficial, não o DDClássico; Redemoinho sem conteúdo | baixa |
+| [Formigueiro e Galinheiro](https://ddtankdejogadorparajogador.blogspot.com/p/formigueiro.html) | idem | Formigueiro: "a instância mais fácil", atirar onde há mais formigas, rainha "a 40 - f 60" e "a 24 - f 100". Galinheiro (Pintinho Corre Rápido): matar os frangos "antes que te alcancem", galos e galinhas, veneno em área, "é bom ter ajuda de outros jogadores" | sem nível mínimo, sem número de turnos, posição do jogador não informada nos ângulos | média |
+| [Castelo Bugou](https://ddtankdejogadorparajogador.blogspot.com/p/castelo-bugou.html) | idem | Avançado com 5 etapas (S3 = teste da chave), Difícil com 4; Barão imune de frente, "quase impossível com apenas um jogador"; Midas com duas vidas e escudo; Matias com detonação que só o gelo impede | **nenhuma fonte descreve a dificuldade Normal** | média |
+| [Lição 1: Instancias](https://bielpontes.wordpress.com/2012/12/07/licao-1-instancias/) (XxGoldDragonxX, Servidor 18) | 2012-12-07 | Formigueiro: "Mate todas as formigas", depois "Apenas atire na rainha". Reino de Bugou em 4 etapas: Bugous, Barão ("ataque apenas o curativo... de frente usará um escudo"), Midas ("quando ele utilizar o escudo, ataque apenas por cima"), Matias ("quando acender o pavio, é necessário jogar gelo") | versão de 2012 | média (a mais antiga e independente) |
+| [dicasddt.webnode.page](https://dicasddt.webnode.page/instancias/castelo-bugou/) (Formigueiro, Galinheiro, Bugou) | "© 2015" | o mesmo texto do blog, com dicas de consumíveis | **cópia**, não é fonte independente | baixa |
+| Tribo Piatan, Castelo Sombrio, Covil do Dragão, Olimpíadas Boom, Ilha dos Enamorados (mesmo blog) | ~2014–2017 | etapas, chefes e mecânicas (planta curada com Dom de Anjo, barril com gelo, lobo/águia com proteção alternada, Minotauro de joelhos, Dragão só no olho, balões e corrida) | muitas etapas dependem de itens ou de outros jogadores | baixa |
+| [ddclassico.com/classic/news](https://ddclassico.com/classic/news) e [/news/37](https://ddclassico.com/classic/news/37) | — | — | **HTTP 403 (Cloudflare) em todas as tentativas** (curl, WebFetch, proxy); Internet Archive fora do ar. A lista do evento da notícia 37 (Formigueiro Normal, Galinheiro Difícil, Bugou Difícil, Covil Normal, Redemoinho Fácil, Olimpíadas Difícil, Sombrio Normal, Piatan Normal) vem da mensagem do usuário, não de leitura própria | nenhuma leitura; disponibilidade atual **não confirmada** |
+| App Store do DDClássico | versões 1.0–1.0.2 (ago–set) | endereço dos termos: https://ddclassico.com/classic/terms | os termos também deram 403: **as regras sobre automação não foram lidas** | — |
+
+### O que virou estratégia
+
+| Instância | Etapas no perfil | Regras implementadas | Dúvidas que só o cliente responde |
+|---|---|---|---|
+| **Formigueiro** | Formigas → Rainha | etapa 1: atira onde há mais formigas juntas; etapa 2 começa quando a rainha aparece (3 leituras seguidas) e só a rainha é alvo; se ela some, espera | se as duas etapas são batalhas separadas; quantas formigas; se a rainha aparece já na 1ª |
+| **Galinheiro** | Frangos → Galos e galinhas → Chefe | mira primeiro o inimigo mais perto (os frangos avançam até você); para depois de derrotas seguidas | nome e mecânica do chefe; se é possível sozinho |
+| **Castelo do Reino de Bugou — Normal** | Bugous → Barão → Midas → Matias (4 etapas, inferidas do guia de 2012 e da Difícil) | Barão com o escudo visível = imune (ataca outro inimigo ou espera); escudo do Midas = só tiro alto (ângulo ≥ 60) nas duas fases; pavio do Matias = pausa e pede o gelo (o bot não usa itens) | o número real de etapas do Normal; como é a imagem do escudo e do pavio no DDClássico |
+
+As demais (Covil do Dragão, Tribo Piatan, Castelo Sombrio, Olimpíadas Boom, Ilha dos Enamorados, Redemoinho,
+Arena de Guerreiros) ficaram registradas com `suporte: "pesquisa"`: o bot não joga sozinho com elas, porque várias
+etapas são testes de habilidade, exigem itens (gelo, Dom de Anjo) ou outros jogadores.
+
+### Calculadora nova: huongtx498/DDTank-ForceCalculate
+
+- [Repositório](https://github.com/huongtx498/DDTank-ForceCalculate), Django 3.0.6, último push em 2020-05-14,
+  **sem licença** (não copiar código). Cliente vietnamita (Gunny).
+- `views.py`: `ângulo = floor(90 − floor(d) + 2·v + floor(h)/4)` e `força = 95 + 4·(d − floor(d))`. O tipo de tiro
+  é lido e ignorado.
+- Comparação: o tiro alto (90 − d ± 2v, força 95) é o mesmo da ddladora e do BoomShot. A novidade é o termo de
+  altura h/4 e a regra de 4 pontos de força por unidade de distância. Ficaram registrados como **hipótese** em
+  `mechanics.json` (`full_angle_height`); o bot continua usando o modelo físico para altura e fração da distância.
+- Reconferidos no código: ddladora (`index.html`, `90 − d ± 2v`, força 95 fixa, limitado a 0–120) e BoomShot
+  (`FORMULAS.md`: gravidade 400 px/s², arrasto 0,06, vento×10, Euler). Sem mudança no que já estava documentado.
+- DavidBarishev (GPL-3.0) e qozi/ddtank-onhook (sem licença): nada novo em relação à seção de 2026-10-16.
 
 ---
 

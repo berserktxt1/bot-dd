@@ -32,6 +32,7 @@ from .knowledge import KnowledgeBase
 from .log import setup_logging
 from .paths import Paths
 from .physics import PhysicsParams
+from .strategy import InstanceProfile, StrategyPlanner, load_profiles, match_profile
 from .tracking import TargetTracker
 from .util import mask_home
 from .vision.perception import Perception, Snapshot
@@ -88,6 +89,10 @@ class BotService:
         self.aimer = Aimer(self.kb, self.params, self.calibrator)
         self.templates = TemplateLibrary(self.paths.templates)
         self.perception = Perception(self.config, self.templates, self.paths.templates)
+        self.profiles, errors = load_profiles(self.paths.knowledge / "instances.json")
+        if errors or not self.profiles:
+            self.profiles, _ = load_profiles(pk / "instances.json")
+            self.startup_notes += [f"perfis de instância: {e}" for e in errors]
         self.kill = KillSwitch()
         self.events: "queue.Queue[HistoryEntry]" = queue.Queue(maxsize=2000)
         self.history: list[HistoryEntry] = []
@@ -267,10 +272,33 @@ class BotService:
 
     def create_activity(self, option_template: str, name: str, kind: str, category: str) -> ActivityDef:
         key = unique_slug(slug(f"{kind}_{name}"), {p.stem for p in self.paths.instances.glob("*.json")})
-        d = activity_from_option(option_template, name, kind, category, key=key)
+        prof = match_profile(name, self.profiles) if kind == "instancia" else None
+        prof = prof if prof is not None and prof.runnable else None
+        d = activity_from_option(option_template, name, kind, category, key=key,
+                                 strategy=prof.key if prof else None)
         d.save(self.paths.instances)
         self.push_event("etapa", f"atividade criada: {name} ({kind}, {category})")
+        if prof is not None:
+            self.push_event("etapa", f"estratégia {prof.name} associada a {name} pelo nome; troque em "
+                            "Calibração > Menu se não for esta instância")
         return d
+
+    def strategies(self) -> list[InstanceProfile]:
+        """Perfis com estratégia própria (os de pesquisa não jogam sozinhos)."""
+        return [p for p in self.profiles.values() if p.runnable]
+
+    def profile_for(self, d: ActivityDef) -> InstanceProfile | None:
+        p = self.profiles.get(d.strategy) if d.strategy else None
+        return p if p is not None and p.runnable else None
+
+    def set_strategy(self, d: ActivityDef, key: str | None):
+        if key is not None and (key not in self.profiles or not self.profiles[key].runnable):
+            raise ValueError(f"estratégia desconhecida: {key}")
+        d.strategy = key
+        if d.path is not None:
+            d.save(d.path.parent)
+        label = self.profiles[key].name if key else "genérica (inimigo selecionado)"
+        self.push_event("etapa", f"{d.name}: estratégia {label}")
 
     def create_activity_from_image(self, img, name: str, kind: str, category: str) -> ActivityDef:
         """Guarda a imagem da opção como modelo e cria a atividade, sem misturar com nomes existentes."""
@@ -288,7 +316,7 @@ class BotService:
         """O que falta calibrar para ``d`` rodar sozinha no jogo real (lista vazia = nada)."""
         from .readiness import check
         return check(d, self.templates.has, self.config, self.perception.angle_reader.trained,
-                     self.perception.wind_reader.trained)
+                     self.perception.wind_reader.trained, profile=self.profile_for(d))
 
     # ------------------------------------------------------------ armas
     def weapon_by_name(self, name: str) -> Weapon:
@@ -318,14 +346,21 @@ class BotService:
                      ) -> tuple[ActivityRunner, CombatEngine]:
         limits = RunLimits.from_config(self.config, runs)
         holder: dict = {}
+        profile = self.profile_for(d)
+        planner = None
 
         def cancel():
             r = holder.get("runner")
             return r.cancel_reason() if r else None
 
         if simulated:
-            from .simulation import SimulatedClient, SimulatedShooter, SimulatedView, SimulatedWorld, demo_option
-            world = SimulatedWorld(self.params)
+            from .simulation import (DEMO_SCENARIOS, InstanceWorld, SimulatedClient, SimulatedShooter, SimulatedView,
+                                     SimulatedWorld, demo_option)
+            if profile is not None and profile.key in DEMO_SCENARIOS:
+                planner = StrategyPlanner(profile, has_template=lambda name: True, on_event=self._strategy_event)
+                world = InstanceWorld(self.params, profile, planner)
+            else:
+                world = SimulatedWorld(self.params)
             client = SimulatedClient(world, option=demo_option(d), faults=faults)
             if self._sim_store is None:
                 self._sim_store = ShotStore(self.paths.root / "simulacao.sqlite3")
@@ -346,7 +381,11 @@ class BotService:
             if bad:
                 raise RuntimeError(bad)
             inp = self._input(cancel)
-            view = VisionBattleView(self.source, self.perception, self.config)
+            if profile is not None:
+                planner = StrategyPlanner(profile, has_template=self.templates.has, on_event=self._strategy_event,
+                                          cluster_radius=float(self.config.get("strategy.cluster_radius", 1.0)))
+            self.perception.profile = profile  # papéis e estados desta instância (ou nenhum)
+            view = VisionBattleView(self.source, self.perception, self.config, planner=planner)
             engine = CombatEngine(view, KeyboardShooter(inp, view, self.config), self.aimer, self.calibrator,
                                   self._tracker(), self.kill, self.config, on_event=self._combat_event,
                                   cancel_check=cancel)
@@ -357,10 +396,17 @@ class BotService:
                                         require_foreground=bool(self.config.get("safety.require_foreground", True)))
             actor = GameActor(inp, self.source, self.templates, self.config)
             run_cfg = self.config
+        engine.planner = planner
+
+        def battle_start():
+            engine.reset_battle()
+            if planner is not None:
+                planner.on_battle_start()
         runner = ActivityRunner(d, reader, actor, engine.step, self.kill, run_cfg, limits,
                                 on_event=self._run_event,
                                 state_threshold=float(self.config.get("thresholds.template", 0.8)),
-                                on_battle_start=engine.reset_battle,
+                                on_battle_start=battle_start,
+                                on_activity_start=planner.reset_run if planner is not None else None,
                                 on_failure_frame=lambda f, why: self.push_event(
                                     "aviso", f"tela salva para diagnóstico: {self.save_capture(f, 'falha').name}"))
         holder["runner"] = runner
@@ -372,6 +418,9 @@ class BotService:
                              max_uncertainty=float(g("tracking.max_uncertainty", 2.5)),
                              area_attack_radius=float(g("tracking.area_attack_radius", 1.0)))
 
+    def _strategy_event(self, kind, message):
+        self.push_event("etapa" if kind == "etapa" else "aviso", message)
+
     def _run_event(self, e):
         self.push_event(e.kind, e.message, **e.data)
 
@@ -382,6 +431,16 @@ class BotService:
     def start(self, d: ActivityDef, runs: int, simulated=False, faults: dict | None = None) -> tuple[bool, str]:
         if self.runner and self.runner.alive:
             return False, "já existe uma rotina em execução"
+        # clicar em Iniciar recomeça depois de uma emergência antiga; uma emergência apertada DURANTE o
+        # início (procura da janela, espera do foco) cancela este início
+        if self.kill.triggered:
+            self.kill.reset()
+        ok, why = self._start(d, runs, simulated, faults)
+        if not ok and not (self.runner and self.runner.alive):
+            self.perception.profile = None  # o perfil da instância só vale durante a rotina dela
+        return ok, why
+
+    def _start(self, d, runs, simulated, faults) -> tuple[bool, str]:
         if not simulated:
             found = self.auto_connect()
             if self.source is None:
@@ -395,8 +454,6 @@ class BotService:
         if not simulated and self.hotkey is not None and not self.hotkey_ok:
             return False, ("a tecla de emergência não está funcionando; sem ela o modo automático no jogo fica "
                            "bloqueado (veja o Registro técnico)")
-        if self.kill.triggered:
-            self.kill.reset()
         try:
             runner, engine = self.build_runner(d, runs, simulated, faults)
         except RuntimeError as exc:
@@ -416,6 +473,8 @@ class BotService:
                 time.sleep(0.1)
             if winapi.IS_WINDOWS and not self.source.is_foreground():
                 return False, "não foi possível trazer a janela do jogo para a frente; clique nela e tente de novo"
+        if self.kill.triggered:
+            return False, f"parada de emergência acionada durante o início ({self.kill.reason})"
         self.stop_assist()
         self.runner, self.engine, self.simulated = runner, engine, simulated
         runner.start()
@@ -496,6 +555,8 @@ class BotService:
         if self.source is None:
             raise RuntimeError("selecione a janela do jogo primeiro")
         self.stop_assist()
+        if not (self.runner and self.runner.alive):
+            self.perception.profile = None  # a mira assistida sugere para o inimigo escolhido, sem estratégia
         view = VisionBattleView(self.source, self.perception, self.config)
         self.assist_engine = CombatEngine(view, None, self.aimer, self.calibrator, self._tracker(), self.kill,
                                           self.config, on_event=self._combat_event)

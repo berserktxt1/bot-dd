@@ -13,8 +13,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from .aiming import Aimer, Recommendation, ShotContext, Weapon
-from .automation.safety import Aborted, Cancelled, FocusLost, InputBlocked, KillSwitch, TurnGate
+from .automation.safety import Aborted, Cancelled, FocusLost, InputBlocked, KillSwitch, NeedsAttention, TurnGate
 from .calibration import Calibrator, ShotRecord
+from .strategy import HIGH_ARC_MIN_ANGLE
 from .tracking import Decision, TargetTracker
 
 log = logging.getLogger(__name__)
@@ -44,6 +45,11 @@ class BattleObservation:
     confidence: float = 0.0             # confiança mínima entre leituras usadas
     current_angle: float | None = None
     battle_over: str | None = None      # "vitoria" | "derrota" | None
+    # estratégia da instância (``strategy.Plan``): etapa, espera, pausa e tiro alto obrigatório
+    stage: str | None = None
+    wait_reason: str | None = None      # não atira neste turno (alvo imune, nenhum alvo da etapa...)
+    pause_reason: str | None = None     # pede intervenção (pavio aceso, etapa fora do escopo...)
+    high_arc: bool = False              # só tiro por cima (ângulo >= 60)
     notes: list[str] = field(default_factory=list)
     snapshot: object = None
 
@@ -85,6 +91,7 @@ class CombatEngine:
         self.on_event = on_event or (lambda e: None)
         self.source = source
         self.cancel_check = cancel_check  # callable -> motivo (pausa/parada pedida) ou None
+        self.planner = None  # strategy.StrategyPlanner da instância (opcional)
         self.mode = Mode.ASSIST
         self.gate = self._new_gate()
         self._bad_reads = 0
@@ -151,7 +158,8 @@ class CombatEngine:
             weapon=self.weapon(),
             sigma_wind=self._sigma_wind(obs),
             sigma_distance=float(self.config.get("aim.sigma_distance", 0.1)) + extra_sigma_distance,
-            allowed_methods=tuple(allowed) if allowed else None)
+            allowed_methods=tuple(allowed) if allowed else None,
+            angle_min=HIGH_ARC_MIN_ANGLE if obs.high_arc else 0)
 
     def reset_battle(self):
         """Esquece alvos e cache ao começar uma nova batalha."""
@@ -198,6 +206,18 @@ class CombatEngine:
             self._bad_since = None
         if not self.gate.my_turn or not obs.my_turn:
             return None
+        if obs.pause_reason:
+            if self.mode == Mode.AUTO and allow_fire:
+                raise NeedsAttention(obs.pause_reason)
+            if self._recommended_turn != turn:
+                self._recommended_turn = turn
+                self._emit("aviso", obs.pause_reason)
+            return None
+        if obs.wait_reason:
+            if self._recommended_turn != turn:
+                self._recommended_turn = turn
+                self._emit("aviso", f"aguardando: {obs.wait_reason}")
+            return None
         extra_sigma = 0.0
 
         # rastreamento do alvo (inclui invisibilidade)
@@ -230,7 +250,7 @@ class CombatEngine:
             return None
         # reaproveita o cálculo enquanto a leitura não muda de forma relevante no turno
         key = (turn, round(distance / 0.05), round((obs.wind or 0.0) / 0.1), round(obs.dy / 0.05),
-               obs.wind is None)
+               obs.wind is None, obs.high_arc)
         if key == self._cache_key and self.last_recommendation is not None:
             rec = self.last_recommendation
         else:
@@ -289,6 +309,9 @@ class CombatEngine:
         self.record(rec, obs, outcome, mode=Mode.AUTO.value)
         self._wait_after_shot()
         self.gate.mark_done()
+        stalled = self.planner.on_shot() if self.planner is not None else None
+        if stalled:
+            raise NeedsAttention(stalled)
 
     def _wait_after_shot(self):
         end = time.monotonic() + float(self.config.get("automation.post_shot_wait_s", 4.0))

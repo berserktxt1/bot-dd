@@ -1,5 +1,5 @@
 {
-  "_doc": "Fontes públicas consultadas em 2026-10-15. 'aplicabilidade' indica o quanto a informação deve ser confiada no DDClássico. Nenhuma fonte é específica e oficial do DDClássico; todas precisam de validação no cliente.",
+  "_doc": "Fontes públicas consultadas em 2026-10-15 e 2026-10-19. 'aplicabilidade' indica o quanto a informação deve ser confiada no DDClássico. Nenhuma fonte é específica e oficial do DDClássico; todas precisam de validação no cliente.",
   "sources": [
     {
       "id": "ddtankdicaset_2013",
@@ -99,6 +99,132 @@
       "conteudo": "Lançamento 29/08/2026; PvE (instâncias), PvP, ranqueadas, crossplay.",
       "aplicabilidade": "contexto",
       "observacoes": "Sem lista de instâncias, armas ou regras."
+    },
+    {
+      "id": "ddtdjpj_indice",
+      "titulo": "Instâncias (índice) — DDTank de jogador para jogador",
+      "url": "https://ddtankdejogadorparajogador.blogspot.com/p/inst.html",
+      "data": "~2014-2017",
+      "conteudo": "Lista de instâncias; Redemoinho Espacial e Arena de Guerreiros sem página; bloco sem título (provavelmente da Arena): Pandora e Midas, depois Piatan.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
+    },
+    {
+      "id": "ddtdjpj_formigueiro",
+      "titulo": "Formigueiro e Galinheiro — DDTank de jogador para jogador",
+      "url": "https://ddtankdejogadorparajogador.blogspot.com/p/formigueiro.html",
+      "data": "~2014-2017",
+      "conteudo": "Formigueiro: 'a instância mais fácil'; atirar onde há mais formigas; na rainha 'a 40 - f 60' e 'a 24 - f 100'. Galinheiro (Pintinho Corre Rápido): matar os frangos antes que alcancem o jogador; galos e galinhas; veneno em área; 'é bom ter ajuda de outros jogadores'.",
+      "aplicabilidade": "media",
+      "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
+    },
+    {
+      "id": "ddtdjpj_bugou",
+      "titulo": "Castelo Bugou — DDTank de jogador para jogador",
+      "url": "https://ddtankdejogadorparajogador.blogspot.com/p/castelo-bugou.html",
+      "data": "~2014-2017",
+      "conteudo": "Avançado com 5 etapas (S3 teste da chave), Difícil com 4. Barão: imune de frente, 'quase impossível com apenas um jogador'. Midas: duas vidas (amarelo/vermelho), escudo. Matias: detonação faz perder se não houver gelo; ponto fraco no alto da cabeça.",
+      "aplicabilidade": "media",
+      "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
+    },
+    {
+      "id": "ddtdjpj_covil",
+      "titulo": "Covil do Dragão — DDTank de jogador para jogador",
+      "url": "https://ddtankdejogadorparajogador.blogspot.com/p/covil-do-dragao.html",
+      "data": "~2014-2017",
+      "conteudo": "Pórtico, orcs e duendes (o 3º cura), Teodoro, Dragão (atacar o olho; sopro exige gelo).",
+      "aplicabilidade": "baixa",
+      "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
+    },
+    {
+      "id": "ddtdjpj_piatan",
+      "titulo": "Tribo Piatan — DDTank de jogador para jogador",
+      "url": "https://ddtankdejogadorparajogador.blogspot.com/p/tribo-piatan.html",
+      "data": "~2014-2017",
+      "conteudo": "Aruanas antes dos airans; planta curada só com Dom de Anjo; dois guerreiros no mesmo round; chefe com totens.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
+    },
+    {
+      "id": "ddtdjpj_sombrio",
+      "titulo": "Castelo Sombrio — DDTank de jogador para jogador",
+      "url": "https://ddtankdejogadorparajogador.blogspot.com/p/castelo-sombrio.html",
+      "data": "~2014-2017",
+      "conteudo": "Barril (teste com gelo), lobo e águia com proteção alternada, Minotauro vulnerável de joelhos.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
+    },
+    {
+      "id": "ddtdjpj_olimpiadas",
+      "titulo": "Olimpíadas Boom — DDTank de jogador para jogador",
+      "url": "https://ddtankdejogadorparajogador.blogspot.com/p/olim.html",
+      "data": "~2014-2017",
+      "conteudo": "Balões (99 pontos), corrida, Boxiador, Juiz ladrão só pelas costas.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
+    },
+    {
+      "id": "ddtdjpj_ilha",
+      "titulo": "Ilha dos Enamorados — DDTank de jogador para jogador",
+      "url": "https://ddtankdejogadorparajogador.blogspot.com/p/ilha-dos.html",
+      "data": "~2014-2017",
+      "conteudo": "Instância de prêmios a partir do nível 25; selos, veneno, congelamento.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Guia de jogador do DDTank oficial (autor 'Giocatore', barra lateral 'Atualizado (10/2017)'). Histórico: não confirmado no DDClássico."
+    },
+    {
+      "id": "dicasddt_formigueiro",
+      "titulo": "Formigueiro — Dicas DDT",
+      "url": "https://dicasddt.webnode.page/instancias/formigueiro/",
+      "data": "© 2015",
+      "conteudo": "Mesmo conteúdo do blog (rainha a 40/f 60 e a 24/f 100).",
+      "aplicabilidade": "baixa",
+      "observacoes": "Texto quase idêntico ao do blog ddtankdejogadorparajogador: não é fonte independente."
+    },
+    {
+      "id": "dicasddt_galinheiro",
+      "titulo": "Pintinho Corre Rápido (Galinheiro) — Dicas DDT",
+      "url": "https://dicasddt.webnode.page/instancias/pintinho-corre-rapido-galinheiro/",
+      "data": "© 2015",
+      "conteudo": "Mesmo conteúdo do blog.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Texto quase idêntico ao do blog ddtankdejogadorparajogador: não é fonte independente."
+    },
+    {
+      "id": "dicasddt_bugou",
+      "titulo": "Castelo Bugou — Dicas DDT",
+      "url": "https://dicasddt.webnode.page/instancias/castelo-bugou/",
+      "data": "© 2015",
+      "conteudo": "Mesmo conteúdo do blog; acrescenta dicas de consumíveis.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Texto quase idêntico ao do blog ddtankdejogadorparajogador: não é fonte independente."
+    },
+    {
+      "id": "bielpontes_2012",
+      "titulo": "Lição 1: Instancias (XxGoldDragonxX, Servidor 18)",
+      "url": "https://bielpontes.wordpress.com/2012/12/07/licao-1-instancias/",
+      "data": "2012-12-07",
+      "conteudo": "Formigueiro: 'Mate todas as formigas' e depois 'Apenas atire na rainha'. Reino de Bugou (4 etapas): Bugous, Barão ('ataque apenas o curativo... de frente usará um escudo'), Midas ('quando ele utilizar o escudo, ataque apenas por cima'), Matias ('quando acender o pavio, é necessário jogar gelo').",
+      "aplicabilidade": "media",
+      "observacoes": "Fonte mais antiga e independente; versão de 2012 do DDTank."
+    },
+    {
+      "id": "forcecalculate",
+      "titulo": "huongtx498/DDTank-ForceCalculate (GitHub)",
+      "url": "https://github.com/huongtx498/DDTank-ForceCalculate",
+      "data": "consultado 2026-10-19",
+      "conteudo": "views.py: ângulo = floor(90 - floor(d) + 2v + floor(h)/4); força = 95 + 4·(d - floor(d)). Tipo de tiro lido e não usado.",
+      "aplicabilidade": "baixa",
+      "observacoes": "Django 3.0.6, cliente vietnamita (Gunny), sem licença (não copiar código), sem validação. O termo h/4 é hipótese a testar."
+    },
+    {
+      "id": "ddclassico_oficial",
+      "titulo": "DDClássico — notícias e termos (site oficial)",
+      "url": "https://ddclassico.com/classic/news",
+      "data": "consultado 2026-10-19",
+      "conteudo": "Termos de uso em https://ddclassico.com/classic/terms (endereço indicado na App Store). Notícia 37 citada pelo usuário: evento com Formigueiro (Normal), Galinheiro (Difícil), Castelo do Reino de Bugou (Difícil), Covil do Dragão (Normal), Redemoinho (Fácil), Olimpíadas Boom (Difícil), Castelo Sombrio (Normal), Tribo Piatan (Normal).",
+      "aplicabilidade": "contexto",
+      "observacoes": "O site respondeu 403 (Cloudflare) a todas as tentativas em 2026-10-19: nenhuma notícia nem os termos de uso foram lidos. A lista do evento vem da mensagem do usuário, não de leitura própria, e não prova disponibilidade permanente."
     }
   ]
 }

@@ -88,6 +88,15 @@ def advice(reason: str) -> str:
 
 
 def describe(s: UiSnapshot) -> Banner:
+    """Faixa de estado. Numa demonstração, o título sempre diz que é simulação (nada é do jogo real)."""
+    b = _describe(s)
+    run_states = s.alive or s.status in (RunStatus.FINISHED, RunStatus.FAILED)
+    if s.demo and run_states and b.kind != "emergency":
+        b = Banner(b.kind, f"Demonstração · {b.title}", f"{b.detail} Simulação: nada disto aconteceu no jogo.".strip())
+    return b
+
+
+def _describe(s: UiSnapshot) -> Banner:
     if s.emergency:
         return Banner("emergency", "Parada de emergência",
                       "Nenhum comando será enviado ao jogo. Clique em Iniciar quando quiser recomeçar.")

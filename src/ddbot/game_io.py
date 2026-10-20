@@ -10,6 +10,7 @@ from .automation.input import InputController
 from .automation.safety import Aborted
 from .capture import FrameSource, WindowCapture
 from .combat import BattleObservation, BattleView, Shooter, ShotOutcome
+from .strategy import apply_plan
 from .vision.perception import Perception, Snapshot, to_ruler
 
 log = logging.getLogger(__name__)
@@ -19,10 +20,12 @@ class VisionBattleView(BattleView):
     """Lê o combate na tela. O alvo é mantido pela proximidade com a última posição vista,
     para que dois inimigos não se misturem quando um deles some (invisibilidade)."""
 
-    def __init__(self, source: FrameSource, perception: Perception, config):
+    def __init__(self, source: FrameSource, perception: Perception, config, planner=None):
         self.source = source
         self.perception = perception
         self.config = config
+        self.planner = planner  # strategy.StrategyPlanner: escolhe o alvo pela etapa da instância
+        self._plan_role: str | None = None
         self.last_frame = None
         self.last_snapshot: Snapshot | None = None
         self._target_px: tuple[float, float] | None = None
@@ -36,6 +39,7 @@ class VisionBattleView(BattleView):
     def reset(self):
         self._target_px = None
         self._lost_reads = 0
+        self._plan_role = None
 
     def _pick_target(self, snap: Snapshot):
         if not snap.enemies:
@@ -71,8 +75,16 @@ class VisionBattleView(BattleView):
         obs = BattleObservation(in_battle=in_battle, my_turn=snap.my_turn, battle_over=over, snapshot=snap,
                                 current_angle=angle, notes=list(snap.warnings),
                                 wind_screen=snap.wind, wind_confidence=snap.wind_confidence)
-        target = self._pick_target(snap)
-        obs.target_id = f"alvo_{self._target_seq}"
+        if self.planner is not None and in_battle and not self.perception.manual_target:
+            plan = self.planner.update(snap.enemies, snap.statuses, snap.me, snap.unit_px)
+            target = apply_plan(obs, plan)
+            if plan.role != self._plan_role:
+                self._plan_role = plan.role
+                self._target_seq += 1  # outro papel, outro histórico no rastreador
+            obs.target_id = f"{plan.role or 'alvo'}_{self._target_seq}"
+        else:
+            target = self._pick_target(snap)
+            obs.target_id = f"alvo_{self._target_seq}"
         conv = to_ruler(snap, target, snap.wind)
         confs = [snap.turn_confidence if snap.my_turn else 1.0]
         if snap.me:
