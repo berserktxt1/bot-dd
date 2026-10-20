@@ -1,6 +1,9 @@
 **JonFlow** (antes *DDClássico Bot*): aplicativo para Windows 10/11 (64 bits) que joga partidas e instâncias PvE do DDTank (servidor DDClássico) sozinho, com mira calculada e calibrada pelos seus disparos e interface em português.
 
-## Novidades da 0.4.0
+## Novidades da 0.4.0 (publicada como 0.4.1)
+
+A 0.4.1 traz o mesmo programa da 0.4.0, com um teste de janelas reais do Windows corrigido (ele capturava a
+janela do jogo ainda na animação de abertura). A tag v0.4.0 não teve Release porque esse teste falhou na CI.
 
 - **Estratégia própria para três instâncias**, com o mesmo motor de mira: **Formigueiro** (formigas, depois só a
   rainha), **Galinheiro / Pintinho Corre Rápido** (o inimigo mais perto primeiro, porque eles avançam até você) e

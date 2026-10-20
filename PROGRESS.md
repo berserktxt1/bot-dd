@@ -1,10 +1,21 @@
 # Andamento
 
-Última atualização: 2026-10-19. Versão 0.4.0 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-19. Versão 0.4.1 (**JonFlow**, antes *DDClássico Bot*).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Versão 0.4.1 (hotfix)
+
+A CI da tag `v0.4.0` (execução 39346270446) falhou em `test_launcher_then_game_in_child_process`: a cor média da
+captura do jogo de teste foi BGR (139, 202, 118), verde predominante (é o jogo, não o launcher azul nem outra
+janela), mas mais clara que o verde puro. O teste capturava no instante em que a janela acabava de aparecer,
+ainda na animação de abertura do Windows; nas três execuções anteriores, com o mesmo código, passou. O teste agora
+espera o jogo terminar de desenhar (até 10 s) e continua reprovando se a imagem nunca for a do jogo. O programa
+não mudou. A tag `v0.4.0` ficou sem Release (o pacote dela não passou na CI); a Release é a `v0.4.1`.
+
+CI 39347014865 (commit `70aef23`, branch `hotfix/0.4.1`): Linux e Windows aprovados (245 passed, 4 skipped in 136.29s (0:02:16) / 249 passed, 2 warnings in 290.64s (0:04:50)), compilação e testes do `.exe` (pasta e arquivo único) aprovados. Os números finais da Release estão no `build-info.json` publicado com ela.
 
 ## Versão 0.4.0
 
