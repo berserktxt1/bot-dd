@@ -1465,9 +1465,31 @@ def _smoke(app: MainWindow, seconds: float, report: dict, done):
     lags = []
 
     t0 = time.monotonic()
+    beat = [t0]
+    tk_thread = threading.get_ident()
+
+    def watchdog():
+        """Se a interface parar de responder por mais de 1 s, guarda onde cada thread estava (diagnóstico)."""
+        import sys
+        import traceback
+        while not report.get("resultado") and root_alive[0]:
+            time.sleep(0.2)
+            if time.monotonic() - beat[0] > 1.0 and "pilhas_no_atraso" not in report:
+                frames = sys._current_frames()
+                names = {t.ident: t.name for t in threading.enumerate()}
+                report["pilhas_no_atraso"] = {
+                    ("tk" if ident == tk_thread else names.get(ident, str(ident))):
+                        [line.strip() for line in traceback.format_stack(f)[-8:]]
+                    for ident, f in frames.items() if ident != threading.get_ident()}
+                report["pilhas_no_atraso_em_s"] = round(time.monotonic() - t0, 2)
+                report["pilhas_no_atraso_depois_de"] = report.get("ultimo_passo", "")
+    root_alive = [True]
+    root.bind("<Destroy>", lambda e: root_alive.__setitem__(0, False) if e.widget is root else None, add="+")
+    threading.Thread(target=watchdog, daemon=True, name="vigia-da-interface").start()
 
     def probe(last=[time.monotonic()]):
         now = time.monotonic()
+        beat[0] = now
         lag = now - last[0] - 0.1
         if not lags or lag > max(lags):
             # onde a interface travou: segundos desde o início e o último passo executado
