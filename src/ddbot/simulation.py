@@ -259,9 +259,11 @@ class SimulatedClient:
     """
 
     def __init__(self, world: SimulatedWorld, option="instancia_teste", faults: dict | None = None,
-                 loading_reads: int = 2):
+                 loading_reads: int = 2, difficulty: str | None = None):
         self.world = world
         self.option = option
+        self.difficulty = difficulty   # botão de dificuldade que precisa ser clicado depois da opção
+        self.selected: list[str] = []  # opção e dificuldade escolhidas no menu (para conferir nos testes)
         self.faults = dict(faults or {})
         self.loading_reads = loading_reads
         self.screen = "lobby"
@@ -338,6 +340,22 @@ class SimulatedClient:
                 return True
             return False
         menu = "menu_partidas" if self.option.startswith("partida_") else "menu_instancias"
+        hidden = set(self.faults.get("menu_hides", ()))  # opções/dificuldades que este "cliente" não tem
+        if self.screen == menu and template in hidden:
+            return False
+        if self.screen == menu and template == self.option and self.difficulty:
+            self.selected = [template]  # escolhe a instância; a sala só abre depois da dificuldade
+            self.clicks.append((self.screen, template))
+            return True
+        if self.screen == menu and self.difficulty and template == self.difficulty:
+            if self.selected != [self.option]:
+                return False
+            self.selected.append(template)
+            self.clicks.append((self.screen, template))
+            self.screen = "sala"
+            return True
+        if self.screen == menu and template.startswith("dificuldade_"):
+            return False  # outra dificuldade não é a que esta atividade pede
         nxt = {("lobby", "botao_instancias"): "menu_instancias",
                ("lobby", "botao_partidas"): "menu_partidas",
                (menu, self.option): "sala",
@@ -374,6 +392,7 @@ class SimEnemy:
     status_key: str | None = None  # estado que alterna (ex.: escudo do Barão)
     status_every: int = 0         # alterna o estado a cada N turnos (0 = nunca)
     becomes: str | None = None    # ao morrer vira outro papel (segunda vida, ex.: Midas vermelho)
+    avoid: bool = False           # não pode ser atingido (ex.: o juiz); não conta para vencer
 
 
 # Cenários FICTÍCIOS para a demonstração e os testes: usam os papéis e estados de cada perfil
@@ -387,7 +406,33 @@ DEMO_SCENARIOS = {
     "galinheiro": [
         {"inimigos": [("frango", 3, {"advance": 0.5})], "vence": None},
         {"inimigos": [("galo", 1, {"hp": 2, "advance": 0.4}), ("galinha", 2, {"advance": 0.4})], "vence": None},
-        {"inimigos": [("chefe", 1, {"hp": 3, "advance": 0.2})], "vence": None},
+        {"inimigos": [("construcao", 1, {"hp": 3})], "vence": None},
+        {"inimigos": [("chefe", 1, {"hp": 3, "advance": 0.2}), ("gaiola", 1, {"hp": 2})], "vence": None},
+    ],
+    # as dificuldades seguem as etapas de cada perfil (fontes de 2013 e o emulador; ver instances.json)
+    "galinheiro_facil": [
+        {"inimigos": [("frango", 3, {"advance": 0.5})], "vence": None},
+        {"inimigos": [("chefe", 1, {"hp": 3, "advance": 0.2}), ("gaiola", 1, {"hp": 2})], "vence": None},
+    ],
+    "galinheiro_normal": [
+        {"inimigos": [("frango", 4, {"advance": 0.5})], "vence": None},
+        {"inimigos": [("construcao", 1, {"hp": 3})], "vence": None},
+        {"inimigos": [("chefe", 1, {"hp": 3, "advance": 0.2}), ("gaiola", 1, {"hp": 2})], "vence": None},
+    ],
+    "galinheiro_dificil": [
+        {"inimigos": [("frango", 4, {"advance": 0.6})], "vence": None},
+        {"inimigos": [("galo", 1, {"hp": 2, "advance": 0.4}), ("galinha", 2, {"advance": 0.4})], "vence": None},
+        {"inimigos": [("chefe", 1, {"hp": 4, "advance": 0.2}), ("gaiola", 1, {"hp": 2})], "vence": None},
+        {"inimigos": [("construcao", 1, {"hp": 3})], "vence": None},
+    ],
+    # balões: "pontos" é a meta da etapa (no jogo, 99); os verdes tiram pontos. Corrida: os rivais andam até o
+    # pódio (do seu lado) e chegar lá é derrota. Boxiador com duas vidas e o juiz, que não pode ser atingido.
+    "olimpiadas_bugou_normal": [
+        {"inimigos": [("balao_vermelho", 4, {}), ("balao_verde", 3, {}), ("balao_dobro", 1, {})], "vence": None,
+         "pontos": 9},
+        {"inimigos": [("bugou_rival", 3, {"advance": 0.35})], "vence": None},
+        {"inimigos": [("boxiador", 1, {"hp": 2, "becomes": "boxiador"}), ("juiz", 1, {"avoid": True})],
+         "vence": ["boxiador"]},
     ],
     "bugou_normal": [
         {"inimigos": [("bugou", 3, {})], "vence": None},
@@ -409,13 +454,16 @@ class InstanceWorld(SimulatedWorld):
                  fuse_at: tuple[int, int] | None = None):
         self.profile = profile
         self.planner = planner
-        self.scenario = DEMO_SCENARIOS[profile.key]
+        self.scenario = scenario_for(profile)
         self.stage_count = len(self.scenario)
         self.fuse_at = fuse_at
         self.enemies: list[SimEnemy] = []
         self.stage = 0
         self.plans: list = []
         self.shots_log: list[dict] = []  # disparos de todas as batalhas (o estado é zerado a cada uma)
+        self.score = 0.0                 # pontos da etapa de pontuação
+        self.bad_hits = 0                # alvos que tiram pontos atingidos (a estratégia deve evitar)
+        self.avoid_hits = 0              # papéis que não podiam ser atingidos (ex.: o juiz acordado)
         super().__init__(base, settings or SimSettings(max_turns=40, distance_range=(4.0, 12.0)))
 
     def new_battle(self, stage: int = 0):
@@ -424,6 +472,11 @@ class InstanceWorld(SimulatedWorld):
         st.me_x = r.uniform(0.8, 1.5)
         self.stage = min(stage, self.stage_count - 1)
         self.enemies = []
+        self.score = 0.0
+        self._spawn()
+
+    def _spawn(self):
+        r, st = self.rng, self.state
         for role, n, kw in self.scenario[self.stage]["inimigos"]:
             kw = dict(kw)
             if "status" in kw:
@@ -431,7 +484,15 @@ class InstanceWorld(SimulatedWorld):
             for _ in range(n):
                 e = SimEnemy(role, st.me_x + r.uniform(*self.s.distance_range), y=-r.uniform(-0.6, 0.6), **kw)
                 e.status = e.status_key
+                if e.avoid:
+                    # longe do chefe o bastante para dar para mirar nele (no jogo real, o juiz anda pela arena)
+                    others = [o.x for o in self.enemies if not o.avoid] or [st.me_x + 6]
+                    e.x = max(others) + 2.5
                 self.enemies.append(e)
+
+    def _points(self, role) -> float:
+        rule = self.profile.roles.get(role)
+        return float(rule.points or 0) if rule is not None else 0.0
 
     def extinguish(self):
         """O usuário usou o gelo: o pavio apagou."""
@@ -512,9 +573,17 @@ class InstanceWorld(SimulatedWorld):
             e = min(near, key=lambda e: lands[id(e)])
             rule = self.profile.statuses.get(e.status) if e.status else None
             blocked = rule is not None and (rule.effect == "imune" or (rule.effect == "so_por_cima" and angle < 60))
-            if not blocked:
+            if e.avoid:
+                blocked, hit = True, False
+                self.avoid_hits += 1
+                if self.avoid_hits >= 3 and st.over is None:
+                    st.over = "derrota"  # o juiz acordado pela 3ª vez: o personagem morre
+            elif not blocked:
                 damaged = True
                 e.hp -= 1
+                points = self._points(e.role)
+                self.score += points
+                self.bad_hits += points < 0
                 if e.hp <= 0:
                     self.enemies.remove(e)
                     if e.becomes:
@@ -526,9 +595,16 @@ class InstanceWorld(SimulatedWorld):
                        "oculto": False, "dano": damaged, "bloqueado": blocked})
         self.shots_log.append(st.log[-1])
         st.my_turn = False
-        wins = self.scenario[self.stage]["vence"]
-        alive = [e for e in self.enemies if wins is None or e.role in wins]
-        if not alive:
+        stage = self.scenario[self.stage]
+        wins = stage["vence"]
+        alive = [e for e in self.enemies if not e.avoid and (wins is None or e.role in wins)]
+        goal = stage.get("pontos")
+        if goal is not None:
+            if self.score >= goal and st.over is None:
+                st.over = "vitoria"
+            elif not any(self._points(e.role) > 0 for e in self.enemies):
+                self._spawn()  # acabaram os balões bons antes da meta: aparecem outros
+        elif not alive and st.over is None:
             st.over = "vitoria"
         return ShotOutcome(impact_x=x if np.isfinite(x) else None, hit=damaged)
 
@@ -537,6 +613,20 @@ def demo_option(definition, default="instancia_teste") -> str:
     """Opção (modelo do menu) que a definição clica: o cliente simulado a mostra no menu certo."""
     return next((a.target for acts in definition.flow.values() for a in acts
                  if a.kind == "clicar" and a.target and a.target.startswith(("instancia_", "partida_"))), default)
+
+
+def demo_difficulty(definition) -> str | None:
+    """Botão de dificuldade que a definição clica (atividades pré-cadastradas), se houver."""
+    return next((a.target for acts in definition.flow.values() for a in acts
+                 if a.kind == "clicar" and a.target and a.target.startswith("dificuldade_")), None)
+
+
+def scenario_for(profile):
+    """Cenário de demonstração do perfil: o dele ou o da instância de que ele herdou."""
+    for key in (profile.key, profile.base, profile.models):
+        if key and key in DEMO_SCENARIOS:
+            return DEMO_SCENARIOS[key]
+    return None
 
 
 def simulated_activity(kb: KnowledgeBase, params: PhysicsParams, definition, runs=2, faults=None,
@@ -560,7 +650,8 @@ def simulated_activity(kb: KnowledgeBase, params: PhysicsParams, definition, run
     else:
         settings = settings or SimSettings()
         world = SimulatedWorld(params, settings)
-    client = SimulatedClient(world, option=demo_option(definition), faults=faults)
+    client = SimulatedClient(world, option=demo_option(definition), faults=faults,
+                             difficulty=demo_difficulty(definition))
     tmpdir = None
     if store_path is None:
         tmpdir = tempfile.TemporaryDirectory()

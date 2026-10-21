@@ -1,12 +1,19 @@
 """Registro de disparos e calibração a partir de resultados observados no cliente.
 
-Cada disparo guarda ângulo, força, vento, posição do alvo e o ponto de impacto observado.
-A correção é feita em duas camadas:
+Cada disparo guarda ângulo, força, vento, posição do alvo, o ponto de impacto observado e o
+contexto: instância, dificuldade, etapa, alvo e o cenário (modo de controlar a força e o cliente
+do jogo). A correção é feita em duas camadas:
 
-1. ``predict_offset``: regressão ridge (por método) do erro observado
-   ``impacto_real - impacto_previsto`` em função de distância, vento e altura.
+1. ``predict_offset``: regressão ridge robusta (por método) do erro observado
+   ``impacto_real - impacto_previsto`` em função de distância, vento e altura. Pesos de Huber:
+   um disparo marcado errado (ou desviado por terreno) não arrasta a correção.
 2. ``refit_params``: reajuste das constantes físicas com os disparos observados
    somados às tabelas documentadas (quando houver dados suficientes).
+
+Cenários comprovadamente diferentes não se misturam: só entram na correção os disparos do mesmo
+cenário (modo da força e cliente) e da mesma arma. Disparos simulados ficam numa fonte própria e
+nunca corrigem a mira do jogo real. Disparos de versões antigas, sem cenário, ficam guardados e
+aparecem nas estatísticas, mas não entram na correção.
 """
 from __future__ import annotations
 
@@ -39,6 +46,11 @@ class ShotRecord:
     note: str = ""
     timestamp: float = field(default_factory=time.time)
     id: int | None = None
+    instance: str = ""          # perfil da instância (ex.: galinheiro_dificil)
+    difficulty: str = ""
+    stage: str = ""
+    target: str = ""            # papel do alvo (rainha, balao_vermelho...)
+    scenario: str = ""          # modo da força e cliente: só disparos do mesmo cenário corrigem a mira
 
 
 SCHEMA = """
@@ -49,6 +61,8 @@ CREATE TABLE IF NOT EXISTS shots (
     source TEXT, mode TEXT, note TEXT
 );
 """
+# colunas acrescentadas na 0.5.0 (bancos antigos ganham as colunas vazias)
+EXTRA_COLUMNS = ("instance", "difficulty", "stage", "target", "scenario")
 
 
 class ShotStore:
@@ -60,6 +74,10 @@ class ShotStore:
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(str(self.path), check_same_thread=False, timeout=10)
         self._conn.execute(SCHEMA)
+        have = {row[1] for row in self._conn.execute("PRAGMA table_info(shots)")}
+        for col in EXTRA_COLUMNS:
+            if col not in have:
+                self._conn.execute(f"ALTER TABLE shots ADD COLUMN {col} TEXT DEFAULT ''")
         self._conn.commit()
 
     def add(self, rec: ShotRecord) -> int:
@@ -79,14 +97,16 @@ class ShotStore:
                                (impact_x, None if hit is None else int(hit), note, shot_id))
             self._conn.commit()
 
-    COLS = "id,timestamp,angle,force,wind,distance,dy,impact_x,hit,method,weapon,predicted_x,source,mode,note"
+    COLS = ("id,timestamp,angle,force,wind,distance,dy,impact_x,hit,method,weapon,predicted_x,source,mode,note,"
+            + ",".join(EXTRA_COLUMNS))
 
     def _query(self, where: str, args: list, suffix: str = "") -> list[ShotRecord]:
         with self._lock:
             rows = self._conn.execute(f"SELECT {self.COLS} FROM shots{where}{suffix}", args).fetchall()
         return [ShotRecord(id=r[0], timestamp=r[1], angle=r[2], force=r[3], wind=r[4], distance=r[5], dy=r[6],
                            impact_x=r[7], hit=None if r[8] is None else bool(r[8]), method=r[9], weapon=r[10],
-                           predicted_x=r[11], source=r[12], mode=r[13], note=r[14] or "") for r in rows]
+                           predicted_x=r[11], source=r[12], mode=r[13], note=r[14] or "",
+                           **{c: r[15 + i] or "" for i, c in enumerate(EXTRA_COLUMNS)}) for r in rows]
 
     def all(self, source: str | None = None, limit: int | None = None) -> list[ShotRecord]:
         where, args = ("", []) if not source else (" WHERE source=?", [source])
@@ -126,16 +146,29 @@ class Calibrator:
     MIN_SHOTS_OFFSET = 3
     MIN_SHOTS_REFIT = 15
     RIDGE = 2.0
+    HUBER_K = 1.5        # resíduos acima de 1,5 desvio robusto pesam menos (disparo marcado errado, terreno)
 
-    def __init__(self, store: ShotStore, params: PhysicsParams, sources=("observado",), weapon_lookup=None):
+    def __init__(self, store: ShotStore, params: PhysicsParams, sources=("observado",), weapon_lookup=None,
+                 scenario=None):
         self.store = store
         self.params = params
         self.sources = sources
         self.weapon_lookup = weapon_lookup  # nome -> Weapon (force_scale, drag_scale, angle_offset)
+        # cenário atual (str ou função que o devolve); None = todos os disparos da fonte (simulação)
+        self.scenario = scenario
+        self._built_for: str | None = None
         self._models: dict[str, tuple] = {}
         self._pred_cache: dict[tuple, float] = {}
         self._lock = threading.Lock()
         self.rebuild()
+
+    def current_scenario(self) -> str | None:
+        return self.scenario() if callable(self.scenario) else self.scenario
+
+    def _fresh(self):
+        """O cenário mudou (outra forma de controlar a força, outro cliente): refaz os modelos dele."""
+        if self.scenario is not None and self.current_scenario() != self._built_for:
+            self.rebuild()
 
     # ------------------------------------------------------------------ util
     def _effective(self, weapon_name: str, params: PhysicsParams | None = None):
@@ -168,23 +201,32 @@ class Calibrator:
         recs = []
         for s in self.sources:
             recs += [r for r in self.store.all(source=s) if r.impact_x is not None]
+        if self.scenario is not None:
+            cur = self.current_scenario()
+            recs = [r for r in recs if r.scenario and r.scenario == cur]
         return recs
 
     @staticmethod
     def _fit(X, y, bias_only=False):
+        """Ridge com pesos de Huber (2 iterações): poucos disparos fora do padrão não arrastam a correção."""
         R = Calibrator.RIDGE * np.eye(X.shape[1])
         R[0, 0] = Calibrator.RIDGE * 0.25  # o viés constante é o que mais aprende
         if bias_only:
             X = X[:, :1]
             R = R[:1, :1]
-        A = X.T @ X + R
-        coef = np.linalg.solve(A, X.T @ y)
-        resid = y - X @ coef
-        dof = max(1, len(y) - X.shape[1])
-        s2 = float(np.sum(resid ** 2) / dof)
+        w = np.ones(len(y))
+        for _ in range(3):
+            A = X.T @ (X * w[:, None]) + R
+            coef = np.linalg.solve(A, X.T @ (w * y))
+            resid = y - X @ coef
+            scale = max(0.05, 1.4826 * float(np.median(np.abs(resid - np.median(resid)))))
+            w = np.minimum(1.0, Calibrator.HUBER_K * scale / np.maximum(np.abs(resid), 1e-9))
+        dof = max(1.0, float(np.sum(w)) - X.shape[1])
+        s2 = float(np.sum(w * resid ** 2) / dof)
         return coef, s2, np.linalg.inv(A), bias_only
 
     def rebuild(self):
+        self._built_for = self.current_scenario()
         recs = self._usable()
         groups: dict[str, list[ShotRecord]] = {}
         for r in recs:
@@ -207,11 +249,13 @@ class Calibrator:
 
     def has_method_model(self, method, weapon="padrao") -> bool:
         """Há correção aprendida com disparos deste método (e não só o viés geral da arma)?"""
+        self._fresh()
         with self._lock:
             return f"{weapon}|{method}" in self._models
 
     def predict_offset(self, method, angle, force, wind, dy, distance, weapon="padrao"):
         """Retorna (erro_previsto, sigma_extra, n_disparos)."""
+        self._fresh()
         with self._lock:
             model = self._models.get(f"{weapon}|{method}") or self._models.get(f"{weapon}|*")
         if model is None:
@@ -228,6 +272,8 @@ class Calibrator:
     def record(self, rec: ShotRecord) -> int:
         if rec.predicted_x is None:
             rec.predicted_x = self.predict_x(rec)
+        if not rec.scenario and self.scenario is not None:
+            rec.scenario = self.current_scenario() or ""
         shot_id = self.store.add(rec)
         if rec.impact_x is not None:
             self.rebuild()
@@ -241,6 +287,10 @@ class Calibrator:
         recs = []
         for s in self.sources:
             recs += self.store.all(source=s)
+        cur = self.current_scenario()
+        other = [r for r in recs if self.scenario is not None and r.scenario != cur]
+        skip = {id(r) for r in other}
+        recs = [r for r in recs if id(r) not in skip]
         judged = [r for r in recs if r.hit is not None]
         measured = [r for r in recs if r.impact_x is not None]
         to_target = np.array([r.impact_x - r.distance for r in measured]) if measured else np.array([])
@@ -256,7 +306,18 @@ class Calibrator:
             "erro_abs_medio": float(np.mean(np.abs(to_target))) if len(to_target) else None,
             "erro_previsao_abs_medio": float(np.mean(np.abs(to_pred))) if len(to_pred) else None,
             "modelos": models,
+            "outros_cenarios": len(other),   # guardados, mas fora da correção deste cenário
+            "por_instancia": self._by_instance(judged),
         }
+
+    @staticmethod
+    def _by_instance(judged) -> dict:
+        out: dict[str, dict] = {}
+        for r in judged:
+            d = out.setdefault(r.instance or "sem instância", {"avaliados": 0, "acertos": 0})
+            d["avaliados"] += 1
+            d["acertos"] += bool(r.hit)
+        return out
 
     # limites físicos dos parâmetros reajustados (speed_k, drag, wind_k, launch_h)
     BOUNDS = ((1e-3, 1.0), (0.0, 1.0), (0.0, 0.5), (0.0, 1.5))

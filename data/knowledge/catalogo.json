@@ -1,0 +1,40 @@
+{
+  "_doc": "Atividades pré-cadastradas que aparecem no Início antes de conectar ao jogo. Cada uma usa a opção da instância no menu (modelo 'instancia_<instancia>', capturado uma vez para todas as dificuldades) e o botão da dificuldade (modelo 'dificuldade_<nivel>', capturado uma vez para todas as instâncias). O catálogo não garante que a atividade exista no cliente: a disponibilidade só muda com evidência (opção vista no menu, não encontrada durante a rotina ou marcada pelo usuário). 'fluxo_padrao' usa {opcao} e {dificuldade}; uma atividade do usuário com o mesmo id em instancias/ substitui a do catálogo.",
+  "versao": 1,
+  "dificuldades": {
+    "facil": {"nome": "Fácil", "modelo": "dificuldade_facil"},
+    "normal": {"nome": "Normal", "modelo": "dificuldade_normal"},
+    "dificil": {"nome": "Difícil", "modelo": "dificuldade_dificil"}
+  },
+  "atividades": [
+    {"id": "formigueiro_facil", "instancia": "formigueiro", "nome_instancia": "Formigueiro", "dificuldade": "facil",
+     "estrategia": "formigueiro_facil", "ordem": 1},
+    {"id": "formigueiro_normal", "instancia": "formigueiro", "nome_instancia": "Formigueiro", "dificuldade": "normal",
+     "estrategia": "formigueiro_normal", "ordem": 2},
+    {"id": "galinheiro_facil", "instancia": "galinheiro", "nome_instancia": "Galinheiro", "dificuldade": "facil",
+     "estrategia": "galinheiro_facil", "ordem": 3},
+    {"id": "galinheiro_normal", "instancia": "galinheiro", "nome_instancia": "Galinheiro", "dificuldade": "normal",
+     "estrategia": "galinheiro_normal", "ordem": 4},
+    {"id": "galinheiro_dificil", "instancia": "galinheiro", "nome_instancia": "Galinheiro", "dificuldade": "dificil",
+     "estrategia": "galinheiro_dificil", "ordem": 5},
+    {"id": "olimpiadas_bugou_normal", "instancia": "olimpiadas_bugou", "nome_instancia": "Olimpíadas Bugou",
+     "dificuldade": "normal", "estrategia": "olimpiadas_bugou_normal", "ordem": 6,
+     "observacoes": ["Não é o Castelo do Reino de Bugou: são instâncias diferentes, com opções diferentes no menu."]}
+  ],
+  "fora_da_lista_principal": [
+    {"id": "castelo_bugou_normal", "nome": "Castelo do Reino de Bugou — Normal", "estrategia": "bugou_normal",
+     "motivo": "Substituída por Olimpíadas Bugou — Normal na lista principal (pedido de 2026-10-20). A estratégia continua disponível para atividades capturadas pelo menu (Calibração > Alvos)."}
+  ],
+  "fluxo_padrao": {
+    "lobby": [{"clicar": "botao_instancias", "espera": 1.5}],
+    "menu_instancias": [{"clicar": "{opcao}", "espera": 1.0}, {"clicar": "{dificuldade}", "espera": 1.0},
+                        {"clicar_opcional": "botao_confirmar", "espera": 1.5}],
+    "sala": [{"clicar": "botao_iniciar", "espera": 2.0}],
+    "carregando": [{"aguardar": 1.0}],
+    "batalha": [{"combate": true}],
+    "etapa_concluida": [{"clicar_opcional": "botao_continuar", "espera": 1.5}],
+    "recompensa": [{"clicar_opcional": "carta_recompensa", "espera": 1.0}, {"clicar_opcional": "botao_sair", "espera": 1.5}],
+    "vitoria": [{"concluir": "vitoria"}, {"clicar_opcional": "botao_sair", "espera": 1.5}],
+    "derrota": [{"concluir": "derrota"}, {"clicar_opcional": "botao_sair", "espera": 1.5}]
+  }
+}

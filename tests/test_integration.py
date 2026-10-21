@@ -44,12 +44,14 @@ class FakeGame(FrameSource, RecordingBackend):
         self.space_down_at = None
         self.released_power = None
         self.full_time = 0.5
+        self.start_delay = 0.06  # a barra só começa a encher um pouco depois da tecla descer (como no DDClássico)
         self.lock = threading.Lock()
 
     def power(self):
         if self.space_down_at is None:
             return 0.0
-        return min(100.0, (time.monotonic() - self.space_down_at) / self.full_time * 100)
+        held = max(0.0, time.monotonic() - self.space_down_at - self.start_delay)
+        return min(100.0, held / self.full_time * 100)
 
     def key(self, key, up):
         super().key(key, up)
@@ -88,7 +90,8 @@ def build(tmp_path, power_mode="timed"):
         "regions": {"angle": [0.02, 0.9, 0.06, 0.05], "turn_indicator": [0.88, 0.02, 0.1, 0.06],
                     "power_bar": [0.3, 0.9667, 0.4, 0.0167]},
         "automation": {"server_rules_confirmed": True, "min_seconds_between_shots": 0, "power_mode": power_mode,
-                       "power_full_time_s": game.full_time, "post_shot_wait_s": 0.0, "key_delay_ms": 1},
+                       "power_full_time_s": game.full_time, "power_start_delay_s": game.start_delay,
+                       "post_shot_wait_s": 0.0, "key_delay_ms": 1},
         "thresholds": {"auto_min_hit_probability": 0.0, "vision_min_confidence": 0.0}})
     lib = TemplateLibrary(tmp_path / "tpl")
     lib.add("marcador_eu", game.me_tpl)

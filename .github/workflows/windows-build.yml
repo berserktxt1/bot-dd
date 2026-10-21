@@ -32,7 +32,8 @@ jobs:
       - name: Lint
         run: python -m pyflakes src tools tests
       - name: Testes (Linux + Xvfb)
-        run: xvfb-run -a python -m pytest -q tests -rs
+        # tela de 1080p: o teste de layout (tests/test_gui_layout.py) é pulado em telas menores
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest -q tests -rs
 
   build-windows:
     runs-on: windows-2025
@@ -215,6 +216,23 @@ jobs:
             if (-not $p.WaitForExit(420000)) { $p.Kill($true); Write-Host "capturas travaram em $scale" }
           }
           Get-ChildItem screenshots | Select-Object Name, Length
+
+      - name: Layout das capturas (nada cortado em 1080p a 100%, 125% e 150%)
+        # a auditoria roda com as fontes do Windows (Segoe UI): texto ou abas cortadas, painel que passa da
+        # borda e lista sem espaço para duas linhas reprovam
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem screenshots -Filter *_layout.json -ErrorAction SilentlyContinue)
+          if ($files.Count -lt 3) { Write-Error "faltam relatórios de layout ($($files.Count) de 3)"; exit 1 }
+          $bad = @()
+          foreach ($f in $files) {
+            $r = Get-Content $f.FullName -Raw | ConvertFrom-Json
+            foreach ($p in @($r.problemas_layout.PSObject.Properties)) {
+              $bad += "$($f.Name) / $($p.Name): $($p.Value | ConvertTo-Json -Depth 5 -Compress)"
+            }
+          }
+          if ($bad.Count) { $bad | ForEach-Object { Write-Host $_ }; Write-Error "layout com problemas"; exit 1 }
+          Write-Host "layout sem problemas nas 3 escalas ($($files.Count) relatórios)"
 
       - name: Relatório de módulos ausentes do PyInstaller
         if: always()

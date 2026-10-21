@@ -92,6 +92,7 @@ class CombatEngine:
         self.source = source
         self.cancel_check = cancel_check  # callable -> motivo (pausa/parada pedida) ou None
         self.planner = None  # strategy.StrategyPlanner da instância (opcional)
+        self.context: dict = {}  # instância, dificuldade e atividade (vão para o registro de cada disparo)
         self.mode = Mode.ASSIST
         self.gate = self._new_gate()
         self._bad_reads = 0
@@ -105,7 +106,12 @@ class CombatEngine:
         self._thread: threading.Thread | None = None
         self._recommended_turn = -1
         self._cache_key: tuple | None = None
+        self._steady: tuple | None = None  # (turno, método, ângulo) da recomendação mantida no turno
         self.shots_this_battle = 0
+
+    # diferença mínima de chance para trocar de ângulo no mesmo turno: leituras que oscilam um pouco não fazem
+    # a recomendação pular entre dois ângulos (menos teclas e um número estável na tela)
+    STEADY_MARGIN = 0.05
 
     # ------------------------------------------------------------- autorização
     def auto_allowed(self) -> tuple[bool, str]:
@@ -168,6 +174,7 @@ class CombatEngine:
         self._cache_key = None
         self.last_recommendation = None
         self._recommended_turn = -1
+        self._steady = None
         self._bad_reads = 0
         self._bad_since = None
         old_gate, self.gate = self.gate, self._new_gate()  # o turno da batalha anterior não vale mais
@@ -254,7 +261,7 @@ class CombatEngine:
         if key == self._cache_key and self.last_recommendation is not None:
             rec = self.last_recommendation
         else:
-            rec = self.aimer.recommend(self.build_context(obs, distance, extra_sigma))
+            rec = self.keep_steady(self.aimer.recommend(self.build_context(obs, distance, extra_sigma)), turn)
             self.last_recommendation, self._cache_key = rec, key
         if self._recommended_turn != turn:
             self._recommended_turn = turn
@@ -263,6 +270,20 @@ class CombatEngine:
 
         if self.mode == Mode.AUTO and rec.best and allow_fire:
             self._auto_fire(rec, obs)
+        return rec
+
+    def keep_steady(self, rec: Recommendation, turn: int) -> Recommendation:
+        """No mesmo turno, mantém o ângulo já recomendado enquanto ele continuar quase tão bom quanto o melhor."""
+        if rec.best is None:
+            return rec
+        prev = self._steady
+        if prev is not None and prev[0] == turn and (prev[1], prev[2]) != (rec.best.method, rec.best.angle):
+            same = next((c for c in rec.candidates if (c.method, c.angle) == (prev[1], prev[2])), None)
+            if same is not None and not same.blocked and \
+                    rec.best.hit_probability - same.hit_probability < self.STEADY_MARGIN:
+                rec.best = same
+                rec.reason = f"{same.method}: {same.angle}° / {same.force:.1f} (P≈{same.hit_probability:.0%})"
+        self._steady = (turn, rec.best.method, rec.best.angle)
         return rec
 
     def _auto_fire(self, rec: Recommendation, obs: BattleObservation):
@@ -322,10 +343,13 @@ class CombatEngine:
 
     def record(self, rec: Recommendation, obs: BattleObservation, outcome: ShotOutcome | None, mode: str):
         b = rec.best
+        ctx = self.context
         shot = ShotRecord(angle=b.angle, force=b.force, wind=rec.context.wind, distance=rec.context.distance,
                           dy=rec.context.dy, impact_x=outcome.impact_x if outcome else None,
                           hit=outcome.hit if outcome else None, method=b.method, weapon=rec.context.weapon.name,
-                          source=self.source, mode=mode)
+                          source=self.source, mode=mode, instance=ctx.get("instancia", ""),
+                          difficulty=ctx.get("dificuldade", ""), stage=obs.stage or "",
+                          target=obs.target_id.rsplit("_", 1)[0] if obs.target_id else "")
         shot_id = self.calibrator.record(shot)
         self._cache_key = None  # a calibração pode ter mudado
         self.shots_this_battle += 1

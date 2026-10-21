@@ -38,14 +38,14 @@ class Panel(ttk.Frame):
 class StatusBanner(tk.Frame):
     """Faixa de estado: ícone + título + orientação. Cor, ícone e texto mudam juntos."""
 
-    def __init__(self, master, th: T.Theme):
+    def __init__(self, master, th: T.Theme, compact: bool = False):
         super().__init__(master, background=T.STATE_STYLES["idle"][0])
         self.th = th
         pad = th.px(T.SPACE["l"])
-        self.icon = tk.Label(self, font=th.fonts["banner"], width=2, anchor="center")
-        self.icon.pack(side="left", padx=(pad, th.px(4)), pady=th.px(8))
+        self.icon = tk.Label(self, font=th.fonts["icon"], width=2, anchor="center")
+        self.icon.pack(side="left", padx=(pad, th.px(4)), pady=th.px(4 if compact else 8))
         box = tk.Frame(self)
-        box.pack(side="left", fill="x", expand=True, pady=th.px(6))
+        box.pack(side="left", fill="x", expand=True, pady=th.px(3 if compact else 6))
         self.title = tk.Label(box, font=th.fonts["banner"], anchor="w", justify="left")
         self.title.pack(fill="x")
         self.detail = tk.Label(box, font=th.fonts["body"], anchor="w", justify="left")
@@ -90,11 +90,14 @@ class Readout(ttk.Frame):
 
 
 class Counter(ttk.Frame):
+    """Número grande com o rótulo ao lado, numa linha só (mais baixo que o rótulo embaixo)."""
+
     def __init__(self, master, th: T.Theme, label: str):
         super().__init__(master, style="Surface.TFrame")
         self.value = ttk.Label(self, text="0", style="Count.TLabel")
-        self.value.pack(anchor="w")
-        ttk.Label(self, text=label, style="SurfaceMuted.TLabel").pack(anchor="w")
+        self.value.pack(side="left")
+        ttk.Label(self, text=label, style="SurfaceMuted.TLabel").pack(side="left", anchor="s",
+                                                                      padx=(th.px(6), 0), pady=(0, th.px(5)))
 
     def set(self, n):
         self.value.configure(text=str(n))

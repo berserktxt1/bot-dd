@@ -75,7 +75,10 @@ def test_match_menu_without_option_pauses(kb, params):
     client.option = "partida_teste"
     try:
         assert drive(runner, 5000) == RunStatus.PAUSED
-        assert "partida_inexistente" in runner.reason and client.screen == "menu_partidas"
+        # a mensagem diz qual atividade não está no menu e que nenhuma outra foi escolhida no lugar
+        assert "a opção Outra não foi encontrada no menu" in runner.reason and client.screen == "menu_partidas"
+        assert "não escolhe outra atividade" in runner.reason
+        assert client.clicks == [("lobby", "botao_partidas")]  # nada foi clicado no menu
     finally:
         cleanup()
 

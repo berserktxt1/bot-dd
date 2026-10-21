@@ -209,10 +209,11 @@ class KeyboardShooter(Shooter):
 
     def charge_and_fire(self, force: float):
         fire = self._keys().get("fire") or "space"
-        full = float(self.config.get("automation.power_full_time_s", 4.0))
+        full = float(self.config.get("automation.power_full_time_s", 3.33))
         # atraso de reação (captura + SendInput) compensado em pontos de força; calibrável
         force = max(1.0, force - float(self.config.get("automation.power_offset", 0.0)))
-        timed = full * force / 100.0
+        # a barra só começa a encher um pouco depois da tecla descer (medido no DDClássico por terceiros)
+        timed = float(self.config.get("automation.power_start_delay_s", 0.0)) + full * force / 100.0
         if self.config.get("automation.power_mode") == "visual" and self.config.get("regions.power_bar"):
             frame, snap = self._grab_snap()
             if frame is not None:
@@ -267,7 +268,7 @@ class KeyboardShooter(Shooter):
 
 
 # ------------------------------------------------------------ atividades (telas e botões)
-from .activities import Actor, ScreenReader, ScreenState  # noqa: E402
+from .activities import SELECTION_PREFIXES, Actor, ScreenReader, ScreenState  # noqa: E402
 from .vision.templates import TemplateLibrary  # noqa: E402
 
 
@@ -315,6 +316,8 @@ class GameActor(Actor):
     não depender do que estiver aberto na área de trabalho de quem roda a suíte.
     """
 
+    AMBIGUITY_MARGIN = 0.03  # outra opção quase tão parecida no mesmo lugar: não dá para ter certeza
+
     def __init__(self, inp: InputController, source: FrameSource, templates: TemplateLibrary, config,
                  min_repeat_s: float = 1.0, clock=time.monotonic, window_at=None, contains=None):
         self.inp = inp
@@ -326,6 +329,7 @@ class GameActor(Actor):
         self.window_at = window_at or winapi.window_at
         self.contains = contains or winapi.is_same_or_child
         self._last_click: dict[str, float] = {}
+        self.last_refusal = ""  # por que o último clique numa opção foi recusado (vai para a mensagem da pausa)
 
     def threshold(self) -> float:
         return float(self.config.get("thresholds.template", 0.8))
@@ -335,6 +339,24 @@ class GameActor(Actor):
             return None
         m = self.templates.best(template, frame)
         return m if m and m.score >= self.threshold() else None
+
+    def ambiguous(self, template: str, m, frame) -> str | None:
+        """Outra opção do mesmo tipo (instância, partida ou dificuldade) casa no mesmo lugar quase tão bem.
+
+        Ex.: Olimpíadas Bugou e Castelo do Reino de Bugou com cartões parecidos. Na dúvida o bot não
+        clica: escolher a atividade errada é pior do que pausar.
+        """
+        prefix = next((p for p in SELECTION_PREFIXES if template.startswith(p)), None)
+        if prefix is None:
+            return None
+        for other in self.templates.keys():
+            if other == template or not other.startswith(prefix):
+                continue
+            o = self.templates.best(other, frame)
+            if o and o.score >= self.threshold() and o.score >= m.score - self.AMBIGUITY_MARGIN \
+                    and overlap(o.rect, m.rect) > 0.5:
+                return f"a imagem também se parece com {other} ({o.score:.2f} contra {m.score:.2f})"
+        return None
 
     def _screen_point(self, frame, cx, cy):
         info = getattr(self.source, "info", None)
@@ -368,14 +390,22 @@ class GameActor(Actor):
     def click(self, template: str, frame) -> bool | None:
         m = self.find(template, frame)
         if m is None:
+            self.last_refusal = ""
             return False
         now = self.clock()
         if now - self._last_click.get(template, -1e9) < self.min_repeat_s:
             return None  # adiado: o mesmo botão foi clicado há instantes
+        doubt = self.ambiguous(template, m, frame)
+        if doubt:
+            if doubt != self.last_refusal:
+                log.warning("clique em %s recusado: %s", template, doubt)
+            self.last_refusal = doubt
+            return False
         cx, cy = m.center
         point = self._screen_point(frame, cx, cy)
         if point is None:
             return False
+        self.last_refusal = ""
         self._last_click[template] = now
         log.info("clicando em %s (%.2f) em %d,%d", template, m.score, cx, cy)
         self.inp.click(*point)
@@ -383,3 +413,11 @@ class GameActor(Actor):
 
     def press(self, key: str):
         self.inp.tap(key)
+
+
+def overlap(a, b) -> float:
+    """Fração da menor das duas áreas (x, y, w, h) que está dentro da outra."""
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    small = min(a[2] * a[3], b[2] * b[3])
+    return (ix * iy) / small if small > 0 else 0.0

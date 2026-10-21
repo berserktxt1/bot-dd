@@ -41,6 +41,12 @@ AUTO_CATEGORIES = ("pve", "solo")
 DEFAULT_FORBIDDEN = ("botao_comprar", "botao_loja", "botao_recarregar", "botao_cupons", "botao_premium",
                      "botao_ranqueada")
 NAME_RE = re.compile(r"[a-z0-9_]{1,64}")
+# modelos que escolhem QUAL atividade jogar: sem eles na tela, o bot pausa (nunca escolhe outra no lugar)
+SELECTION_PREFIXES = ("instancia_", "partida_", "dificuldade_")
+
+
+def is_selection(template: str | None) -> bool:
+    return bool(template) and template.startswith(SELECTION_PREFIXES)
 
 
 def valid_name(name) -> bool:
@@ -107,6 +113,10 @@ class ActivityDef:
     validated: bool = False           # validada no cliente real?
     strategy: str | None = None       # perfil de estratégia da instância (strategy.py), se houver
     path: Path | None = None
+    builtin: bool = False             # pré-cadastrada (catalog.py): não fica na pasta do usuário
+    instance: str | None = None       # instância do catálogo (ex.: "formigueiro")
+    difficulty: str | None = None     # dificuldade do catálogo (ex.: "facil")
+    option: str | None = None         # modelo da opção no menu que só esta atividade clica
 
     @property
     def auto_allowed(self) -> bool:
@@ -119,11 +129,15 @@ class ActivityDef:
         return sorted(set(out))
 
     def to_raw(self) -> dict:
-        return {"id": self.key, "nome": self.name, "tipo": self.kind, "categoria": self.category,
-                "descricao": self.description, "validada_no_cliente": self.validated,
-                "estados_iniciais": list(self.start_states), "proibido": list(self.forbidden),
-                "estrategia": self.strategy,
-                "fluxo": {s: [a.to_raw() for a in acts] for s, acts in self.flow.items()}}
+        raw = {"id": self.key, "nome": self.name, "tipo": self.kind, "categoria": self.category,
+               "descricao": self.description, "validada_no_cliente": self.validated,
+               "estados_iniciais": list(self.start_states), "proibido": list(self.forbidden),
+               "estrategia": self.strategy,
+               "fluxo": {s: [a.to_raw() for a in acts] for s, acts in self.flow.items()}}
+        for key, value in (("instancia", self.instance), ("dificuldade", self.difficulty), ("opcao", self.option)):
+            if value:
+                raw[key] = value
+        return raw
 
     def save(self, folder: Path) -> Path:
         if not valid_name(self.key):
@@ -159,11 +173,17 @@ class ActivityDef:
         strategy = raw.get("estrategia") or None
         if strategy is not None and not valid_name(strategy):
             raise ValueError(f"estratégia inválida: {strategy!r}")
+        extra = {}
+        for field_name, key_name in (("instance", "instancia"), ("difficulty", "dificuldade"), ("option", "opcao")):
+            value = raw.get(key_name) or None
+            if value is not None and not valid_name(value):
+                raise ValueError(f"{key_name} inválida: {value!r}")
+            extra[field_name] = value
         return cls(key=key, name=str(raw.get("nome", key))[:80], kind=kind,
                    category=cat, description=str(raw.get("descricao", ""))[:300], flow=flow,
                    start_states=tuple(raw.get("estados_iniciais", ["lobby"])),
                    forbidden=tuple(raw.get("proibido", [])), validated=bool(raw.get("validada_no_cliente")),
-                   strategy=strategy, path=path)
+                   strategy=strategy, path=path, **extra)
 
 
 def load_activities(folder: Path) -> tuple[list[ActivityDef], list[str]]:
@@ -343,8 +363,10 @@ class ActivityRunner:
 
     def __init__(self, definition: ActivityDef, reader: ScreenReader, actor: Actor, combat_step,
                  kill: KillSwitch, config, limits: RunLimits, on_event=None, state_threshold: float = 0.8,
-                 clock=time.monotonic, on_battle_start=None, on_failure_frame=None, on_activity_start=None):
+                 clock=time.monotonic, on_battle_start=None, on_failure_frame=None, on_activity_start=None,
+                 selection_labels: dict[str, str] | None = None):
         self.d = definition
+        self.selection_labels = selection_labels or {}  # modelo de seleção -> nome legível (opção, dificuldade)
         self.reader = reader
         self.actor = actor
         self.combat_step = combat_step  # callable(allow_fire=True) -> None; um passo do combate
@@ -645,7 +667,11 @@ class ActivityRunner:
             self._visit_clicks += 1
             self._last_click_idx, self._last_click_at = idx, now
             self._action_first_try = None
-            self._emit("etapa", f"clicou em {a.target}", state=state)
+            data = {"state": state}
+            picks = [i for i, x in enumerate(actions) if x.kind == "clicar" and is_selection(x.target)]
+            if picks and idx == picks[-1]:
+                data["selecao_feita"] = a.target  # a opção (e a dificuldade) desta atividade estavam no menu
+            self._emit("etapa", f"clicou em {a.target}", **data)
             self._sleep(a.seconds)
             self._visit_done_actions += 1
             return True
@@ -662,6 +688,8 @@ class ActivityRunner:
             return True
         give_up = self.limits.stuck_timeout_s / 2
         if now - self._visit_started > give_up:
+            if is_selection(a.target):
+                return self._selection_missing(a.target)
             return self._recover(f"botão '{a.target}' não encontrado na tela '{state}'", screen)
         if not self._missing_warned and now - self._action_first_try >= self.limits.missing_warn_s:
             # não deixa o usuário olhando uma tela parada sem saber o motivo
@@ -719,6 +747,19 @@ class ActivityRunner:
             self._reset_visit()
             self._unknown_since = None
             return True
+        return self._pause_for_user(why)
+
+    def _selection_missing(self, template: str) -> bool:
+        """A opção (ou a dificuldade) desta atividade não está no menu: pausa, nunca escolhe outra."""
+        label = self.selection_labels.get(template) or (
+            f"a dificuldade {template.split('_', 1)[-1].replace('_', ' ')}" if template.startswith("dificuldade_")
+            else f"a opção {self.d.name}")
+        refusal = getattr(self.actor, "last_refusal", "") or ""
+        why = (f"{label} não foi encontrada no menu do jogo para {self.d.name}"
+               + (f" ({refusal})" if refusal else "")
+               + ": o bot não escolhe outra atividade no lugar. Confira se ela existe no seu cliente "
+                 "(nível, evento, página do menu) e clique em Retomar, ou escolha outra atividade")
+        self._emit("aviso", f"{label}: não encontrada no menu", selecao_ausente=template, motivo=why)
         return self._pause_for_user(why)
 
     def _save_failure(self, why):

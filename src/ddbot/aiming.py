@@ -85,6 +85,8 @@ def _phi(z):
 
 class Aimer:
     FORCE_EXEC_SIGMA = 0.6   # erro típico ao soltar a barra de força
+    # perto do fim a barra volta a esvaziar (docs/RESEARCH.md): um atraso mínimo vira um disparo fraco
+    MAX_FORCE = 98.0
 
     def __init__(self, kb: KnowledgeBase, params: PhysicsParams, calibrator=None,
                  model_sigma_force: float = 1.0):
@@ -149,7 +151,7 @@ class Aimer:
         no ângulo, como a de 20°: aí o vento precisa ser compensado na força).
         """
         angle_exec = round_angle(angle)
-        if not (ctx.angle_min <= angle_exec <= ctx.angle_max) or not (0 < force <= 100):
+        if not (ctx.angle_min <= angle_exec <= ctx.angle_max) or not (0 < force <= self.MAX_FORCE):
             return None
         offset, extra_sigma, n_obs = self._correction(method, angle_exec, force, ctx)
         corrected_target = ctx.distance - offset
@@ -168,7 +170,7 @@ class Aimer:
                 force = force + (model_force - nominal)
         elif np.isfinite(model_force):
             force = model_force
-        if not np.isfinite(force) or not (0 < force <= 100):
+        if not np.isfinite(force) or not (0 < force <= self.MAX_FORCE):
             return None
         force = round(force, 1)
         pred = float(landing_x(angle_exec + ctx.weapon.angle_offset, force, ctx.wind, ctx.dy, p)) + offset
@@ -229,7 +231,7 @@ class Aimer:
             angles = np.arange(max(ctx.angle_min, 10), min(ctx.angle_max, 89) + 1, dtype=float)
             forces = solve_force(angles + ctx.weapon.angle_offset, ctx.distance, ctx.wind, ctx.dy, p)
             # avalia só alguns ângulos promissores para manter rápido
-            valid = [(a, f) for a, f in zip(angles, forces) if np.isfinite(f) and 0 < f <= 100]
+            valid = [(a, f) for a, f in zip(angles, forces) if np.isfinite(f) and 0 < f <= self.MAX_FORCE]
             sampled = valid[:: max(1, len(valid) // 16)]
             phys = [c for c in (self._evaluate("fisica", a, f, ctx, p, ["busca no modelo físico"], solved=True)
                                 for a, f in sampled) if c]
