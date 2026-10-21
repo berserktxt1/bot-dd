@@ -167,7 +167,8 @@ Depois, ligue as atividades ao menu do seu jogo:
    menu ("vista no menu").
 2. **Alvos (página Alvos).** Numa batalha da instância, capture cada alvo (rainha, formiga, pintinho, chefe...) e
    cada estado especial, 2 ou 3 amostras de cada. As dificuldades da mesma instância usam as mesmas capturas. Sem
-   essas imagens, o bot mira em qualquer inimigo visível e avisa. Nas **Olimpíadas Bugou** elas são obrigatórias
+   essas imagens, o bot mira em qualquer inimigo visível e avisa. Com os alvos de todas as etapas capturados (no
+   Formigueiro, a formiga e a rainha), o **marcador de um inimigo** deixa de ser obrigatório. Nas **Olimpíadas Bugou** elas são obrigatórias
    (balão verde, Bugou do time rival e juiz): sem elas, o bot pausa nessas etapas em vez de atirar.
 
 ### Passo 5 — Conferir o que o bot enxerga
@@ -241,7 +242,7 @@ no jogo fica bloqueado.
 |---|---|
 | Joga sozinho atividades **PvE/solo**. | Jogar sozinho contra outros jogadores (fila/PvP). Ali use a *Mira assistida ao vivo* (aba Diagnóstico), que só **sugere** ângulo e força. |
 | Envia teclas e cliques **só com o jogo em foco**, no máximo **um disparo por turno**. | Comprar itens, gastar moeda premium ou entrar em ranqueadas. Botões como comprar e loja ficam bloqueados (para liberar um botão pago específico, digite o nome dele em Configurações). |
-| Só aceita uma tela depois de reconhecê-la em leituras seguidas (uma explosão ou animação não conta vitória nem dispara de novo). | Apertar teclas às cegas. Se uma tela ou botão não aparece, ele só fecha avisos pelo botão **X** que você capturou; se não resolver, **pausa**, mostra o motivo e salva a imagem em `dados\capturas`. |
+| Só aceita uma tela depois de reconhecê-la em leituras seguidas (uma explosão ou animação não conta vitória nem dispara de novo). | Apertar teclas às cegas. Se uma tela ou botão não aparece, ele só fecha avisos pelo botão **X** que você capturou (nunca na batalha nem no aviso de instância difícil, onde o X sairia da batalha ou cancelaria a ida); se não resolver, **pausa**, mostra o motivo e salva a imagem em `dados\capturas`. |
 | **Pausa** se você trocar de janela (Alt+Tab) ou minimizar o jogo, e espera você clicar em Retomar. | Mandar comandos ao launcher: só clica dentro da área do jogo e só envia teclas com o foco dentro do jogo. Se o foco estiver no launcher, pausa e pede para você clicar uma vez no jogo. |
 | Com o inimigo invisível, usa a última posição vista e calcula quanto ele pode ter andado. | Atirar às cegas: se a incerteza for grande, espera o inimigo reaparecer. |
 | Pede a imagem à própria janela do jogo, mesmo com outra janela por cima. | Ler a janela errada: se o jogo não permitir e outra janela cobrir o jogo, pausa e avisa. |
@@ -262,7 +263,8 @@ certo:
 - Se disparar várias vezes numa etapa sem diminuir os inimigos, pausa e pede para você conferir.
 - As etapas vêm de guias de jogadores (2011–2017), notícias oficiais do DDClássico e vídeos, e **não foram
   conferidas no jogo** (veja [`docs/RESEARCH.md`](docs/RESEARCH.md)). Não há notícia oficial do Formigueiro Fácil
-  nem do Galinheiro Fácil: se eles não existirem no seu jogo, clique em **Não aparece no meu jogo**.
+  (um jogador mostra o Fácil num vídeo de outubro de 2026) nem do Galinheiro Fácil: se eles não existirem no seu
+  jogo, clique em **Não aparece no meu jogo**.
 - O **Castelo do Reino de Bugou** (outra instância, diferente das Olimpíadas) saiu da lista principal, mas a
   estratégia dele continua valendo para uma atividade capturada pelo menu. As demais instâncias ainda não têm
   estratégia própria: o bot mira o inimigo visível.
@@ -320,6 +322,23 @@ exemplo "mais parecidas: Lobby 0,62, Sala/preparação 0,55 (mínimo 0,80)"). Um
 falta capturar aquela tela em Calibração > Modelos; a aba Diagnóstico mostra as mesmas notas ao vivo
 ("telas_parecidas"). Na batalha, se o bot não consegue ler o seu turno ou mirar (personagem, inimigo ou régua não
 encontrados), ele avisa o motivo e, se continuar assim, pausa.
+</details>
+
+<details>
+<summary><b>Entrou na batalha, mas o bot não atira</b></summary>
+
+O bot só atira no **seu turno**, com **um alvo** na tela e com **todas as leituras confiáveis**. Quando falta alguma
+coisa, o Histórico diz o quê e, se continuar assim, ele pausa em vez de ficar parado:
+
+| O Histórico diz | O que fazer |
+|---|---|
+| "há 60 s na batalha sem reconhecer o seu turno (semelhança do indicador de turno 0,55, mínimo 0,80)" | No seu turno, capture de novo o **Indicador de que é o seu turno** em Calibração > Modelos e confira a região do indicador. Pausa em 2 min e meio. |
+| "aguardando: nenhum alvo da etapa Formigas visível" | Capture o **marcador de um inimigo** ou os alvos da instância (formiga, rainha) em Calibração. Pausa depois de 3 turnos seus assim. |
+| "confiança visual baixa (...): vento não reconhecido" (ou "seu personagem 0,55", "alvo 0,60") | Recapture o item citado. No vento, ensine mais números em Calibração > Números e capture as duas setas. Pausa depois de 2 turnos seus sem disparar. |
+| "disparo cancelado: ângulo não confirmado na tela" | Ensine mais números do ângulo e use **Calibração > Testar teclas do ângulo**. Pausa depois de 2 turnos. |
+| "o disparo não foi confirmado: o turno continua seu depois dele" | O jogo pode não ter recebido as teclas: confira as teclas em Configurações, se o jogo está em foco e use **Calibração > Testar teclas do ângulo**. Pausa depois de 2 disparos assim. |
+
+A aba **Diagnóstico** (**Analisar agora**, numa batalha) mostra a mesma leitura que o bot usa.
 </details>
 
 <details>
@@ -416,6 +435,12 @@ Agentes de código (Claude Code, Codex etc.) devem ler também o [`AGENTS.md`](A
   `docs/RELEASE_NOTES.md` e `PROGRESS.md`, faça o merge na `main` e envie uma tag `vX.Y.Z`
   (`git tag vX.Y.Z && git push origin vX.Y.Z`). A CI compila, testa os dois executáveis e cria a Release com o
   ZIP, o `.exe`, `SHA256SUMS.txt`, `build-info.json` e os relatórios de teste.
+- **Publicar sem a CI** (quando o GitHub Actions não roda): num PC com Windows, Python 3.12 64 bits, git e o
+  [`gh`](https://cli.github.com/) logado, na pasta do projeto (qualquer branch), rode
+  `powershell -ExecutionPolicy Bypass -File tools\compilar_local.ps1`. Ele compila a tag da versão numa pasta
+  separada (`build-tag\vX.Y.Z`), roda os testes no Windows, testa os dois `.exe` sem Python no PATH, audita o
+  layout em 100%, 125% e 150% (tela de 1920×1080 ou maior) e gera `SHA256SUMS.txt`, `build-info.json` e as notas.
+  Deu tudo certo? Rode de novo com `-Publicar` para criar a Release.
 - **Arquitetura:**
   - jogo e launcher: `detection.py` (detectar jogo), `game_window.py` (perfil, foco), `winapi.py`;
   - percepção: `capture.py`, `vision/`;

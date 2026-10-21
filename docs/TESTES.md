@@ -48,6 +48,30 @@ Para rodar: `python -m pytest -q tests` (com `PYTHONPATH=src`, ou pelo `build_wi
 | `test_mira_calibracao.py::test_recommended_force_can_reach_100` | a força recomendada vai até 100 (antes, teto de 98); reprova o teto antigo |
 | `test_gui_layout.py` | também com o botão "Confirmar o aviso e continuar" visível, em 100/125/150% |
 
+## Testes de regressão do combate (2026-10-21, revisão do Formigueiro Fácil)
+
+`test_combate_formigueiro.py`: estados em que o bot ficava parado sem pausar nem dizer o motivo. Os marcados como
+**defeito corrigido** reprovam o código da 0.5.1 (conferido rodando o arquivo contra uma cópia dela); os outros
+garantem proteções que já existiam.
+
+| Teste | O que garante |
+|---|---|
+| `test_turn_never_recognized_warns_with_score_and_pauses` | **defeito corrigido**: indicador lido, mas o seu turno nunca reconhecido: antes nada acontecia até o limite da batalha (15 min); agora avisa em 60 s com a semelhança e o mínimo e pausa em 150 s |
+| `test_turn_timer_restarts_after_each_of_my_turns` | **defeito corrigido**: o tempo sem turno recomeça a cada turno seu (não pausa uma batalha normal) |
+| `test_no_target_of_the_stage_pauses_after_three_turns` | **defeito corrigido**: com estratégia e nenhum alvo da etapa na tela, esperava turno após turno; agora pausa depois de 3 turnos seus, dizendo o que capturar |
+| `test_legit_wait_does_not_pause` | espera da estratégia com alvo na tela (chefe imune) continua só avisando |
+| `test_planner_marks_missing_target` | **defeito corrigido**: a estratégia do Formigueiro Fácil marca "nenhum alvo" de forma distinta das outras esperas |
+| `test_unread_wind_names_the_reading_and_pauses` | **defeito corrigido**: vento não lido dava "confiança visual baixa (0.00 < 0.7)" em todo turno, sem pausar; agora diz qual leitura (vento) e pausa depois de 2 turnos sem disparar |
+| `test_cancelled_shot_counts_and_pauses` | **defeito corrigido**: disparo cancelado (ângulo não confirmado) se repetia todo turno; agora um por turno e pausa no segundo |
+| `test_focus_and_blocked_input_reach_the_routine` | janela sem foco e entrada bloqueada sobem para a rotina e não liberam um segundo disparo no turno |
+| `test_unconfirmed_shot_warns_then_pauses` | **defeito corrigido**: o disparo não era confirmado; agora, se o turno continua seu 5 s depois da espera pós-disparo, avisa, e no segundo seguido pausa |
+| `test_shot_confirmed_when_turn_passes` | **defeito corrigido**: o turno passar depois do disparo vira "disparo confirmado" no Histórico |
+| `test_vision_view_lists_weak_reads` | **defeito corrigido**: a leitura da tela lista as leituras abaixo do mínimo (alvo 0,60; vento sem direção) |
+| `test_unknown_screen_in_battle_pauses_without_clicking_close` | **defeito corrigido**: tela desconhecida na batalha clicava no X reconhecido (podia sair da batalha); agora pausa |
+| `test_solo_warning_without_confirm_button_pauses_without_cancelling` | **defeito corrigido**: no aviso de um jogador, com permissão e sem o botão de confirmar, a recuperação clicava no X e cancelava a ida; agora pausa |
+| `test_blocked_input_during_combat_pauses_the_routine` | entrada bloqueada pelo Windows no combate pausa a rotina com o motivo |
+| `test_generic_enemy_marker_optional_when_instance_targets_cover_every_stage` | **defeito corrigido**: com a formiga e a rainha capturadas, o marcador genérico de inimigo deixa de ser obrigatório |
+
 ## Teste de interface (`--gui-smoke`)
 
 Abre a janela de verdade e, em modo de demonstração, aciona os botões: lista a demonstração, *Iniciar*, confere

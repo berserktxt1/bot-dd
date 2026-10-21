@@ -1,6 +1,6 @@
 # Roteiro do primeiro teste no jogo real
 
-Para a versão **0.5.1** (seis instâncias cadastradas, caminho pelo Cais de Expedição). Nada daqui foi validado
+Para a versão **0.5.2** (seis instâncias cadastradas, caminho pelo Cais de Expedição). Nada daqui foi validado
 ainda com o launcher e o cliente do DDClássico: este roteiro serve para descobrir **o que funciona e o que não funciona**. Faça na ordem e pare na
 primeira etapa que falhar: as seguintes dependem dela.
 
@@ -10,7 +10,8 @@ disparos no mesmo turno, clique em loja, botão pago ou no launcher.
 
 ## 0. Baixar e conferir (5 min)
 
-1. Logado no GitHub (o repositório é privado), baixe `JonFlow.zip` dos *Assets* da Release v0.5.1 e extraia numa
+1. Baixe `JonFlow.zip` dos *Assets* da [Release v0.5.2](https://github.com/berserktxt1/bot-dd/releases/tag/v0.5.2)
+   (repositório público, não precisa de login) e extraia numa
    pasta sua, por exemplo `C:\JonFlow` (não use *Arquivos de Programas*). Se já usava uma versão anterior, mantenha
    a pasta `dados`.
 2. Opcional: no PowerShell, `Get-FileHash JonFlow.zip` deve dar o mesmo valor do `SHA256SUMS.txt` da Release.
@@ -97,6 +98,10 @@ oficial no DDClássico, se for o caso). Use uma conta e um horário em que perde
 5. Se pausar, leia a faixa colorida e o **Histórico** antes de clicar em **Retomar (F6)**. Pausar quando não tem
    certeza é o comportamento esperado. Numa tela não reconhecida, anote as "mais parecidas" e as notas que o
    Histórico mostra.
+6. Na batalha, se o bot não atirar, anote a mensagem do **Histórico** (novidade da 0.5.2): "sem reconhecer o seu
+   turno" (com a semelhança do indicador), "aguardando: nenhum alvo da etapa", "confiança visual baixa" (com a
+   leitura que falhou), "disparo cancelado" ou "o disparo não foi confirmado". Depois de cada disparo, confira se
+   aparece "disparo confirmado: o turno passou" e anote quanto tempo o seu turno dura no jogo.
 
 ## 7. Atividade que não está no menu (5 min)
 

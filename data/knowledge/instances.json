@@ -61,7 +61,8 @@
         }
       ],
       "referencias_de_mira": [
-        "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem posição nem vento)"
+        "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem posição nem vento)",
+        "rainha: 30 - 70 e 46 - 55 'dependendo do vento' (jogador do DDClássico, 10/10/2026; sem posição nem vento)"
       ],
       "limites": [
         "Ângulos e forças dos guias e vídeos não dizem posição nem vento: são só referência; o bot calcula pela distância, vento e altura lidos.",
@@ -76,7 +77,8 @@
         "crieddtank_2012",
         "yurigameover_2012",
         "videos_ddclassico_2026",
-        "emulador_ddt34_formigueiro"
+        "emulador_ddt34_formigueiro",
+        "transcricoes_ddclassico_2026"
       ]
     },
     {
@@ -88,16 +90,18 @@
       ],
       "referencias_de_mira": [
         "rainha: 23 - 100 (vídeo do Fácil, 01/02/2015; sem posição nem vento)",
-        "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem dificuldade)"
+        "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem dificuldade)",
+        "rainha: 30 - 70 e 46 - 55 'dependendo do vento' (jogador do DDClássico, 10/10/2026; sem dificuldade, posição nem vento)"
       ],
       "limites_extra": [
-        "O Fácil não aparece nas notícias oficiais do DDClássico lidas em 20/10/2026 (só o Normal): confira se existe no seu cliente.",
+        "O Fácil não aparece nas notícias oficiais do DDClássico lidas em 20/10/2026 (só o Normal), mas um jogador do DDClássico mostra o Fácil e o Normal num vídeo de 10/10/2026 (só a narração foi lida).",
         "Diferença para o Normal documentada só no nível recomendado (8 a 12 contra 12 a 15).",
         "No emulador 4.1 o Fácil existe, com rainha de 8000 de vida (10500 no Normal)."
       ],
       "fontes_extra": [
         "videos_formigueiro_2015",
-        "emulador_ddt34_formigueiro"
+        "emulador_ddt34_formigueiro",
+        "transcricoes_ddclassico_2026"
       ]
     },
     {

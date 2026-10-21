@@ -51,6 +51,24 @@ nesses casos o bot oferece apenas a mira assistida e nunca entra sozinho em ranq
 
 ---
 
+## Pesquisa de 2026-10-21, segunda parte (revisão do combate: referências do Formigueiro Fácil)
+
+Procura de capturas, modelos de imagem, parâmetros de mira e estratégias prontas do Formigueiro Fácil, sem
+repetir as fontes já registradas. **Nenhuma captura, modelo visual ou template novo pode ser reaproveitado:**
+nenhum bot público traz modelos do DDClássico, os vídeos têm a licença padrão do YouTube e o §5 dos termos do
+DDClássico proíbe distribuir a arte do jogo. Os modelos continuam sendo capturados pelo usuário.
+
+| Fonte (aberta) | O que trouxe | Licença | Uso no JonFlow |
+|---|---|---|---|
+| YouTube WNv5GN-WxWI (Japa MMORPGs, 10/10/2026, DDClássico), narração | Formigueiro com **Fácil e Normal** no DDClássico (1ª evidência pública do Fácil), entrada no nível 8; etapa 1 com formigas dos dois lados; etapa 2 com a rainha no alto, alternando guardas e flecha; mira para a rainha 30/70 e 46/55 "dependendo do vento"; vida "uns 5.000 no Normal" (chute) | padrão do YouTube | fonte `transcricoes_ddclassico_2026`; o limite do Fácil em `instances.json` passou a citar o vídeo; as miras viraram só referência (sem posição nem vento) |
+| YouTube sUhF80tf3EI (WallpaperTV, 31/08/2026, DDClássico), narração | tiro alto 90 − d ± 2·vento, força 95; 20° com d10 = 55 (tabela da comunidade: 54); turno de ~10 s (dito por ele) | padrão do YouTube | confirma verbalmente que as tabelas da comunidade valem no DDClássico (sem medição); o turno curto é o motivo de a confirmação do disparo esperar pouco |
+| ddtankplay.blogspot.com (2012) e gigaddtank.webnode.page (sem data) | dois tipos de formiga (uma rápida e fraca, outra lenta e resistente); reforços até 20 | sem licença / direitos reservados | só reforça que a formiga pode ter **duas aparências**: capture amostras das duas em Alvos |
+| ddtank.fandom.com/pt/wiki/Pandora (2022) | vida 8000 (igual ao Fácil do emulador) | texto CC BY-SA | não é o DDClássico; a vida da rainha diverge entre fontes (5.000, 8.000, 10.500) e não foi usada |
+| GitHub gonfabfake (cópia do emulador 4.1), Onesbg/OnesBOT, peuz-br/ddtank-project | nada novo (cópia, repositório vazio, só README) | MIT / nenhuma | — |
+
+Descartados: vídeo do "Formigueiro Difícil" de outro servidor, aimbot comercial sem dados, busca em chinês sem
+resultado. Nenhuma tabela nova de ângulo × força × distância × vento.
+
 ## Pesquisa de 2026-10-21 (Formigueiro, caminho do Cais e aviso de jogador sozinho)
 
 Feita por leitura de arquivos de texto (GitHub raw/API) e de 6 imagens; nenhum binário baixado nem executado.

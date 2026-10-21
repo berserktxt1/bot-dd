@@ -86,23 +86,35 @@ class VisionBattleView(BattleView):
             target = self._pick_target(snap)
             obs.target_id = f"alvo_{self._target_seq}"
         conv = to_ruler(snap, target, snap.wind)
-        confs = [snap.turn_confidence if snap.my_turn else 1.0]
+        obs.turn_score = snap.turn_confidence
+        # (nome legível, confiança): a menor vira ``obs.confidence``; as que ficam abaixo do mínimo vão para a
+        # mensagem de "disparo não executado", para o usuário saber o que recalibrar
+        reads = [("indicador de turno", snap.turn_confidence if snap.my_turn else 1.0)]
         if snap.me:
             obs.me_x = snap.me.x / snap.unit_px
             obs.me_y = snap.me.y / snap.unit_px
-            confs.append(snap.me.confidence)
+            reads.append(("seu personagem", snap.me.confidence))
         if conv is not None:
             distance, dy, wind_rel, direction = conv
             obs.distance, obs.dy, obs.wind, obs.direction = distance, dy, wind_rel, direction
             obs.target_x, obs.target_y = target.x / snap.unit_px, target.y / snap.unit_px
             obs.target_visible = True
             self._target_px = (target.x, target.y)
-            confs.append(target.confidence)
+            reads.append(("alvo", target.confidence))
         else:
             obs.target_visible = False
         # vento entra na confiança sempre (também quando o alvo está oculto)
-        confs.append(snap.wind_confidence if snap.wind is not None else 0.0)
-        obs.confidence = float(min(confs)) if confs else 0.0
+        reads.append(("vento", snap.wind_confidence if snap.wind is not None else 0.0))
+        obs.confidence = float(min(c for _, c in reads))
+        min_conf = float(self.config.get("thresholds.vision_min_confidence", 0.7))
+        for name, c in reads:
+            if c >= min_conf:
+                continue
+            if name == "vento" and snap.wind is None:
+                why = next((w for w in snap.warnings if "vento" in w), "vento não lido")
+                obs.weak_reads.append(why)
+            else:
+                obs.weak_reads.append(f"{name} {c:.2f}".replace(".", ","))
         return obs
 
 

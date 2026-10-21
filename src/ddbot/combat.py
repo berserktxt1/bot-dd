@@ -50,6 +50,9 @@ class BattleObservation:
     wait_reason: str | None = None      # não atira neste turno (alvo imune, nenhum alvo da etapa...)
     pause_reason: str | None = None     # pede intervenção (pavio aceso, etapa fora do escopo...)
     high_arc: bool = False              # só tiro por cima (ângulo >= 60)
+    target_missing: bool = False        # a espera é porque nenhum alvo da etapa foi encontrado
+    turn_score: float | None = None     # semelhança do indicador de turno (mostrada quando o turno não aparece)
+    weak_reads: list[str] = field(default_factory=list)  # leituras abaixo da confiança mínima, com o valor
     notes: list[str] = field(default_factory=list)
     snapshot: object = None
 
@@ -114,11 +117,24 @@ class CombatEngine:
         self._noturn_since: float | None = None
         self._noturn_warned = False
         self._stuck_turn: int | None = None
+        self._stuck_message = ""
         self._stuck_turns = 0
+        # confirmação do disparo: depois dele o turno precisa passar; se continuar seu, o jogo não recebeu as teclas
+        self._confirm: tuple[int, float] | None = None  # (turno do disparo, quando a espera pós-disparo acabou)
+        self._unconfirmed = 0
 
     STALL_WARN_S = 20.0    # batalha na tela sem conseguir ler de quem é o turno: avisa
     STALL_PAUSE_S = 60.0   # ... e, no automático, pausa explicando
-    LOST_TURNS_PAUSE = 2   # turnos seus seguidos sem conseguir calcular a mira: pausa no automático
+    # o indicador é lido, mas o seu turno nunca aparece (modelo que não casa com o jogo): avisa e pausa. Mais
+    # tempo que acima, porque os turnos dos adversários (várias formigas, por exemplo) passam antes do seu
+    NO_TURN_WARN_S = 60.0
+    NO_TURN_PAUSE_S = 150.0
+    LOST_TURNS_PAUSE = 2   # turnos seus seguidos sem disparar (sem mira, leitura ruim, disparo cancelado): pausa
+    WAIT_TURNS_PAUSE = 3   # turnos seus seguidos sem nenhum alvo da etapa na tela: pausa
+    # depois da espera pós-disparo, o turno precisa ter passado até aqui; curto para o relógio do turno do jogo
+    # não "confirmar" sozinho um disparo que não aconteceu (o tempo do turno no DDClássico não foi medido)
+    SHOT_CONFIRM_S = 5.0
+    UNCONFIRMED_PAUSE = 2  # disparos seguidos sem o turno passar: pausa (as teclas não chegam ao jogo)
 
     # diferença mínima de chance para trocar de ângulo no mesmo turno: leituras que oscilam um pouco não fazem
     # a recomendação pular entre dois ângulos (menos teclas e um número estável na tela)
@@ -145,20 +161,61 @@ class CombatEngine:
         return TurnGate(float(self.config.get("automation.min_seconds_between_shots", 3.0)),
                         confirm=int(self.config.get("automation.turn_confirm_reads", 2)))
 
-    def _turn_unreadable(self, allow_fire: bool):
+    def _watch_turn(self, obs: BattleObservation, allow_fire: bool):
+        """Batalha na tela sem o seu turno aparecer: avisa e, no automático, pausa explicando.
+
+        Turno ilegível (indicador não calibrado) pausa em ``STALL_PAUSE_S``. Indicador lido que nunca reconhece o
+        seu turno pausa em ``NO_TURN_PAUSE_S``: sem isso o bot ficava parado até o limite da batalha (15 min) sem
+        dizer nada, como se o turno fosse sempre dos adversários.
+        """
+        if self.gate.my_turn:
+            self._noturn_since, self._noturn_warned = None, False
+            return
         now = self.clock()
         if self._noturn_since is None:
             self._noturn_since = now
             return
         waited = now - self._noturn_since
-        why = ("a batalha está na tela, mas o bot não consegue ler se é o seu turno: confira o modelo \"Indicador de "
-               "que é o seu turno\" e a região do indicador de turno (Calibração; o Diagnóstico mostra a leitura)")
-        if waited >= self.STALL_PAUSE_S and self.mode == Mode.AUTO and allow_fire:
-            self._noturn_since = None
+        if obs.my_turn is None:
+            why = ("a batalha está na tela, mas o bot não consegue ler se é o seu turno: confira o modelo \"Indicador "
+                   "de que é o seu turno\" e a região do indicador de turno (Calibração; o Diagnóstico mostra a "
+                   "leitura)")
+            warn_s, pause_s = self.STALL_WARN_S, self.STALL_PAUSE_S
+        else:
+            score = "" if obs.turn_score is None else (
+                f" (semelhança do indicador de turno {obs.turn_score:.2f}, mínimo "
+                f"{float(self.config.get('thresholds.template', 0.8)):.2f})").replace(".", ",")
+            why = (f"há {waited:.0f} s na batalha sem reconhecer o seu turno{score}: se já foi a sua vez nesse tempo, "
+                   "capture de novo o \"Indicador de que é o seu turno\" no seu turno e confira a região do indicador "
+                   "(Calibração; o Diagnóstico mostra a leitura)")
+            warn_s, pause_s = self.NO_TURN_WARN_S, self.NO_TURN_PAUSE_S
+        if waited >= pause_s and self.mode == Mode.AUTO and allow_fire:
+            self._noturn_since, self._noturn_warned = None, False
             raise NeedsAttention(why)
-        if waited >= self.STALL_WARN_S and not self._noturn_warned:
+        if waited >= warn_s and not self._noturn_warned:
             self._noturn_warned = True
             self._emit("aviso", f"{why}; sem isso o bot não dispara")
+
+    def _check_shot_confirmed(self, allow_fire: bool):
+        """O disparo só conta como feito quando o turno passa; turno seu muito depois dele = teclas não chegaram."""
+        if self._confirm is None:
+            return
+        shot_turn, since = self._confirm
+        if self.gate.turn_id != shot_turn or not self.gate.my_turn:
+            self._confirm, self._unconfirmed = None, 0
+            self._emit("turno", "disparo confirmado: o turno passou")
+            return
+        if self.clock() - since < self.SHOT_CONFIRM_S:
+            return
+        self._confirm = None
+        self._unconfirmed += 1
+        why = ("o disparo não foi confirmado: o turno continua seu depois dele. O jogo pode não ter recebido as teclas "
+               "(confira as teclas em Configurações e se o jogo está em foco; use Calibração > Testar teclas do "
+               "ângulo)")
+        self._emit("aviso", why)
+        if self._unconfirmed >= self.UNCONFIRMED_PAUSE and self.mode == Mode.AUTO and allow_fire:
+            self._unconfirmed = 0
+            raise NeedsAttention(f"{self.UNCONFIRMED_PAUSE} disparos seguidos sem confirmação: {why}")
 
     @staticmethod
     def _why_no_distance(obs: BattleObservation) -> str:
@@ -171,16 +228,38 @@ class CombatEngine:
             return "a régua não está calibrada (Calibração > Regiões: área de jogo)"
         return "a distância até o alvo não pôde ser calculada"
 
-    def _cannot_aim(self, turn: int, why: str, allow_fire: bool):
-        """Seu turno, mas sem mira: avisa uma vez por turno; turnos seguidos assim pausam no automático."""
-        if self._stuck_turn != turn:
-            self._stuck_turn = turn
-            self._stuck_turns += 1
-            self._emit("aviso", f"seu turno, mas sem mira: {why}")
-            if self._stuck_turns >= self.LOST_TURNS_PAUSE and self.mode == Mode.AUTO and allow_fire:
-                self._stuck_turns = 0
-                raise NeedsAttention(f"{self.LOST_TURNS_PAUSE} turnos seus seguidos sem conseguir mirar: {why}")
+    @staticmethod
+    def _why_no_target(obs: BattleObservation) -> str:
+        snap = obs.snapshot
+        if snap is not None and not getattr(snap, "enemies", [1]):
+            return (f"{obs.wait_reason}: nenhum inimigo foi encontrado na tela (Calibração > Modelos: marcador de um "
+                    "inimigo, ou os alvos da instância em Calibração > Alvos)")
+        return (f"{obs.wait_reason}: os inimigos vistos não são alvos desta etapa (confira os alvos da instância em "
+                "Calibração > Alvos)")
+
+    def _lose_turn(self, turn: int, message: str, why: str, allow_fire: bool, limit: int | None = None):
+        """Seu turno sem disparo: avisa uma vez por turno; turnos seguidos assim pausam no automático.
+
+        Vale para mira impossível, leitura ruim, disparo cancelado e nenhum alvo na tela: antes, só a falta de
+        mira contava, e as outras causas se repetiam a cada turno sem pausar nem mudar a mensagem.
+        """
+        limit = limit or self.LOST_TURNS_PAUSE
+        if self._stuck_turn == turn:
+            if message != self._stuck_message:  # outro motivo no mesmo turno: diz, mas não conta de novo
+                self._stuck_message = message
+                self._emit("aviso", message)
+            return None
+        self._stuck_turn, self._stuck_message = turn, message
+        self._stuck_turns += 1
+        self._emit("aviso", message)
+        if self._stuck_turns >= limit and self.mode == Mode.AUTO and allow_fire:
+            n, self._stuck_turns = self._stuck_turns, 0
+            raise NeedsAttention(f"{n} turnos seus seguidos sem disparar: {why}")
         return None
+
+    def _cannot_aim(self, turn: int, why: str, allow_fire: bool):
+        """Seu turno, mas sem mira (personagem, inimigo ou régua)."""
+        return self._lose_turn(turn, f"seu turno, mas sem mira: {why}", why, allow_fire)
 
     def _emit(self, kind, message, **data):
         if kind == "aviso":
@@ -225,6 +304,8 @@ class CombatEngine:
         self._steady = None
         self._bad_reads = 0
         self._bad_since = None
+        self._noturn_since, self._noturn_warned = None, False
+        self._confirm, self._unconfirmed = None, 0  # a batalha acabou: o último disparo teve efeito
         old_gate, self.gate = self.gate, self._new_gate()  # o turno da batalha anterior não vale mais
         self.gate._last_shot = old_gate._last_shot  # o intervalo mínimo entre disparos continua valendo
         for part in (self.shooter, self.view):
@@ -254,15 +335,13 @@ class CombatEngine:
         self._over_candidate, self._over_reads = None, 0
         if not obs.in_battle:
             return None
-        if obs.my_turn is None:
-            self._turn_unreadable(allow_fire)
-        else:
-            self._noturn_since, self._noturn_warned = None, False
         prev_turn = self.gate.turn_id
         turn = self.gate.update(obs.my_turn)
         if turn != prev_turn:
             self._bad_reads = 0
             self._bad_since = None
+        self._check_shot_confirmed(allow_fire)
+        self._watch_turn(obs, allow_fire)
         if not self.gate.my_turn or not obs.my_turn:
             return None
         if obs.pause_reason:
@@ -273,6 +352,10 @@ class CombatEngine:
                 self._emit("aviso", obs.pause_reason)
             return None
         if obs.wait_reason:
+            if obs.target_missing:
+                # nenhum alvo da etapa na tela: antes esperava turno após turno até o limite da batalha, sem pausar
+                return self._lose_turn(turn, f"aguardando: {obs.wait_reason}", self._why_no_target(obs), allow_fire,
+                                       self.WAIT_TURNS_PAUSE)
             if self._recommended_turn != turn:
                 self._recommended_turn = turn
                 self._emit("aviso", f"aguardando: {obs.wait_reason}")
@@ -290,7 +373,10 @@ class CombatEngine:
             if decision.estimate is None and (seen is None or seen.last is None):
                 # nenhum alvo nesta batalha até agora: não é "alvo escondido", é inimigo não encontrado
                 return self._cannot_aim(turn, self._why_no_distance(obs), allow_fire)
-            if decision.decision in (Decision.WAIT, Decision.ASK_USER) or decision.estimate is None:
+            if decision.decision == Decision.ASK_USER:
+                why = f"alvo oculto: {decision.reason}"
+                return self._lose_turn(turn, why, why, allow_fire, self.WAIT_TURNS_PAUSE)
+            if decision.decision == Decision.WAIT or decision.estimate is None:
                 if self._recommended_turn != turn:
                     self._emit("aviso", f"alvo oculto: {decision.reason}", decisao=decision.decision.value)
                     self._recommended_turn = turn
@@ -312,7 +398,6 @@ class CombatEngine:
 
         if distance is None or distance <= 0:
             return self._cannot_aim(turn, self._why_no_distance(obs), allow_fire)
-        self._stuck_turns = 0
         # reaproveita o cálculo enquanto a leitura não muda de forma relevante no turno
         key = (turn, round(distance / 0.05), round((obs.wind or 0.0) / 0.1), round(obs.dy / 0.05),
                obs.wind is None, obs.high_arc)
@@ -328,6 +413,8 @@ class CombatEngine:
 
         if self.mode == Mode.AUTO and rec.best and allow_fire:
             self._auto_fire(rec, obs)
+        elif self.mode != Mode.AUTO and rec.best:
+            self._stuck_turns = 0  # mira assistida: a sugestão está na tela
         return rec
 
     def keep_steady(self, rec: Recommendation, turn: int) -> Recommendation:
@@ -352,7 +439,9 @@ class CombatEngine:
         min_p = float(self.config.get("thresholds.auto_min_hit_probability", 0.3))
         problem = None
         if obs.confidence < min_conf:
-            problem = f"confiança visual baixa ({obs.confidence:.2f} < {min_conf})"
+            # diz QUAL leitura está ruim (antes só o número, igual em todo turno): é o que o usuário recalibra
+            weak = f": {', '.join(obs.weak_reads)}" if obs.weak_reads else ""
+            problem = f"confiança visual baixa ({obs.confidence:.2f} < {min_conf}){weak}"
         elif rec.best.hit_probability < min_p:
             problem = f"probabilidade estimada baixa ({rec.best.hit_probability:.0%})"
         if problem:
@@ -364,8 +453,8 @@ class CombatEngine:
                 self._bad_since = now
             if self._bad_reads >= int(self.config.get("automation.bad_reads_per_turn", 3)) and \
                     now - self._bad_since >= float(self.config.get("automation.bad_read_seconds", 5.0)):
-                self._emit("aviso", f"{problem}; disparo não executado neste turno")
                 self.gate.mark_shot()
+                self._lose_turn(self.gate.turn_id, f"{problem}; disparo não executado neste turno", problem, True)
             return
         self._bad_since = None
         allowed, why = self.auto_allowed()
@@ -381,13 +470,16 @@ class CombatEngine:
         except Aborted as exc:
             if self.kill.triggered:
                 raise
-            self._emit("aviso", f"disparo cancelado: {exc}")
             self.gate.mark_done()
+            why = f"disparo cancelado: {exc}"
+            self._lose_turn(self.gate.turn_id, why, why, True)
             return
+        self._stuck_turns = 0
         # registra antes de esperar a animação: uma parada durante a espera não perde o disparo
         self.record(rec, obs, outcome, mode=Mode.AUTO.value)
         self._wait_after_shot()
         self.gate.mark_done()
+        self._confirm = (self.gate.turn_id, self.clock())  # o turno precisa passar (_check_shot_confirmed)
         stalled = self.planner.on_shot() if self.planner is not None else None
         if stalled:
             raise NeedsAttention(stalled)
