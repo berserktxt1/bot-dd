@@ -1,12 +1,80 @@
 # Andamento
 
-Última atualização: 2026-10-21. Versão: **0.5.1** (**JonFlow**, antes *DDClássico Bot*), mesclada em `main` e
-`develop` com a tag `v0.5.1` e **Release publicada pela CI**. Repositório: **`berserktxt1/bot-dd`** (público) (seção
-seguinte).
+Última atualização: 2026-10-21 (revisão do combate em `feature/combate-formigueiro`, ainda não mesclada).
+Versão: **0.5.1** (**JonFlow**, antes *DDClássico Bot*), mesclada em `main` e `develop` com a tag `v0.5.1` e
+**Release publicada pela CI**. Repositório: **`berserktxt1/bot-dd`** (público).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Revisão do combate automático (2026-10-21, branch `feature/combate-formigueiro`)
+
+Relato do usuário: o bot entra no Formigueiro, mas não começa a jogar sozinho. **Não houve acesso a logs nem a
+capturas do usuário.** O caminho do combate foi conferido no código, do reconhecimento da batalha até o fim dela, e
+cada estado em que o bot ficava parado foi reproduzido num teste que reprova o código da 0.5.1.
+
+### Causa principal (pela leitura do código)
+
+O combate só age quando o modelo **"Indicador de que é o seu turno"** casa na região do indicador
+(`Perception.read_turn`). Se o indicador é lido mas **nunca** passa do mínimo (0,80), a leitura é "não é o seu
+turno" (`False`), e não "ilegível" (`None`). A 0.5.1 só avisava no caso ilegível. Assim o bot ficava na batalha
+**sem fazer nada e sem dizer nada** até o limite da batalha (15 min), que é exatamente o sintoma relatado. Os
+outros bloqueios abaixo davam uma mensagem a cada turno, mas também nunca pausavam.
+
+### Onde o fluxo parava e o que mudou
+
+| Etapa | Problema na 0.5.1 | Correção |
+|---|---|---|
+| 2. Turno | indicador lido que nunca reconhece o seu turno: silêncio até 15 min | `CombatEngine._watch_turn`: avisa em 60 s com a semelhança e o mínimo ("semelhança do indicador de turno 0,55, mínimo 0,80") e pausa em 150 s no automático; recomeça a cada turno seu e a cada batalha |
+| 3–4. Alvo | com estratégia (Formigueiro), nenhum alvo da etapa na tela virava "aguardando" em todo turno, sem pausar | `Plan.missing` → `obs.target_missing`: pausa depois de 3 turnos seus, dizendo se nenhum inimigo foi achado ou se os vistos não são da etapa. Esperas legítimas (chefe imune, perto de quem não pode ser atingido) continuam só avisando |
+| 3. Leituras | "confiança visual baixa (0.00 < 0.7)" em todo turno, sem dizer qual leitura | `VisionBattleView` lista as leituras abaixo do mínimo (`weak_reads`: indicador de turno, seu personagem, alvo, vento, com o aviso do vento quando ele não foi lido); a mensagem diz qual, e 2 turnos seguidos sem disparar pausam |
+| 6. Disparo | disparo cancelado (ângulo não confirmado, direção sem tecla, turno acabou no ajuste) se repetia todo turno | conta como turno perdido: um aviso por turno e pausa no segundo seguido |
+| 7. Confirmação | nada conferia se o disparo aconteceu | `_check_shot_confirmed`: o turno precisa passar até 5 s depois da espera pós-disparo; senão avisa ("o jogo pode não ter recebido as teclas") e, no segundo disparo assim, pausa. Quando passa, o Histórico mostra "disparo confirmado" |
+| 8. Tela inesperada | tela desconhecida na batalha por 20 s → a recuperação clicava no X reconhecido (podia sair da batalha) | `NO_CLOSE_RECOVERY`: na batalha e no aviso de um jogador a recuperação pausa sem clicar |
+| Aviso de um jogador | com a permissão e sem o botão de confirmar capturado, a recuperação clicava no X, que **cancela** a ida | pausa explicando (mesma regra acima) |
+| Calibração | o marcador genérico de inimigo era obrigatório mesmo com a formiga e a rainha capturadas | `readiness.roles_cover_stages`: com os alvos de todas as etapas capturados, ele vira recomendação |
+
+Conferido no código e sem mudança: autorização explícita (`server_rules_confirmed`) antes de montar a rotina; F12
+pela `KillSwitch` em toda tecla e espera; um disparo por turno (`TurnGate`, marcado antes de executar); entrada só
+com o jogo e o teclado em foco (`FocusLost` pausa); SendInput recusado (`InputBlocked`) pausa; pausa da estratégia
+(`pause_reason`) no automático; fim de batalha só com 2 leituras iguais; botões pagos bloqueados. As mudanças só
+acrescentam pausas: nenhuma trava foi afrouxada.
+
+**Fluxo pelo Cais (conferido):** o perfil do catálogo usa `instance_room_flow` (lobby → `botao_cais` → Cais →
+`botao_criar_sala` → sala → `botao_escolher_instancia` → escolha → `instancia_formigueiro` + `dificuldade_facil` →
+sala → `botao_iniciar`), com `aviso_sozinho` → `confirmar_aviso`. Os modelos da Calibração correspondem a esse fluxo.
+
+### Pesquisa (detalhes em `docs/RESEARCH.md`)
+
+Nenhuma captura, modelo de imagem ou tabela de mira nova que possa ser reaproveitada. Entraram como fonte
+(`transcricoes_ddclassico_2026`) só fatos em texto: a narração de um jogador do DDClássico mostra o Formigueiro
+**Fácil e Normal** (10/10/2026) e cita miras para a rainha (30/70, 46/55, sem posição nem vento). As miras ficaram
+como referência no perfil, não como parâmetro.
+
+### Testes executados (2026-10-21)
+
+| Verificação | Onde | Resultado |
+|---|---|---|
+| `pyflakes src tools tests` | Linux (dev) | sem avisos |
+| `tests/test_combate_formigueiro.py` (16 testes novos) | Linux (dev) | 16 aprovados. Contra uma cópia da 0.5.1: 12 reprovam, que são os defeitos; 4 passam, que são as proteções mantidas |
+| pytest, suíte completa | Linux (dev, sem tela) | 325 aprovados, 7 pulados |
+| pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **336 aprovados, 4 pulados** (só Windows) |
+| `--simulate 25` | Linux (dev) | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.1) |
+| CI da 0.5.1 | GitHub Actions 39644308826 (`e2d2844`) | aprovada (seção seguinte). Esta revisão **ainda não passou pela CI** (Windows) |
+
+### Ainda não validado no jogo
+
+- **Nada desta revisão foi conferido no cliente real.** Não se sabe qual dos bloqueios acontece no PC do usuário:
+  com a nova versão, o Histórico vai dizer o motivo (e a pausa salva a tela em `dados\capturas`).
+- **Tempo do turno:** um jogador diz que o turno do DDClássico dura ~10 s. O disparo do bot (2 leituras do turno,
+  ajuste do ângulo com conferência na tela e até 3,33 s de carga) e a espera de até 5 s por leituras ruins podem
+  não caber num turno curto. Medir no jogo antes de mexer em `bad_read_seconds` e nos tempos.
+- A confirmação do disparo depende do relógio do turno: se o turno acabar sozinho em menos de ~9 s depois de
+  soltar a tecla, um disparo que não aconteceu pode aparecer como "confirmado".
+- Se o aviso de um jogador não for capturado, ele é lido como "sala" e a recuperação na sala ainda pode fechar o
+  aviso pelo X (uma vez, depois pausa). Capturar o aviso é recomendado na Calibração.
+- Os tempos de aviso e pausa (60/150 s sem turno, 3 turnos sem alvo, 2 turnos sem disparo) são escolhas, não medidas.
 
 ## Repositório novo e CI de volta (2026-10-21)
 
