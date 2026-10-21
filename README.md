@@ -150,8 +150,8 @@ escolhido. **Fazer agora** abre a página certa já com o item escolhido e captu
 
 > 💡 Ajuda para as regiões, na página **Regiões**: numa batalha, **Sugerir regiões** procura sozinho a barra de força,
 > o ângulo, o vento e a área de jogo; confira as sugestões e clique em **Usar as sugestões** (o que você já marcou não
-> é trocado). No seu turno, **Ângulo pelas teclas** aperta ↑ e ↓, vê onde o número mudou e marca a região do ângulo
-> (não atira).
+> é trocado). No seu turno, **Ângulo pelas teclas** aperta ↑ e ↓ (não atira), vê onde o número mudou e mostra essa
+> região na imagem; confira e clique em **Usar as sugestões** (nesse caso a região do ângulo é trocada).
 
 Depois, ligue as atividades ao menu do seu jogo:
 

@@ -4,6 +4,7 @@ Tudo aqui é simulação ou imagem sintética: prova a lógica (escolha da opç�
 quando a atividade não está no menu, pontuação, papéis a evitar), não o funcionamento no DDClássico.
 """
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -165,6 +166,9 @@ def test_readiness_explains_option_and_difficulty(home, monkeypatch):
         assert {"alvo_olimpiadas_bugou_balao_verde", "alvo_olimpiadas_bugou_juiz",
                 "alvo_olimpiadas_bugou_bugou_rival"} <= required_targets
         assert all(m.how for m in missing.values())  # cada pendência diz como fazer
+        # português: "Deixe o jogo na tela principal", e não "em a tela principal" (texto da 0.5.0 em desenvolvimento)
+        assert not [m.how for m in missing.values() if re.search(r"\bem (a|o|as|os) ", m.how)]
+        assert "Deixe o jogo na tela principal" in missing["tela Lobby"].how
     finally:
         svc.close()
 

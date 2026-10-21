@@ -24,18 +24,19 @@ from .vision.perception import REGION_KEYS, STATE_LABELS
 
 OPTIONAL_STATES = ("carregando", "etapa_concluida", "recompensa")
 
-# onde cada tela costuma ser vista (para dizer ao usuário quando capturar)
+# onde cada tela costuma ser vista (para dizer ao usuário quando capturar), já com a preposição:
+# "Deixe o jogo na tela principal" (e não "em a tela principal")
 STATE_HINTS = {
-    "lobby": "a tela principal, depois de entrar no jogo",
-    "menu_instancias": "o menu em que se escolhe a instância",
-    "menu_partidas": "o menu em que se escolhe a modalidade de partida",
-    "sala": "a sala de preparação, antes de iniciar",
-    "carregando": "a tela de carregamento da batalha",
-    "batalha": "uma batalha em andamento",
-    "vitoria": "a tela de vitória",
-    "derrota": "a tela de derrota",
-    "etapa_concluida": "o aviso de etapa concluída",
-    "recompensa": "a tela das cartas/recompensas",
+    "lobby": "na tela principal, depois de entrar no jogo",
+    "menu_instancias": "no menu em que se escolhe a instância",
+    "menu_partidas": "no menu em que se escolhe a modalidade de partida",
+    "sala": "na sala de preparação, antes de iniciar",
+    "carregando": "na tela de carregamento da batalha",
+    "batalha": "numa batalha em andamento",
+    "vitoria": "na tela de vitória",
+    "derrota": "na tela de derrota",
+    "etapa_concluida": "no aviso de etapa concluída",
+    "recompensa": "na tela das cartas/recompensas",
 }
 
 
@@ -50,8 +51,8 @@ class Missing:
 
 def _how_state(state: str) -> str:
     label = STATE_LABELS.get(state, state)
-    where = STATE_HINTS.get(state, f"a tela {label}")
-    return (f"Deixe o jogo em {where}, clique em Capturar tela do jogo, arraste sobre um pedaço que só "
+    where = STATE_HINTS.get(state, f"na tela {label}")
+    return (f"Deixe o jogo {where}, clique em Capturar tela do jogo, arraste sobre um pedaço que só "
             f"aparece nessa tela (um título ou botão fixo) e salve como \"Tela: {label}\".")
 
 
