@@ -90,6 +90,9 @@ class MainWindow:
         ax, ay, aw, ah = area or (0, 0, root.winfo_screenwidth(), root.winfo_screenheight() - px(48))
         # cabe na área de trabalho (sem a barra de tarefas), descontando borda e barra de título
         w, h = min(px(1220), aw - px(16)), min(px(800), ah - px(40))
+        # janela baixa (ex.: 1080p a 150%, só ~630 px lógicos de altura): listas pedem menos linhas para
+        # que as de baixo não fiquem sem espaço
+        self.compact = h / self.th.scale < 700
         root.geometry(f"{w}x{h}+{ax + max(0, (aw - w) // 2)}+{ay + max(0, (ah - h - px(32)) // 2)}")
         root.minsize(min(px(960), aw), min(px(600), ah - px(40)))
         self._build_top()
@@ -184,8 +187,10 @@ class MainWindow:
         acts.grid(row=1, column=0, sticky="nsew", pady=(gap, 0), padx=(0, gap))
         ab = acts.body
         ab.rowconfigure(0, weight=1)
-        self.tree_act = ttk.Treeview(ab, columns=("estado",), show="tree", selectmode="browse", height=9,
-                                     style="Activities.Treeview")
+        # em janela baixa pede uma linha a menos (cada linha a mais tira espaço do histórico); com mais
+        # atividades, a lista rola
+        self.tree_act = ttk.Treeview(ab, columns=("estado",), show="tree", selectmode="browse",
+                                     height=8 if self.compact else 9, style="Activities.Treeview")
         self.tree_act.column("#0", width=px(200), stretch=True)
         self.tree_act.column("estado", width=px(84), stretch=False, anchor="w")
         self.tree_act.tag_configure("secao", font=self.th.fonts["strong"], foreground=T.MUTED)
@@ -194,6 +199,9 @@ class MainWindow:
         self.tree_act.tag_configure("ausente", foreground="#B3261E")
         self.tree_act.tag_configure("vazio", foreground=T.MUTED)
         self.tree_act.grid(row=0, column=0, sticky="nsew")
+        sb_act = ttk.Scrollbar(ab, orient="vertical", command=self.tree_act.yview)
+        self.tree_act.configure(yscrollcommand=sb_act.set)
+        sb_act.grid(row=0, column=1, sticky="ns")
         self.tree_act.bind("<<TreeviewSelect>>", lambda e: self._on_activity_selected())
         self._chosen = None  # atividade escolhida (mantida ao recarregar a lista)
 
@@ -205,21 +213,23 @@ class MainWindow:
         self.lbl_desc = ttk.Label(b, text="", style="SurfaceMuted.TLabel", justify="left", wraplength=px(400))
         self.lbl_desc.grid(row=1, column=0, sticky="we", pady=(px(2), 0))
         self.lbl_state = ttk.Label(b, text="", style="Surface.TLabel", justify="left", wraplength=px(400))
-        self.lbl_state.grid(row=2, column=0, sticky="we", pady=(px(6), 0))
+        self.lbl_state.grid(row=2, column=0, sticky="we", pady=(px(4), 0))
         self.lbl_ready = ttk.Label(b, text="", style="SurfaceMuted.TLabel", justify="left", wraplength=px(400))
-        self.lbl_ready.grid(row=3, column=0, sticky="we", pady=(px(6), 0))
+        self.lbl_ready.grid(row=3, column=0, sticky="we", pady=(px(4), 0))
         # os textos acompanham a largura do painel (em telas baixas cada linha a mais tira espaço do histórico)
         b.bind("<Configure>", lambda e: [w.configure(wraplength=max(px(200), e.width - px(8)))
                                          for w in (self.lbl_desc, self.lbl_state, self.lbl_ready)], add="+")
         links = ttk.Frame(b, style="Surface.TFrame")
         links.grid(row=4, column=0, sticky="w", pady=(px(6), 0))
-        self.btn_goto_calib = ttk.Button(links, text="Ver pendências", command=self._goto_pending)
+        self.btn_goto_calib = ttk.Button(links, text="Ver pendências", style="Small.TButton",
+                                         command=self._goto_pending)
         self.btn_goto_calib.pack(side="left")
-        self.btn_avail = ttk.Button(links, text="Não aparece no meu jogo", command=self._toggle_availability)
+        self.btn_avail = ttk.Button(links, text="Não aparece no meu jogo", style="Small.TButton",
+                                    command=self._toggle_availability)
         self.btn_avail.pack(side="left", padx=(px(8), 0))
 
         runs = ttk.Frame(b, style="Surface.TFrame")
-        runs.grid(row=5, column=0, sticky="w", pady=(px(12), 0))
+        runs.grid(row=5, column=0, sticky="w", pady=(px(8), 0))
         self.run_mode = tk.StringVar(value="uma")
         self.run_count = tk.IntVar(value=5)
         ttk.Label(runs, text="Quantas vezes", style="Strong.TLabel").grid(row=0, column=0, sticky="w",
@@ -236,7 +246,7 @@ class MainWindow:
                         style="Surface.TRadiobutton").grid(row=0, column=4, sticky="w", padx=(px(10), 0))
 
         actions = ttk.Frame(b, style="Surface.TFrame")
-        actions.grid(row=6, column=0, sticky="w", pady=(px(12), 0))
+        actions.grid(row=6, column=0, sticky="w", pady=(px(8), 0))
         self.btn_start = ttk.Button(actions, text="Iniciar (F5)", style="Primary.TButton", command=self.start)
         self.btn_start.pack(side="left")
         self.btn_pause = ttk.Button(actions, text="Pausar (F6)", command=self.toggle_pause)
@@ -244,26 +254,29 @@ class MainWindow:
         self.btn_stop = ttk.Button(actions, text="Parar (F8)", style="Danger.TButton", command=self.stop)
         self.btn_stop.pack(side="left", padx=(px(8), 0))
 
-        # andamento: progresso e mira num painel só
+        # andamento: progresso e mira num painel só. Em telas baixas (1080p a 150%) cada linha a mais tira
+        # espaço do histórico: situação e barra dividem uma linha e cada contador tem o rótulo ao lado
         prog = Panel(t, self.th, None, pad="m")
         prog.grid(row=1, column=2, sticky="nsew", pady=(gap, 0))
         pb = prog.body
-        head = ttk.Frame(pb, style="Surface.TFrame")
-        head.grid(row=0, column=0, columnspan=2, sticky="we")
-        ttk.Label(head, text="Andamento", style="SurfaceSection.TLabel").pack(side="left")
-        self.lbl_progress = ttk.Label(pb, text="Nada em execução", style="Strong.TLabel")
-        self.lbl_progress.grid(row=1, column=0, columnspan=2, sticky="w", pady=(px(4), 0))
-        self.progress = ttk.Progressbar(pb, mode="determinate")
-        self.progress.grid(row=2, column=0, columnspan=2, sticky="we", pady=(px(6), px(6)))
+        ttk.Label(pb, text="Andamento", style="SurfaceSection.TLabel").grid(row=0, column=0, columnspan=2,
+                                                                           sticky="w")
+        line = ttk.Frame(pb, style="Surface.TFrame")
+        line.grid(row=1, column=0, columnspan=2, sticky="we", pady=(px(4), px(4)))
+        line.columnconfigure(1, weight=1)
+        self.lbl_progress = ttk.Label(line, text="Nada em execução", style="Strong.TLabel")
+        self.lbl_progress.grid(row=0, column=0, sticky="w", padx=(0, px(10)))
+        self.progress = ttk.Progressbar(line, mode="determinate")
+        self.progress.grid(row=0, column=1, sticky="we")
         self.counters = {}
         for i, (k, label) in enumerate((("concluidas", "concluídas"), ("vitorias", "vitórias"),
                                         ("derrotas", "derrotas"), ("batalhas", "batalhas"))):
             c = Counter(pb, self.th, label)
-            c.grid(row=3 + i // 2, column=i % 2, sticky="w", padx=(0, px(10)))
+            c.grid(row=2 + i // 2, column=i % 2, sticky="w", padx=(0, px(10)))
             self.counters[k] = c
         for i in range(2):
             pb.columnconfigure(i, weight=1)
-        ttk.Separator(pb).grid(row=5, column=0, columnspan=2, sticky="we", pady=px(8))
+        ttk.Separator(pb).grid(row=5, column=0, columnspan=2, sticky="we", pady=px(6))
         aim = ttk.Frame(pb, style="Surface.TFrame")
         aim.grid(row=6, column=0, columnspan=2, sticky="we")
         ttk.Label(aim, text="Mira", style="Strong.TLabel").grid(row=0, column=0, columnspan=3, sticky="w")
@@ -281,7 +294,7 @@ class MainWindow:
 
         hist = Panel(t, self.th, "Histórico", pad="m")
         hist.grid(row=2, column=0, columnspan=3, sticky="nsew", pady=(gap, 0))
-        t.rowconfigure(2, weight=1, minsize=px(110))  # ao menos algumas linhas visíveis
+        t.rowconfigure(2, weight=1, minsize=px(124))  # título, cabeçalho e ao menos duas linhas
         hb = hist.body
         hb.rowconfigure(0, weight=1)
         self.tree_hist = ttk.Treeview(hb, columns=("hora", "tipo", "msg"), show="headings", height=3)
@@ -313,14 +326,27 @@ class MainWindow:
         self.btn_capture.grid(row=0, column=0, sticky="we")
         self.lbl_sel = ttk.Label(s, text="Nenhuma seleção.", style="SurfaceMuted.TLabel")
         self.lbl_sel.grid(row=1, column=0, sticky="w", pady=(px(6), px(10)))
+        # seis páginas não cabem como abas na coluna (no Windows os nomes ficavam cortados): botões em duas
+        # linhas escolhem a página e o caderno, sem abas, só troca o conteúdo
+        pages = ttk.Frame(s, style="Surface.TFrame")
+        pages.grid(row=2, column=0, sticky="we")
+        for col in range(3):
+            pages.columnconfigure(col, weight=1, uniform="pages")
         sub = ttk.Notebook(s, style="Sub.TNotebook")
-        sub.grid(row=2, column=0, sticky="we")
+        sub.grid(row=3, column=0, sticky="we", pady=(px(2), 0))
         self.calib_nb = sub
+        self.calib_page = tk.StringVar()
+        self.calib_page_buttons: list[ttk.Radiobutton] = []
 
         def page(title, hint):
             f = ttk.Frame(sub, style="Surface.TFrame", padding=px(10))
             f.columnconfigure(0, weight=1)
             sub.add(f, text=title)
+            i = len(self.calib_page_buttons)
+            b = ttk.Radiobutton(pages, text=title, value=str(f), variable=self.calib_page,
+                                style="Segment.TRadiobutton", command=lambda: sub.select(f))
+            b.grid(row=i // 3, column=i % 3, sticky="we", padx=(0 if i % 3 == 0 else px(4), 0), pady=(0, px(4)))
+            self.calib_page_buttons.append(b)
             ttk.Label(f, text=hint, style="SurfaceMuted.TLabel", wraplength=px(320), justify="left").grid(
                 row=0, column=0, columnspan=2, sticky="w", pady=(0, px(8)))
             return f
@@ -443,17 +469,20 @@ class MainWindow:
         self.btn_role.grid(row=5, column=0, sticky="we", pady=(px(6), 0))
         self.lbl_strategy = ttk.Label(f, text="", style="SurfaceMuted.TLabel", wraplength=px(320), justify="left")
         self.lbl_strategy.grid(row=6, column=0, sticky="w", pady=(px(6), 0))
-        sub.bind("<<NotebookTabChanged>>", lambda e: (self._fill_strategy_page(), self._fill_pending()), add="+")
+        # o seletor acompanha as trocas feitas pelo código (Ver pendências, Fazer agora...)
+        sub.bind("<<NotebookTabChanged>>", lambda e: (self.calib_page.set(sub.select()), self._fill_strategy_page(),
+                                                      self._fill_pending()), add="+")
+        self.calib_page.set(str(self.page_pending))
 
-        ttk.Separator(s).grid(row=3, column=0, sticky="we", pady=px(14))
-        ttk.Label(s, text="Conferir os controles", style="SurfaceSection.TLabel").grid(row=4, column=0, sticky="w")
+        ttk.Separator(s).grid(row=4, column=0, sticky="we", pady=px(14))
+        ttk.Label(s, text="Conferir os controles", style="SurfaceSection.TLabel").grid(row=5, column=0, sticky="w")
         ttk.Label(s, text="No seu turno, aperta ↑ e depois ↓ e confere se o ângulo mudou. Não atira.",
-                  style="SurfaceMuted.TLabel", wraplength=px(300), justify="left").grid(row=5, column=0, sticky="w")
-        ttk.Button(s, text="Testar teclas do ângulo", command=self.test_controls).grid(row=6, column=0, sticky="we",
+                  style="SurfaceMuted.TLabel", wraplength=px(300), justify="left").grid(row=6, column=0, sticky="w")
+        ttk.Button(s, text="Testar teclas do ângulo", command=self.test_controls).grid(row=7, column=0, sticky="we",
                                                                                        pady=(px(6), 0))
-        ttk.Separator(s).grid(row=7, column=0, sticky="we", pady=px(14))
+        ttk.Separator(s).grid(row=8, column=0, sticky="we", pady=px(14))
         ttk.Button(s, text="Excluir a atividade capturada", style="Danger.TButton",
-                   command=self.delete_activity).grid(row=8, column=0, sticky="we")
+                   command=self.delete_activity).grid(row=9, column=0, sticky="we")
 
     # ------------------------------------------------------------- Diagnóstico
     def _build_diagnostics(self):
@@ -497,19 +526,25 @@ class MainWindow:
             row=3, column=0, columnspan=2, sticky="we", pady=(px(10), 0))
         opts = Panel(t, self.th, "Opções de disparo", "Ordenadas pela chance estimada de acerto.")
         opts.grid(row=0, column=1, sticky="nsew")
-        self.tree_aim = ttk.Treeview(opts.body, columns=("met", "ang", "for", "p", "base"), show="headings", height=7)
+        opts.body.rowconfigure(0, weight=1)
+        # as 7 opções inteiras; em janela baixa, 5 e a rolagem (senão a lista dos disparos ficava sem linhas)
+        self.tree_aim = ttk.Treeview(opts.body, columns=("met", "ang", "for", "p", "base"), show="headings",
+                                     height=5 if self.compact else 7)
         for col, text, w in (("met", "Método", 120), ("ang", "Ângulo", 64), ("for", "Força", 64),
                              ("p", "Chance", 70), ("base", "De onde vem", 400)):
             self.tree_aim.heading(col, text=text, anchor="w")
             self.tree_aim.column(col, width=px(w), stretch=col == "base", anchor="w")
         self.tree_aim.grid(row=0, column=0, sticky="nsew")
+        asb = ttk.Scrollbar(opts.body, orient="vertical", command=self.tree_aim.yview)
+        self.tree_aim.configure(yscrollcommand=asb.set)
+        asb.grid(row=0, column=1, sticky="ns")
         shots = Panel(t, self.th, "Disparos registrados",
                       "Marque o resultado dos disparos para a mira aprender com o seu jogo.")
         shots.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(px(12), 0))
         sb = shots.body
         sb.rowconfigure(0, weight=1)
         self.tree_shots = ttk.Treeview(sb, columns=("id", "ang", "for", "vento", "dist", "prev", "imp", "res", "met",
-                                                    "orig", "inst"), show="headings", height=7)
+                                                    "orig", "inst"), show="headings", height=5)
         for col, text, w in (("id", "#", 44), ("ang", "Ângulo", 60), ("for", "Força", 60), ("vento", "Vento", 60),
                              ("dist", "Alvo em", 70), ("prev", "Previsto", 70), ("imp", "Caiu em", 70),
                              ("res", "Resultado", 92), ("met", "Método", 80), ("orig", "Origem", 86),
@@ -864,6 +899,7 @@ class MainWindow:
         from ..readiness import summary
         missing = self.svc.readiness(d)
         req = summary(missing, limit=3)
+        first = summary(missing, limit=1)  # uma linha: a lista inteira, com instruções, fica em Ver pendências
         self._missing_required = req
         state, _ = self.svc.availability_of(d)
         if state in (MISSING, USER_OFF):
@@ -872,7 +908,7 @@ class MainWindow:
                                      "Calibração > Menu ou clique em Aparece no meu jogo.", style="SurfaceError.TLabel")
         elif req:
             n = sum(1 for m in missing if m.required)
-            self.lbl_ready.configure(text=f"Falta calibrar ({n}): {req}.", style="SurfaceError.TLabel")
+            self.lbl_ready.configure(text=f"Falta calibrar ({n}): {first}.", style="SurfaceError.TLabel")
         else:
             self.lbl_ready.configure(text="✓ Calibração completa para esta atividade.", style="SurfaceMuted.TLabel")
         self.btn_goto_calib.configure(text="Ver pendências" if req else "Conferir a calibração",

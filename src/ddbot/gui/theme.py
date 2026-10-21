@@ -147,13 +147,18 @@ class Theme:
                      font=f["button"], padding=pad)
         st.map("Danger.TButton", background=[("disabled", BG), ("active", "#FBEDEC")],
                foreground=[("disabled", "#C9A9A6")], bordercolor=[("disabled", LINE)])
-        # seletor de fluxo (Instâncias | Partidas)
-        st.configure("Segment.TRadiobutton", background=SURFACE, foreground=MUTED, font=f["button"],
-                     padding=(px(16), px(8)), indicatorsize=0, borderwidth=1, relief="flat")
+        # botão secundário baixo (atalhos dentro de painéis): cada pixel de altura conta em telas a 150%
+        st.configure("Small.TButton", padding=(px(10), px(4)))
+        # seletor das páginas da Calibração: botões com a moldura dos botões comuns, em linhas que quebram
+        # (seis abas não cabiam na coluna e os nomes ficavam cortados)
+        st.configure("Segment.TRadiobutton", background=SURFACE, foreground=MUTED, font=f["body"],
+                     padding=(px(6), px(5)), anchor="center", bordercolor=LINE, lightcolor=SURFACE,
+                     darkcolor=SURFACE, relief="raised")  # sem relevo o clam não desenha a moldura
         st.map("Segment.TRadiobutton", background=[("selected", "#DCE8F7"), ("active", "#F4F6F9")],
-               foreground=[("selected", "#123A69")])
-        st.layout("Segment.TRadiobutton", [("Radiobutton.padding", {"sticky": "nswe", "children": [
-            ("Radiobutton.focus", {"sticky": "nswe", "children": [("Radiobutton.label", {"sticky": "nswe"})]})]})])
+               foreground=[("selected", "#123A69")], bordercolor=[("selected", PRIMARY), ("focus", FOCUS)],
+               lightcolor=[("selected", "#DCE8F7")], darkcolor=[("selected", "#DCE8F7")],
+               font=[("selected", f["strong"])])
+        st.layout("Segment.TRadiobutton", st.layout("TButton"))
         st.configure("TRadiobutton", background=BG)
         st.configure("Surface.TRadiobutton", background=SURFACE)
         st.configure("TCheckbutton", background=BG)
@@ -168,9 +173,9 @@ class Theme:
                      font=f["body"])
         st.map("TNotebook.Tab", background=[("selected", SURFACE)], foreground=[("selected", INK)],
                font=[("selected", f["strong"])])
-        st.configure("Sub.TNotebook", background=SURFACE)
-        st.configure("Sub.TNotebook.Tab", background=SURFACE, padding=(px(10), px(5)))
-        st.map("Sub.TNotebook.Tab", background=[("selected", "#DCE8F7")])
+        # caderno sem abas: a página é escolhida pelo seletor (Segment.TRadiobutton)
+        st.configure("Sub.TNotebook", background=SURFACE, tabmargins=0)
+        st.layout("Sub.TNotebook.Tab", [])
         st.configure("Treeview", background=SURFACE, fieldbackground=SURFACE, foreground=INK,
                      rowheight=px(24), bordercolor=LINE, font=f["body"])
         st.configure("Treeview.Heading", background=BG, foreground=MUTED, font=f["small"], relief="flat",

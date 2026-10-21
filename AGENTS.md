@@ -67,13 +67,17 @@ Variáveis de ambiente: `DDBOT_HOME` (pasta de dados; os testes usam a fixture `
 `DDBOT_UI_SCALE`, `DDBOT_SELFTEST_OUT`, `DDBOT_SMOKE_OUT`.
 
 No Linux de desenvolvimento (Rocky 10) não há Xvfb: os testes de interface (`test_gui_smoke`,
-`tests/test_gui_selecao.py`) e as capturas rodam no container local `jonflow-ci` (Ubuntu 24.04, venv em
-`/venv`), copiando o repositório para dentro (a pasta `dados/` local não deve entrar nos testes):
+`tests/test_gui_selecao.py`, `tests/test_gui_layout.py`) e as capturas rodam no container local `jonflow-ci`
+(Ubuntu 24.04, venv em `/venv`). Use `--init` (sem ele o `xvfb-run`, como processo 1, pode esperar o Xvfb para
+sempre) e copie só as pastas do projeto (a pasta `dados/` local e a `.venv` não entram):
 
 ```bash
-docker run --rm -v "$PWD":/src:ro jonflow-ci bash -lc 'cp -r /src /tmp/w && cd /tmp/w && rm -rf dados && \
+docker run --rm --init -v "$PWD":/src:ro jonflow-ci bash -lc 'mkdir -p /tmp/w && cp -r /src/src /src/tests \
+  /src/data /src/config /src/assets /src/tools /src/packaging /src/docs /src/.github /src/README.md \
+  /src/requirements.txt /src/requirements-dev.txt /src/build_windows.bat /tmp/w/ && cd /tmp/w && \
   xvfb-run -a -s "-screen 0 1920x1080x24" /venv/bin/python -m pytest -q tests -rs'
-# capturas: DDBOT_UI_SCALE=1.5 DDBOT_HOME=/tmp/h xvfb-run ... /venv/bin/python -m ddbot --screenshots /out
+# capturas (direto de /src, só leitura): -e DDBOT_UI_SCALE=1.5 -e DDBOT_HOME=/tmp/h -e PYTHONPATH=/src/src
+#   -e PYTHONDONTWRITEBYTECODE=1 -v <pasta>:/out ... 'cd /src && xvfb-run ... /venv/bin/python -m ddbot --screenshots /out'
 ```
 
 O build do `.exe` só roda no Windows (`build_windows.bat`); a CI (`.github/workflows/windows-build.yml`) testa no
@@ -125,7 +129,11 @@ Para acompanhar a CI: `gh run list --limit 5`, `gh run view <id>`, `gh run view 
 - Dependências com versão fixa em `requirements*.txt`; actions da CI fixadas por SHA. Não adicione dependência sem
   necessidade clara.
 - Todo defeito corrigido ganha teste de regressão (ver `tests/test_audit_regressions.py`). Mudanças de interface
-  devem continuar cabendo em 1080p a 100/125/150% de escala.
+  devem continuar cabendo em 1080p a 100/125/150% de escala: a auditoria de `gui/screenshots.py` (texto e abas
+  cortados, painel que passa da borda, lista com menos de duas linhas) roda em `tests/test_gui_layout.py` e no
+  passo "Layout das capturas" da CI, que reprova. Revise também as capturas do Windows (Segoe UI): as do
+  container usam DejaVu e medem diferente. Em 1080p a 150% a janela tem só ~630 px lógicos de altura
+  (`MainWindow.compact`): cada linha a mais no Início tira espaço do Histórico.
 - Siga o estilo vizinho: `from __future__ import annotations`, `logging.getLogger(__name__)`, docstrings curtas.
 
 ## Git e versões

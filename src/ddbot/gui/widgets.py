@@ -90,11 +90,14 @@ class Readout(ttk.Frame):
 
 
 class Counter(ttk.Frame):
+    """Número grande com o rótulo ao lado, numa linha só (mais baixo que o rótulo embaixo)."""
+
     def __init__(self, master, th: T.Theme, label: str):
         super().__init__(master, style="Surface.TFrame")
         self.value = ttk.Label(self, text="0", style="Count.TLabel")
-        self.value.pack(anchor="w")
-        ttk.Label(self, text=label, style="SurfaceMuted.TLabel").pack(anchor="w")
+        self.value.pack(side="left")
+        ttk.Label(self, text=label, style="SurfaceMuted.TLabel").pack(side="left", anchor="s",
+                                                                      padx=(th.px(6), 0), pady=(0, th.px(5)))
 
     def set(self, n):
         self.value.configure(text=str(n))

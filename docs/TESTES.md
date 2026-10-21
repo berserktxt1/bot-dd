@@ -27,6 +27,7 @@ Para rodar: `python -m pytest -q tests` (com `PYTHONPATH=src`, ou pelo `build_wi
 | `test_autodetect.py` (0.5.0) | visão (imagens sintéticas) | sugestões da barra de força, do ângulo, do vento e da área de jogo (faixas dos dois lados); nada numa imagem vazia; ângulo pela diferença ao apertar a tecla (e nada quando a câmera anda) |
 | `test_mira_calibracao.py` (0.5.0) | unitário | correção robusta (dois disparos marcados errado não arrastam o viés); cenários não se misturam (modo da força, cliente); disparo novo com cenário, instância, dificuldade, etapa e alvo; banco antigo atualizado e disparos antigos fora da correção; ângulo estável no turno; espera inicial da barra somada ao tempo |
 | `test_gui_selecao.py` (0.5.0, precisa de tela) | interface | o Início lista as seis antes de conectar, com pendências e Iniciar desativado; página Pendências; fonte própria dos ícones da faixa; **seleção sem camada escura** (aviso pequeno, conta de novo com o mouse sobre ele, escolhe a janela sob o mouse); Apontar com o mouse esconde a janela Detectar jogo e a traz de volta para confirmar |
+| `test_gui_layout.py` (0.5.0, precisa de tela 1920×1080) | interface/regressão | a auditoria do layout pega abas espremidas, painel cortado por outro painel e lista sem espaço para duas linhas (antes só via texto cortado e o que saía da janela); a janela em 1080p a **100%, 125% e 150%** (escala simulada com `DDBOT_UI_SCALE`) não tem nada cortado no Início (sem jogo, demonstração, combate), nas abas Diagnóstico, Mira, Configurações e Registro e nas seis páginas da Calibração; os botões das páginas abrem a página certa e acompanham Ver pendências. Reprova a interface do `8dc8c79` (abas da Calibração cortadas em 100% e 125%; Histórico sem linhas em 150%). Numa tela menor é pulado |
 | `test_simulation_service.py` | cenário/regressão/interface | a calibração melhora a precisão; o `--simulate` não perde o 1º turno de cada batalha; inimigos invisíveis na simulação; serviço completo em modo simulado (iniciar, pausar, retomar e parar em menos de 3,5 s); recusas sem janela e sem autorização (isoladas da área de trabalho real: antes, num PC com o DDTank aberto, o bot conectava no jogo e a recusa vinha pelas regras); demonstração sem autorização nem janela; emergência e reinício; `--selftest` pela linha de comando; **teste de interface** `--gui-smoke` (precisa de tkinter: roda na CI Windows e na CI Linux com Xvfb) |
 
 ## Teste de interface (`--gui-smoke`)
@@ -43,7 +44,10 @@ e que, sem o modo demonstração e sem o jogo, o Iniciar fica desativado e há p
 janela: se passar de 1,5 s, a interface é considerada travada. O resultado vai para `DDBOT_SMOKE_OUT`.
 
 As capturas da CI (`capturas-da-interface`) incluem a janela Detectar jogo nos estados procurando, escolher e
-confirmar.
+confirmar. Cada escala gera um `<escala>_layout.json` com a auditoria do layout (`gui/screenshots.py`): texto
+cortado, abas espremidas, widget que passa da borda da janela ou do painel onde está e Treeview com menos de duas
+linhas inteiras. Desde a 0.5.0 a CI **reprova** se algum relatório tiver problema (passo "Layout das capturas"),
+com as fontes do Windows.
 
 ## Empacotamento
 
@@ -77,7 +81,9 @@ simulação, o ajuste robusto é um pouco menos eficiente; ele existe para dispa
 ## Rodar no Linux sem Xvfb instalado
 
 No Rocky Linux 10 (ambiente de desenvolvimento) não há pacote do Xvfb. Os testes de interface e as capturas
-rodam num container Ubuntu 24.04, igual ao runner da CI:
+rodam num container Ubuntu 24.04, igual ao runner da CI (use `docker run --init`: sem ele, o `xvfb-run` como
+processo 1 do container pode ficar esperando o Xvfb para sempre). A tela precisa ser de 1920×1080 para o
+`test_gui_layout.py` rodar (na CI também):
 
 ```bash
 docker run --rm -v "$PWD":/src:ro ubuntu:24.04 ...   # apt install python3-tk xvfb; pip install -r requirements*.txt
