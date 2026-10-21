@@ -1,11 +1,71 @@
 # Andamento
 
-Última atualização: 2026-10-20. Versão: **0.5.0** (**JonFlow**, antes *DDClássico Bot*), publicada pela tag
-`v0.5.0` (ver a primeira seção). A anterior é a 0.4.4.
+Última atualização: 2026-10-21. Versão publicada: **0.5.0** (**JonFlow**, antes *DDClássico Bot*). Em
+desenvolvimento: correções do uso real (caminho do Cais de Expedição, aviso de jogador sozinho, reconhecimento de
+telas e explicações do combate), na branch `feature/cais-aviso-diagnostico` (primeira seção).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Correções do primeiro uso no cliente real (2026-10-21, em desenvolvimento)
+
+Relato do usuário: muitas telas não são reconhecidas mesmo depois de calibrar; no Formigueiro, depois de Iniciar,
+o bot não joga e parece não fazer nada; aparece um aviso de instância difícil com um jogador e não há como confirmar
+nem calibrar isso. **Não houve acesso a logs nem capturas do usuário** (a pasta `dados` local é só da simulação):
+as causas abaixo vêm da leitura do código e de testes que as reproduzem, e da descrição do caminho no jogo.
+
+### Causas encontradas e correções
+
+| Problema | Causa | Correção |
+|---|---|---|
+| Telas não reconhecidas mesmo calibrando | **(1)** O caminho das instâncias no DDClássico é lobby → **Cais de Expedição** → **Criar sala** → sala → **escolher a instância dentro da sala** → Iniciar (informado pelo usuário; confirmado por um bot público do DDTank Brasil 3.6). A 0.5.0 esperava lobby → menu de instâncias → sala, e Calibração > Modelos **não tinha** as telas Cais de Expedição, escolha dentro da sala nem o aviso: não havia onde ensiná-las, e elas viravam "tela desconhecida". **(2)** Defeito na busca dos modelos: um modelo que memorizava uma escala errada (coincidência ≥ 0,80) nunca mais era procurado nas outras escalas depois que qualquer tela tinha sido reconhecida, até reabrir o programa | Telas novas `cais_expedicao` e `aviso_sozinho`; a escolha da instância e o aviso valem mais que a sala quando aparecem por cima dela; botões `botao_cais`, `botao_criar_sala`, `botao_escolher_instancia`, `botao_confirmar_aviso`. Fluxo das instâncias (catálogo e capturadas) com ações condicionais (`se`: `sem_escolha`/`com_escolha`): a cada ida o bot escolhe a instância na sala antes de Iniciar, mesmo que ela já esteja escolhida (nunca inicia outra). Busca de modelos: escala memorizada que falha volta à busca completa periodicamente |
+| Depois de Iniciar, nada acontece | Com o aviso aberto por cima, a tela seguia lida como "sala": o bot clicava de novo em Iniciar por baixo do aviso e, na "recuperação", clicava no X (fechar), que **cancela** o aviso. Com o JonFlow minimizado, por fora parecia parado. Na batalha, turno ilegível, personagem, inimigo ou régua não encontrados faziam o combate **não agir sem avisar** | Aviso tratado como tela própria (abaixo). Combate: turno ilegível avisa em 20 s e pausa em 60 s no automático; seu turno sem mira avisa o motivo (personagem, inimigo, régua) e pausa depois de dois turnos seguidos. Tela não reconhecida diz as telas calibradas mais parecidas e a nota ("mais parecidas: Lobby 0,62 … (mínimo 0,80)"), também no Diagnóstico (`telas_parecidas`) |
+| Aviso "instância difícil / um jogador" sem opção de confirmar | Não existia tela, botão nem regra para ele | Ação `confirmar_aviso`: sem permissão, **pausa** explicando, sem clicar em nada; o Início mostra **Confirmar o aviso e continuar**, que grava a permissão (`instances.confirm_solo_warning`, também em Configurações > Automação) e retoma **da mesma tela**, sem recomeçar. A permissão só vale para esse aviso reconhecido pelo modelo do usuário; não libera botões proibidos (teste) |
+| Força limitada a 98 | O teto vinha de um clone em que a barra volta a esvaziar perto do fim; o usuário informou que a força vai de 0 a 100 | Força recomendada até 100 (teste) |
+
+Também: `botao_ultima_fase`, `botao_tentar_novamente` e `carta_paga` (pagos em cupons nas instâncias, segundo um
+emulador) entraram na lista de proibidos; fatos do Formigueiro com fonte em `instances.json` (20 formigas na etapa 1,
+rainha que pune quem passa para a direita, 200 turnos por etapa, vida da rainha por dificuldade), classificados como
+de outra versão do jogo. Detalhes da pesquisa em `docs/RESEARCH.md` (seção de 2026-10-21).
+
+### Formigueiro Fácil e Normal: o que foi possível preparar
+
+- **Não foram encontradas capturas do DDClássico** nem modelos que possam ser distribuídos (os que existem são de
+  outro cliente, outra resolução ou sem licença, e os termos do DDClássico proíbem distribuir a arte do jogo). Por
+  isso **não há perfil pronto com imagens**: os modelos continuam sendo capturados pelo usuário, uma vez.
+- O que reduz o trabalho: Fácil e Normal usam **as mesmas capturas** (só muda o botão da dificuldade); as telas e
+  botões são os mesmos para todas as instâncias; as regiões têm sugestão automática; tudo fica salvo em `dados` e
+  é reaproveitado nas próximas execuções (não é preciso calibrar de novo enquanto a janela do jogo não mudar de
+  tamanho).
+- Física: a de um emulador (MIT) foi comparada com o modelo do JonFlow (diferença média de 0,4 da régua) e **não**
+  substituiu o modelo, porque nenhum dos dois foi medido no DDClássico.
+
+### Testes executados (2026-10-21)
+
+| Verificação | Onde | Resultado |
+|---|---|---|
+| `pyflakes src tools tests` | Linux (dev) | sem avisos |
+| pytest, suíte completa | Linux (dev, sem tela) | 308 aprovados, 7 pulados (antes dos dados de pesquisa); módulos alterados depois deles: aprovados |
+| pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **319 aprovados, 4 pulados** (só Windows), código final |
+| testes de interface e layout (`test_gui_layout.py`, `test_gui_selecao.py`) | container + Xvfb 1920×1080 | 10 aprovados (com o botão novo visível em 100/125/150%) |
+| `--simulate 25` | Linux (dev) | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.0) |
+| CI (Linux + Windows) | GitHub Actions | ver abaixo |
+
+### Onde parou
+
+- Branch `feature/cais-aviso-diagnostico` a partir de `develop`; CI ainda a conferir.
+- **Nada disto foi validado no cliente real.** Simulação e imagens sintéticas provam a lógica, não o jogo.
+
+### O que depende do usuário
+
+1. Baixar a versão com estas correções (quando publicada) e, em Calibração > Modelos, capturar as telas novas:
+   **Cais de Expedição**, **Escolha da instância** (a janela aberta dentro da sala; recorte um pedaço da janela,
+   não da sala atrás), **Aviso de instância difícil (um jogador)**, e os botões **do Cais** (lobby), **Criar sala**,
+   **o da sala que abre a escolha** e **confirmar do aviso**. A página Pendências lista tudo na ordem do jogo.
+2. Rodar o Formigueiro Fácil uma vez com o dedo no F12; se pausar, mandar `dados\logs\ddbot.log` e as imagens de
+   `dados\capturas` (o motivo e as notas das telas agora ficam no Histórico e no log).
+3. Conferir na batalha, pelo Diagnóstico, se o turno, o seu personagem, os inimigos, o vento e o ângulo são lidos.
 
 ## Versão 0.5.0 (2026-10-20): seis atividades prioritárias pré-cadastradas
 
