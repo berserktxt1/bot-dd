@@ -210,7 +210,8 @@ class CombatEngine:
         self._confirm = None
         self._unconfirmed += 1
         why = ("o disparo não foi confirmado: o turno continua seu depois dele. O jogo pode não ter recebido as teclas "
-               "(confira as teclas em Configurações e se o jogo está em foco; use Testar teclas do ângulo)")
+               "(confira as teclas em Configurações e se o jogo está em foco; use Calibração > Testar teclas do "
+               "ângulo)")
         self._emit("aviso", why)
         if self._unconfirmed >= self.UNCONFIRMED_PAUSE and self.mode == Mode.AUTO and allow_fire:
             self._unconfirmed = 0
