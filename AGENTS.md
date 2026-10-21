@@ -18,10 +18,10 @@ empacotado com PyInstaller.
   todos os testes usam simulação, imagens sintéticas ou janelas de teste. Não afirme que algo "funciona no jogo".
 - Andamento e pendências: [`PROGRESS.md`](PROGRESS.md). Pesquisa e fontes da física/mira:
   [`docs/RESEARCH.md`](docs/RESEARCH.md). O que cada teste cobre: [`docs/TESTES.md`](docs/TESTES.md).
-- **Estado em 2026-10-21:** a 0.5.0 está publicada (tag `v0.5.0`). As correções do primeiro uso real (caminho do
-  Cais de Expedição, aviso de jogador sozinho, reconhecimento e explicações do combate) estão na branch
-  `feature/cais-aviso-diagnostico`, sem merge: a CI não inicia por cobrança do GitHub Actions. Antes de continuar,
-  leia a primeira seção do `PROGRESS.md`.
+- **Estado em 2026-10-21:** a 0.5.1 (caminho do Cais de Expedição, aviso de jogador sozinho, reconhecimento e
+  explicações do combate) está em `main` e `develop` com a tag `v0.5.1`, testada só no Linux: a CI não inicia por
+  cobrança do GitHub Actions, então não há `.exe` nem Release da 0.5.1 (a última Release é a v0.5.0). Antes de
+  continuar, leia a primeira seção do `PROGRESS.md`.
 
 ## Idioma
 

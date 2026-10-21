@@ -1,7 +1,7 @@
 # Roteiro do primeiro teste no jogo real
 
-Para a versão **0.5.0** (seis instâncias cadastradas). Nada daqui foi validado ainda com o launcher e o cliente do
-DDClássico: este roteiro serve para descobrir **o que funciona e o que não funciona**. Faça na ordem e pare na
+Para a versão **0.5.1** (seis instâncias cadastradas, caminho pelo Cais de Expedição). Nada daqui foi validado
+ainda com o launcher e o cliente do DDClássico: este roteiro serve para descobrir **o que funciona e o que não funciona**. Faça na ordem e pare na
 primeira etapa que falhar: as seguintes dependem dela.
 
 **Regra geral:** se o bot fizer qualquer coisa que você não esperava, aperte **F12** (parada de emergência) e
@@ -10,7 +10,7 @@ disparos no mesmo turno, clique em loja, botão pago ou no launcher.
 
 ## 0. Baixar e conferir (5 min)
 
-1. Logado no GitHub (o repositório é privado), baixe `JonFlow.zip` dos *Assets* da Release v0.5.0 e extraia numa
+1. Logado no GitHub (o repositório é privado), baixe `JonFlow.zip` dos *Assets* da Release v0.5.1 e extraia numa
    pasta sua, por exemplo `C:\JonFlow` (não use *Arquivos de Programas*). Se já usava uma versão anterior, mantenha
    a pasta `dados`.
 2. Opcional: no PowerShell, `Get-FileHash JonFlow.zip` deve dar o mesmo valor do `SHA256SUMS.txt` da Release.
@@ -56,8 +56,8 @@ tem a instrução e **Fazer agora** abre a página certa. Para o primeiro teste,
 
 | Onde | O que capturar |
 |---|---|
-| Lobby / menu | modelos de tela do lobby e do menu de instâncias; botões de abrir instâncias, confirmar e iniciar; os botões de dificuldade **Fácil**, **Normal** e **Difícil** (uma vez para todas as instâncias) |
-| Menu de instâncias | página **Menu**: **Detectar opções**, escolha a opção de cada instância cadastrada que aparecer, diga em **Esta opção é** qual é (Formigueiro, Galinheiro ou Olimpíadas Bugou) e **Salvar opção**. Depois **Ver opções conhecidas nesta captura**: as que aparecem passam a "vista no menu" |
+| Lobby / Cais / sala | modelos de tela do lobby, do **Cais de Expedição**, da sala, da **escolha da instância** (um pedaço da janela que abre na sala, não da sala atrás) e do **aviso de instância difícil (um jogador)**; botões do **Cais** (no lobby), **Criar sala**, o da sala que abre a escolha, confirmar, Iniciar e o **confirmar do aviso**; os botões de dificuldade **Fácil**, **Normal** e **Difícil** (uma vez para todas as instâncias) |
+| Escolha da instância | numa sala criada pelo Cais, com a escolha aberta, página **Menu**: **Detectar opções**, escolha a opção de cada instância cadastrada que aparecer, diga em **Esta opção é** qual é (Formigueiro, Galinheiro ou Olimpíadas Bugou) e **Salvar opção**. Depois **Ver opções conhecidas nesta captura**: as que aparecem passam a "vista no menu" |
 | Batalha | regiões de ângulo, vento, barra de força, turno e área de jogo (teste também **Sugerir regiões** e **Ângulo pelas teclas** e anote se acertaram); marcadores do seu personagem, de um inimigo, do turno e das setas do vento; modelo da tela de batalha; os alvos da instância em **Alvos** |
 | Números | ângulo e vento: **Aprender** com vários valores até cobrir 0 a 9 |
 | Fim | modelos de etapa concluída, recompensa, vitória, derrota; botões continuar, sair, fechar e carta de recompensa |
@@ -87,17 +87,21 @@ oficial no DDClássico, se for o caso). Use uma conta e um horário em que perde
 1. No **Início**, na lista **Atividades**, escolha a instância e **Uma vez**. Ela deve estar "✓ pronta" e o painel
    deve dizer "✓ Calibração completa para esta atividade". Se faltar algo, **Ver pendências** diz o quê.
 2. Clique em **Iniciar (F5)** com o **dedo no F12** e acompanhe sem mexer no mouse.
-3. Confira: escolheu a **opção** e a **dificuldade** certas? Esperou o seu turno? Um disparo por turno? As etapas
+3. Confira o caminho: lobby → **Cais de Expedição** → **Criar sala** → escolha da instância na sala → Iniciar. Se o
+   jogo mostrar o aviso de **instância difícil para um jogador**, o bot deve **pausar sem clicar**; clique em
+   **Confirmar o aviso e continuar** no Início e confira se ele segue da mesma tela, sem recomeçar.
+4. Confira: escolheu a **opção** e a **dificuldade** certas? Esperou o seu turno? Um disparo por turno? As etapas
    anunciadas no **Histórico** batem com as do jogo? Reconheceu o fim de cada etapa e a recompensa? Voltou ao lobby
    e parou sozinho? Os tiros saem sempre fortes ou sempre fracos (tempo da barra: padrão 3,33 s + 0,06 s em
    Configurações > Força do disparo)?
-4. Se pausar, leia a faixa colorida e o **Histórico** antes de clicar em **Retomar (F6)**. Pausar quando não tem
-   certeza é o comportamento esperado.
+5. Se pausar, leia a faixa colorida e o **Histórico** antes de clicar em **Retomar (F6)**. Pausar quando não tem
+   certeza é o comportamento esperado. Numa tela não reconhecida, anote as "mais parecidas" e as notas que o
+   Histórico mostra.
 
 ## 7. Atividade que não está no menu (5 min)
 
 Escolha uma instância cadastrada que **não** aparece no seu menu (se o Formigueiro Fácil ou o Galinheiro Fácil não
-existirem) e clique em **Iniciar** com o dedo no F12. Esperado: o bot abre o menu, **pausa** com "… não foi
+existirem) e clique em **Iniciar** com o dedo no F12. Esperado: o bot abre a escolha da instância na sala, **pausa** com "… não foi
 encontrada no menu do jogo …" e **não clica em outra opção**; a atividade passa a "✕ não achada". Se todas
 existirem, pule este passo.
 
