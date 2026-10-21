@@ -1,11 +1,31 @@
 # Andamento
 
 Última atualização: 2026-10-21. Versão: **0.5.1** (**JonFlow**, antes *DDClássico Bot*), mesclada em `main` e
-`develop` com a tag `v0.5.1`, **sem `.exe`**: a CI não inicia por cobrança do GitHub Actions (seção seguinte).
+`develop` com a tag `v0.5.1`. Repositório: **`berserktxt1/bot-dd`** (público), onde a CI voltou a rodar (seção
+seguinte).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Repositório novo e CI de volta (2026-10-21)
+
+O repositório anterior continua com o GitHub Actions parado por cobrança. A pedido do usuário, o projeto foi enviado
+para o repositório **público `berserktxt1/bot-dd`**, onde os runners padrão não gastam cota:
+
+- antes do envio, o histórico foi reescrito numa cópia: os 106 commits e as 9 tags anotadas passaram a ter o autor
+  `berserktxt1` (datas e mensagens mantidas) e os links do README e de `test_audit_regressions.py` passaram a
+  apontar para `berserktxt1/bot-dd` em todas as versões. Antes disso, o histórico foi conferido: nenhum token,
+  chave ou caminho pessoal;
+- as tags antigas foram enviadas juntas (o GitHub não dispara a CI com mais de 3 tags num envio, então não saem
+  Releases de versões antigas) e a `v0.5.1` sozinha;
+- o repositório anterior (com a Release v0.5.0) ficou como está; no repositório local, `origin` é o novo;
+- o README já usa `releases/latest` do repositório novo, e os links abrem sem login (antes o repositório era privado).
+
+| Item | Estado |
+|---|---|
+| CI da tag `v0.5.1` | execução 39644308826 (commit `e2d2844` no histórico novo): **iniciou**, os dois jobs rodando (resultado a registrar) |
+| Release v0.5.1 | sai da CI se ela passar |
 
 ## Versão 0.5.1 (2026-10-21): merge sem a CI
 

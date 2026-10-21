@@ -10,7 +10,8 @@ disparos no mesmo turno, clique em loja, botão pago ou no launcher.
 
 ## 0. Baixar e conferir (5 min)
 
-1. Logado no GitHub (o repositório é privado), baixe `JonFlow.zip` dos *Assets* da Release v0.5.1 e extraia numa
+1. Baixe `JonFlow.zip` dos *Assets* da [Release v0.5.1](https://github.com/berserktxt1/bot-dd/releases/tag/v0.5.1)
+   (repositório público, não precisa de login) e extraia numa
    pasta sua, por exemplo `C:\JonFlow` (não use *Arquivos de Programas*). Se já usava uma versão anterior, mantenha
    a pasta `dados`.
 2. Opcional: no PowerShell, `Get-FileHash JonFlow.zip` deve dar o mesmo valor do `SHA256SUMS.txt` da Release.
