@@ -97,6 +97,54 @@ desenvolvimento: **0.5.0** na branch `feature/atividades-prioritarias`, **sem Re
   mas passa a usar a espera inicial de 0,06 s, que é um campo novo (Configurações > Força do disparo). A
   confirmar no cliente.
 
+### Defeitos de layout achados nas capturas do Windows (CI 39476307312) e corrigidos
+
+As capturas da interface que a CI tira no Windows (Segoe UI, 1920×1080, escala simulada com `DDBOT_UI_SCALE`)
+mostraram defeitos que a auditoria automática não acusava. Medidas no container (DejaVu, janela de 1830×948 em
+150%, como num PC 1080p a 150% com a barra de tarefas):
+
+| Defeito | Causa encontrada | Correção (commit `c47061c`) |
+|---|---|---|
+| Abas da Calibração cortadas ("Pendênc", "Regiõ", "Mer", "Alvc") em **100%, 125% e 150%** | Com a página Pendências, seis abas não cabiam na coluna de 390 px (pediam 446 px em 100% e 562 px em 125%); o ttk espreme as abas e corta os nomes. A auditoria só olhava labels e botões | As páginas são escolhidas por **botões em duas linhas** (`Segment.TRadiobutton`, com a moldura dos botões comuns); o caderno continua trocando o conteúdo, sem abas (layout `null`), e o seletor acompanha as trocas feitas pelo código (Ver pendências, Fazer agora) |
+| Em **1080p a 150%** o Histórico do Início ficava sem nenhuma linha (0,8 linha, cabeçalho cortado) | Na 0.5.0 o Início ganhou três colunas e o Andamento, mais estreito, empilhava os contadores em 2×2 com o rótulo embaixo e a situação numa linha própria: a linha de cima pedia 468–490 px, e a janela a 150% tem só ~630 px lógicos de altura. O grid corta o que não cabe | Andamento: situação e barra na mesma linha, contadores com o rótulo ao lado. Detalhes: espaçamentos menores, atalhos mais baixos (`Small.TButton`) e "Falta calibrar" numa linha (o primeiro item; a lista completa fica em Ver pendências). Atividades com barra de rolagem, pedindo 8 linhas em janela baixa. Mínimo do Histórico para o título, o cabeçalho e duas linhas. No container isso deu 2,5–2,8 linhas em 150%, mas **no Windows não bastou** (CI 39525965108: as linhas da Segoe UI são ~14% mais altas que as da DejaVu). Por isso, em janela baixa, a barra do topo, a faixa de estado, o espaço entre os painéis e as margens dos painéis do Início também ficam menores (commit `fab2d2a`): 4,2–4,5 linhas no container e, no Windows (diagnóstico 39527994935, Segoe UI), nada cortado em 100%, 125% e 150%, com 3 a 4 linhas visíveis no combate em 150% |
+| Lista dos disparos registrados (aba Mira) com menos de uma linha em 150% (**já era assim na 0.4.4**) | As opções de disparo pediam 7 linhas fixas | Em janela baixa (`MainWindow.compact`: menos de 700 px lógicos de altura, como 1080p a 150%) pedem 5, com rolagem; em 100% e 125% continuam as 7 |
+| Auditoria cega a esses casos | Só via texto cortado e widget fora da janela; e o `lookup` do ttk devolve tupla, que era lida como zero | `audit_layout` também acusa abas espremidas (largura natural das abas maior que o caderno), widget cortado pelo painel onde está e Treeview com menos de duas linhas inteiras; só o widget mais externo de cada corte é listado |
+
+Testes novos em `tests/test_gui_layout.py` (precisam de tela de 1920×1080; pulados em telas menores): a auditoria
+pega os três tipos de defeito; a janela em 100%, 125% e 150% não tem nada cortado no Início (sem jogo,
+demonstração e combate), nas abas e nas seis páginas da Calibração; os botões das páginas abrem a página certa.
+Com a interface do `8dc8c79` eles **reprovam** (abas 446 > 366 px em 100% e 562 > 458 px em 125%; Histórico com
+0,83 linha em 150%). A CI agora roda o Linux com tela de 1920×1080 e tem o passo **"Layout das capturas"**, que
+reprova se algum relatório de layout das capturas do Windows tiver problema.
+
+**Queda do processo de testes no Windows** (CI 39525965108, rodada em 125%, na primeira vez que os testes de layout
+rodaram lá): `Windows fatal exception: code 0x80000003`, o *panic* do Tcl. A pilha mostra a coleta de lixo rodando
+na thread de procura do jogo (`refresh_windows` → `auto_connect`) de uma janela de teste já fechada: ela liberou o
+interpretador Tk fora da thread que o criou. Uma primeira correção (esperar as threads e coletar o lixo na thread
+principal) trocou o problema por outro, visto no diagnóstico 39527994935: liberado no meio da sessão, o Tk criado
+em seguida às vezes não lia os próprios arquivos ("Can't find a usable init.tcl … couldn't read file … No error").
+Com as janelas guardadas vivas até o fim do processo (fixture `tk_cleanup`, `fab2d2a`), a queda sumiu, mas o Tk
+seguinte ainda falhou na CI 39528958704 (5º Tk do processo, sem nenhuma janela do JonFlow montada antes). Dois
+diagnósticos no Windows isolaram a causa:
+
+| Experimento | Resultado |
+|---|---|
+| 39529912761: fora do pytest, 12 `Tk()` por processo em 7 cenários (vivos, destruídos, coletados, com o tema e com a janela do JonFlow, 2 vezes cada) | **nenhuma falha** |
+| 39530194693: só os testes de interface, 4 vezes com a captura `fd` (padrão do pytest) e 4 com `sys` | nenhuma falha |
+| 39530426640: suíte completa, 2 vezes com `fd` e 2 com `sys` | `fd`: **1 de 2 falhou** ("Can't find a usable tk.tcl"); `sys`: 2 de 2 passaram |
+
+A captura `fd` troca os *handles* padrão do Windows a cada teste e fecha os anteriores; o Tcl guarda os canais
+padrão com esses *handles*, e a falha aparece quando a suíte inteira já abriu e fechou muitos arquivos antes. O
+`pytest.ini` novo fixa `--capture=sys` (vale para a CI, o `build_windows.bat` e quem roda localmente). Ficam as duas
+proteções: captura `sys` e janelas de teste vivas até o fim. **Só os testes eram afetados**: o programa abre um
+único Tk, que só é liberado na saída, e não troca os *handles* padrão.
+
+Também corrigido: as instruções das pendências diziam "Deixe o jogo **em a** tela principal" / "em o menu"
+(`readiness.STATE_HINTS` agora vem com a contração; commit `6fd3e2a`, com teste).
+
+A afirmação anterior deste arquivo ("nenhum texto cortado" nas capturas do container) valia só para o que a
+auditoria antiga olhava: as abas da Calibração já estavam espremidas também no container.
+
 ### As seis atividades prioritárias
 
 | Atividade | Perfil e etapas | No DDClássico (fontes lidas) | Simulação | Jogo real |
