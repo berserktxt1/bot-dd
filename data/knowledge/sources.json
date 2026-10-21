@@ -396,6 +396,15 @@
       "conteudo": "Caminho das instâncias: Central -> sala -> configurar o mapa -> instância -> dificuldade -> OK -> Início -> OK do aviso de jogador sozinho; Formigueiro com Fácil e Normal.",
       "aplicabilidade": "Provável antecessor do DDClássico (mesma empresa), sem prova; confirma o caminho informado pelo usuário em 2026-10-21.",
       "observacoes": "Sem licença: nenhuma imagem nem código aproveitados; só a ordem das telas."
+    },
+    {
+      "id": "transcricoes_ddclassico_2026",
+      "titulo": "Narração de vídeos de jogadores do DDClássico (Formigueiro e ângulo full)",
+      "url": "https://www.youtube.com/watch?v=WNv5GN-WxWI",
+      "data": "2026-08-31 e 2026-10-10",
+      "conteudo": "Legendas automáticas lidas em 2026-10-21. Japa MMORPGs (WNv5GN-WxWI, 10/10): o Formigueiro tem Fácil e Normal no DDClássico, entrada a partir do nível 8; na etapa 1 há formigas dos dois lados; na etapa 2 a rainha fica no alto e alterna entre chamar guardas e atirar uma flecha; mira citada para a rainha: 30/70 ('pega na cabeça') e 46/55 'dependendo do vento'. WallpaperTV (sUhF80tf3EI, 31/08): tiro alto 90 − distância ± 2 × vento com força 95; 20° com distância 10 = força 55; turno curto (~10 s, dito por ele).",
+      "aplicabilidade": "Evidência de jogador no próprio DDClássico: confirma que o Formigueiro Fácil existe e dá referências de mira sem posição nem vento. Nada foi medido.",
+      "observacoes": "Só a narração foi lida (nenhum quadro visto). Vídeos com licença padrão do YouTube: nenhuma imagem pode ser reaproveitada. A vida da rainha citada (~5.000 no Normal, 'chute') diverge do emulador (10.500)."
     }
   ]
 }

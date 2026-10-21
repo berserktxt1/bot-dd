@@ -7,7 +7,7 @@ de começar exatamente o que falta, onde capturar e como fazer (uma frase objeti
 Obrigatório: as telas em que o fluxo age (lobby, Cais de Expedição, sala, escolha, batalha, vitória, derrota),
 os botões que o fluxo precisa clicar (inclusive a opção da instância e o botão da dificuldade),
 e no combate o ângulo, o vento, o indicador de turno, as setas do vento e os marcadores dos
-personagens. Telas e botões opcionais (carregando, etapa concluída, recompensa, confirmar) só
+personagens (o de inimigo só é recomendado quando os alvos da instância cobrem todas as etapas). Telas e botões opcionais (carregando, etapa concluída, recompensa, confirmar) só
 entram como recomendação.
 
 Com uma estratégia de instância, os alvos (rainha, Barão...) e os estados (escudo, pavio)
@@ -119,13 +119,17 @@ def check(d: ActivityDef, has_template, config, angle_trained: bool, wind_traine
                                "Com a região do vento salva (só os números, sem a seta), digite o vento que "
                                "aparece e clique em Aprender. Repita em turnos diferentes até cobrir de 0 a 9.",
                                "wind"))
+        roles_cover = profile is not None and roles_cover_stages(profile, has_template)
         for who, tpl, label in (("self", "marcador_eu", "marcador do seu personagem"),
                                 ("enemy", "marcador_inimigo", "marcador de um inimigo")):
             mode = g(f"markers.{who}.mode", "template")
             ok = (bool(g(f"markers.{who}.hsv_low")) and bool(g(f"markers.{who}.hsv_high"))) if mode == "color" \
                 else has_template(tpl)
             if not ok:
-                out.append(Missing(label, "Calibração > Modelos", True,
+                # com os alvos da instância capturados para todas as etapas (formiga e rainha, por exemplo), o
+                # marcador genérico não é preciso para achar os inimigos: fica só como recomendação
+                needed = not (who == "enemy" and roles_cover)
+                out.append(Missing(label, "Calibração > Modelos", needed,
                                    f"Numa batalha, capture a tela, arraste sobre a marca (seta ou nome) acima do "
                                    f"personagem e salve como \"{COMMON_TEMPLATES[tpl]}\".", tpl))
         for tpl in ("vento_esquerda", "vento_direita"):  # sem o sentido, o vento lido não é usado
@@ -149,6 +153,15 @@ def check(d: ActivityDef, has_template, config, angle_trained: bool, wind_traine
             seen.add(m.label)
             uniq.append(m)
     return uniq
+
+
+def roles_cover_stages(profile, has_template) -> bool:
+    """Toda etapa da estratégia tem pelo menos um alvo com papel (não genérico) cujo modelo foi capturado."""
+    for st in profile.stages:
+        roles = [r for r in st.targets if r in profile.roles and r not in st.ignore]
+        if not any(has_template(profile.role_template(r)) for r in roles):
+            return False
+    return bool(profile.stages)
 
 
 def summary(missing: list[Missing], limit: int = 5) -> str:

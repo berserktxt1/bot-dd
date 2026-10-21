@@ -52,6 +52,8 @@ CONDITIONS = ("sem_escolha", "com_escolha")
 CLICKS = ("clicar", "clicar_opcional", "confirmar_aviso")  # ações que clicam num modelo
 # aviso do jogo ao iniciar sozinho uma instância difícil: só é confirmado com a permissão do usuário
 SOLO_WARNING = "aviso_sozinho"
+# telas em que a recuperação não clica no X: pausa e explica
+NO_CLOSE_RECOVERY = ("batalha", SOLO_WARNING)
 
 
 def is_selection(template: str | None) -> bool:
@@ -811,6 +813,9 @@ class ActivityRunner:
         """
         key = (self.current_state, why)  # sem ``detail``: as notas mudam a cada leitura
         if self._recovery_attempts.get(key, 0) >= 1:
+            return self._pause_for_user(why + detail)
+        if self.current_state in NO_CLOSE_RECOVERY:
+            # na batalha um X pode ser o de sair dela; no aviso de um jogador, o X cancela a ida à instância
             return self._pause_for_user(why + detail)
         self._recovery_attempts[key] = self._recovery_attempts.get(key, 0) + 1
         if self.actor.click("botao_fechar", screen.frame) is True:

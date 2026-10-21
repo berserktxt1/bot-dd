@@ -308,6 +308,7 @@ class Plan:
     high_arc: bool = False             # só tiro alto (estado "so_por_cima")
     pause: str | None = None           # pedir intervenção
     hidden_role: str | None = None     # o alvo seguido sumiu: espera por ele (invisibilidade)
+    missing: bool = False              # nenhum alvo da etapa na tela (o combate conta os turnos assim e pausa)
 
 
 class StrategyPlanner:
@@ -480,7 +481,7 @@ class StrategyPlanner:
         if best is None:
             why = ("os alvos que somam pontos estão colados nos que tiram (ou num alvo a evitar): aguardando"
                    if blocked else f"nenhum alvo que some pontos visível na etapa {st.name}")
-            return Plan(stage=st, reason=why)
+            return Plan(stage=st, reason=why, missing=not blocked)
         name = self.p.roles[best.kind].name
         return Plan(best, best.kind, st, f"etapa {st.name}: {name} ({best_total:+g} pontos esperados)")
 
@@ -575,7 +576,7 @@ class StrategyPlanner:
         if immune:
             names = sorted({self.p.roles[e.kind].name for e in immune if e.kind in self.p.roles})
             return Plan(stage=st, reason=f"{', '.join(names) or 'alvo'} imune agora: aguardando")
-        return Plan(stage=st, reason=f"nenhum alvo da etapa {st.name} visível")
+        return Plan(stage=st, reason=f"nenhum alvo da etapa {st.name} visível", missing=True)
 
 
 def apply_plan(obs, plan: Plan):
@@ -587,4 +588,5 @@ def apply_plan(obs, plan: Plan):
         obs.notes.append(plan.reason)
     if plan.target is None and plan.hidden_role is None and not plan.pause:
         obs.wait_reason = plan.reason or "nenhum alvo da etapa"
+        obs.target_missing = plan.missing
     return plan.target
