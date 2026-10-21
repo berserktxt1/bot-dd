@@ -7,6 +7,10 @@ partidas e instâncias PvE do DDTank no servidor DDClássico**. Você escolhe o 
 bot entra na atividade, mira, atira, passa as etapas, reconhece vitória e derrota e recomeça quantas vezes você
 pedir.
 
+Seis instâncias já vêm cadastradas, com estratégia própria: **Formigueiro** (Fácil e Normal), **Galinheiro**
+(Fácil, Normal e Difícil) e **Olimpíadas Bugou** (Normal). Outras instâncias e partidas você acrescenta capturando
+o menu do seu jogo.
+
 ### Baixar (última versão)
 
 | Arquivo | Link direto |
@@ -88,9 +92,9 @@ aparece porque o programa não tem assinatura digital.
 
 ### Passo 2 — Experimentar sem o jogo (opcional, recomendado)
 
-Quer conhecer o programa antes de configurar? Marque **Modo demonstração**, no canto superior direito, e clique em
-**Iniciar**. Aparecem o Formigueiro, o Galinheiro e o Castelo de Bugou (Normal) simulados, além de uma instância e
-uma partida de demonstração.
+Quer conhecer o programa antes de configurar? Marque **Modo demonstração**, no canto superior direito. Na lista
+**Atividades** as seis instâncias aparecem marcadas como **▶ demo**, mais uma partida de demonstração: escolha uma e
+clique em **Iniciar**.
 
 Nesse modo **nada é enviado ao jogo**: a faixa no alto diz "Demonstração" e os resultados são de um jogo simulado,
 não do DDClássico. Desmarque quando for usar o jogo de verdade.
@@ -103,11 +107,15 @@ não do DDClássico. Desmarque quando for usar o jogo de verdade.
 
 | O que está aberto | O que o bot faz |
 |---|---|
-| O jogo | Conecta e mostra a prévia. |
+| O jogo | Conecta e mostra a prévia. Confira e clique em **Pronto**. |
 | Só o launcher | Avisa e **espera**: entre no jogo pelo launcher e ele conecta quando o jogo aparecer. |
-| Algo que ele não tem certeza | Pergunta: **Sim, é o jogo** ou **Não, é o launcher**. |
-| Várias janelas parecidas | Mostra a lista com prévias para você escolher. |
-| Nada encontrado | Use **Mostrar onde está o jogo**: a tela escurece e você clica sobre o jogo (o clique não chega ao jogo; Esc cancela). |
+| Algo que ele não tem certeza | Mostra a prévia e pergunta: **Sim, é o jogo**, **É o launcher** ou **Não é esta**. |
+| Várias janelas parecidas | Mostra as prévias lado a lado: clique na que mostra o jogo, confira a imagem grande e clique em **Usar esta janela**. |
+| Nada encontrado | Clique em **Escolher pela imagem**: aparecem as janelas abertas, cada uma com a prévia, as mais prováveis primeiro. Escolha a do jogo e clique em **Usar esta janela**. |
+
+Se nem assim der certo, use **Apontar com o mouse**: a janela do Detectar jogo sai da frente e um aviso pequeno, no
+canto da tela, conta 3 segundos. Deixe o mouse parado sobre o jogo (não precisa clicar: nada é enviado ao jogo) e a
+janela volta com a prévia para você confirmar. A tela não escurece e nada fica por cima do jogo.
 
 Pronto: daqui em diante o bot reencontra o jogo sozinho, mesmo se você fechar e abrir de novo pelo launcher.
 
@@ -122,29 +130,44 @@ a área interna onde o jogo é desenhado, o programa que você confirmou da últ
 ### Passo 4 — Ensinar o bot a enxergar (calibração)
 
 Deixe a janela do jogo **num tamanho fixo** (se mudar o tamanho depois, refaça as capturas). Vá à aba
-**Calibração** e clique em **Capturar tela do jogo**. Em cada item abaixo: **arraste o mouse sobre a imagem** para
-marcar a área e salve.
+**Calibração**. À direita ficam o botão **Capturar tela do jogo** e seis páginas, escolhidas pelos botões logo
+abaixo dele: **Pendências**, **Regiões**, **Modelos**, **Números**, **Menu** e **Alvos**. Em cada item: capture a
+tela, **arraste o mouse sobre a imagem** para marcar a área e salve.
+
+**O caminho mais fácil é seguir as Pendências.** No Início, escolha a atividade e clique em **Ver pendências**. A
+página **Pendências** lista tudo o que falta para ela (os obrigatórios em vermelho) e, embaixo, como fazer o item
+escolhido. **Fazer agora** abre a página certa já com o item escolhido e captura a tela, se ainda não houver imagem.
 
 | O que capturar | Exemplos | Para que serve |
 |---|---|---|
 | **Regiões** | número do ângulo, vento, barra de força, indicador de turno, área de jogo | Dizer ao bot **onde** olhar na tela. |
 | **Modelos de tela** (`estado_...`) | lobby, menu de instâncias, menu de partidas, sala, carregando, batalha, etapa concluída, recompensa, vitória, derrota, desconectado | Saber **em que tela** o jogo está. Capture um pedaço que só aparece naquela tela. |
-| **Botões** | abrir instâncias, abrir partidas, confirmar, iniciar, continuar, sair, fechar (X), carta de recompensa | Saber **onde clicar**. |
+| **Botões** | abrir instâncias, abrir partidas, confirmar, iniciar, continuar, sair, fechar (X), carta de recompensa e os botões de dificuldade **Fácil**, **Normal** e **Difícil** | Saber **onde clicar**. Cada botão de dificuldade é capturado uma vez e serve para todas as instâncias. |
 | **Marcadores** | seu personagem, um inimigo, indicador de turno, setas do vento | Achar **quem é quem** na batalha e o sentido do vento. |
 | **Números** | ângulo e vento | Ler os **valores**. Marque o número, digite o valor que aparece e clique em **Aprender**. Repita com valores diferentes até cobrir os dígitos de 0 a 9. |
 
-> 💡 No **vento**, marque **só os números**, sem a seta. O sentido vem das setas que você salvou em Marcadores.
+> 💡 No **vento**, marque **só os números**, sem a seta. O sentido vem das setas que você salvou em Modelos.
 
-Depois, monte a lista do que jogar:
+> 💡 Ajuda para as regiões, na página **Regiões**: numa batalha, **Sugerir regiões** procura sozinho a barra de força,
+> o ângulo, o vento e a área de jogo; confira as sugestões e clique em **Usar as sugestões** (o que você já marcou não
+> é trocado). No seu turno, **Ângulo pelas teclas** aperta ↑ e ↓ (não atira), vê onde o número mudou e mostra essa
+> região na imagem; confira e clique em **Usar as sugestões** (nesse caso a região do ângulo é trocada).
 
-1. **Opções do menu.** No jogo, abra o menu de instâncias (ou de partidas). No JonFlow, capture a tela e clique em
-   **Detectar opções**. Escolha cada opção, dê um nome, escolha o tipo e a categoria e clique em
-   **Criar atividade**. Só aparece no Início o que o seu jogo realmente mostra.
-2. **Alvos das instâncias com estratégia** (Formigueiro, Galinheiro, Castelo do Reino de Bugou — Normal). Se o
-   nome que você deu contém o nome da instância, a estratégia dela é escolhida sozinha (o Histórico avisa).
-   Confira em Calibração > **Alvos**. Numa batalha dessa instância, capture cada alvo (rainha, formiga, frango,
-   Barão, Midas...) e cada estado especial (escudo do Barão, escudo do Midas, pavio do Matias). Sem essas imagens,
-   o bot mira em qualquer inimigo visível e avisa.
+Depois, ligue as atividades ao menu do seu jogo:
+
+1. **Opções do menu (página Menu).** No jogo, abra o menu de instâncias. No JonFlow, capture a tela e clique em
+   **Detectar opções**. Escolha uma opção na lista e diga em **Esta opção é** o que ela é:
+   - **Formigueiro**, **Galinheiro** ou **Olimpíadas Bugou**: a atividade cadastrada passa a usar essa captura (uma
+     captura serve para todas as dificuldades da instância);
+   - **Outra instância (nova atividade)** ou **Uma partida (nova atividade)**: dê um nome e a categoria. A partida
+     aparece no Início em **Partidas automáticas**.
+
+   Clique em **Salvar opção**. **Ver opções conhecidas nesta captura** marca as atividades cuja opção aparece no seu
+   menu ("vista no menu").
+2. **Alvos (página Alvos).** Numa batalha da instância, capture cada alvo (rainha, formiga, pintinho, chefe...) e
+   cada estado especial, 2 ou 3 amostras de cada. As dificuldades da mesma instância usam as mesmas capturas. Sem
+   essas imagens, o bot mira em qualquer inimigo visível e avisa. Nas **Olimpíadas Bugou** elas são obrigatórias
+   (balão verde, Bugou do time rival e juiz): sem elas, o bot pausa nessas etapas em vez de atirar.
 
 ### Passo 5 — Conferir o que o bot enxerga
 
@@ -161,10 +184,21 @@ modo automático e clique em **Salvar**. Sem essa autorização o bot não joga 
 
 Na aba **Início**:
 
-1. Em **O que jogar**, escolha **Instâncias** ou **Partidas automáticas** e a atividade na lista.
-   Logo abaixo aparece **o que ainda falta calibrar** (por exemplo "tela Lobby, números do vento"), com um atalho
-   para a Calibração.
-2. Em **Quantas vezes**, escolha **Uma vez**, **Repetir N vezes** ou **Até eu parar**.
+1. Na lista **Atividades**, escolha a atividade. Ela tem duas seções, **Instâncias** e **Partidas automáticas**, e
+   as seis instâncias cadastradas aparecem sempre, mesmo antes de conectar o jogo. Ao lado de cada uma aparece o
+   estado:
+
+   | Estado | Quer dizer |
+   |---|---|
+   | **✓ pronta** | A calibração está completa. Com o jogo conectado, pode iniciar. |
+   | **! calibrar** | Falta calibrar algo. O painel ao lado mostra o primeiro item; **Ver pendências** mostra a lista. |
+   | **✕ não achada** | O bot procurou a opção no menu do seu jogo e não achou. |
+   | **✕ indisponível** | Você marcou **Não aparece no meu jogo**. |
+   | **▶ demo** | Modo demonstração: roda no jogo simulado. |
+
+   O painel ao lado mostra a estratégia, se o jogo está conectado, se a atividade já foi vista no seu menu e o
+   que ainda falta calibrar.
+2. Em **Quantas vezes**, escolha **Uma vez**, **Repetir** (e o número de vezes) ou **Até eu parar**.
 3. Clique em **Iniciar** (F5).
 
 Durante a rotina a janela do JonFlow se minimiza para não cobrir o jogo e volta sozinha quando a rotina pausa,
@@ -174,8 +208,8 @@ Como acompanhar:
 
 - A **faixa colorida no alto** diz o que o bot está fazendo e, quando precisa de você, o que fazer (sempre com
   ícone e texto, não só cor).
-- **Progresso**: concluídas, vitórias, derrotas e batalhas. **Mira**: ângulo, força e vento durante o combate.
-- **Histórico**: partidas, resultados, avisos e erros.
+- **Andamento**: concluídas, vitórias, derrotas e batalhas. **Mira**: ângulo, força e vento durante o combate.
+- **Histórico**: etapas, partidas, resultados, avisos e erros.
 
 ## Teclas de atalho
 
@@ -203,24 +237,47 @@ no jogo fica bloqueado.
 | Pede a imagem à própria janela do jogo, mesmo com outra janela por cima. | Ler a janela errada: se o jogo não permitir e outra janela cobrir o jogo, pausa e avisa. |
 | Para e avisa se o jogo desconectar. | Fazer login sozinho. |
 
-**Instâncias com estratégia própria** (Formigueiro, Galinheiro, Bugou Normal): o bot anuncia cada etapa no
-Histórico e escolhe o alvo certo (só a rainha no fim do Formigueiro; o mais perto no Galinheiro). No Castelo de
-Bugou, não atira no Barão de frente com escudo, usa só tiro por cima no Midas com escudo e **pausa** quando o Matias
-acende o pavio (só o gelo resolve, e o bot não usa itens). Se disparar várias vezes numa etapa sem diminuir os
-inimigos, pausa e pede para você conferir. As etapas vêm de guias de jogadores de 2012–2017 e **não foram
-confirmadas no DDClássico** (veja [`docs/RESEARCH.md`](docs/RESEARCH.md)). As demais instâncias ainda não têm
-estratégia própria.
+**As seis instâncias cadastradas têm estratégia própria.** O bot anuncia cada etapa no Histórico e escolhe o alvo
+certo:
+
+| Instância | O que o bot faz |
+|---|---|
+| **Formigueiro** (Fácil, Normal) | Formigas primeiro (onde há mais delas juntas), depois só a rainha. |
+| **Galinheiro** (Fácil, Normal, Difícil) | O inimigo mais perto primeiro (eles avançam até você); as etapas mudam com a dificuldade (pintinhos, galos e galinhas, construção, chefe e gaiola). |
+| **Olimpíadas Bugou** (Normal) | Nos balões, mira onde a explosão soma mais pontos e **nunca** num balão verde (tira pontos); na corrida, os Bugous do time rival; contra o Boxiador, **nunca** atira perto do juiz. O bot não acorda o juiz: se quiser fazer isso, faça você com a rotina pausada. |
+
+- A etapa vale pelo que aparece na tela: se o chefe de uma etapa ainda está lá, o bot não passa para a próxima.
+- Se a opção da instância ou o botão da dificuldade **não aparecer no menu do seu jogo**, o bot **pausa** e avisa que
+  não encontrou: ele **nunca escolhe outra atividade** no lugar. A atividade passa a "✕ não achada".
+- Se disparar várias vezes numa etapa sem diminuir os inimigos, pausa e pede para você conferir.
+- As etapas vêm de guias de jogadores (2011–2017), notícias oficiais do DDClássico e vídeos, e **não foram
+  conferidas no jogo** (veja [`docs/RESEARCH.md`](docs/RESEARCH.md)). Não há notícia oficial do Formigueiro Fácil
+  nem do Galinheiro Fácil: se eles não existirem no seu jogo, clique em **Não aparece no meu jogo**.
+- O **Castelo do Reino de Bugou** (outra instância, diferente das Olimpíadas) saiu da lista principal, mas a
+  estratégia dele continua valendo para uma atividade capturada pelo menu. As demais instâncias ainda não têm
+  estratégia própria: o bot mira o inimigo visível.
 
 ## Melhorar a mira
 
-Cada disparo fica registrado na aba **Mira e disparos**. Quanto mais você informar, melhor ele mira:
+Cada disparo fica registrado na aba **Mira e disparos**, com a instância, a dificuldade, a etapa, o alvo e o
+**cenário** (o jeito de controlar a força e o programa do jogo). Quanto mais você informar, melhor ele mira:
 
-1. Marque **Acertou** ou **Errou**, ou digite onde o tiro caiu.
-2. Com **3 disparos** medidos, o bot já corrige o erro que se repete.
-3. Com **15 ou mais**, clique em **Reajustar modelo** para recalcular as constantes físicas.
+1. Escolha o disparo na tabela e marque **Acertou** ou **Errou**, ou digite em **Caiu na distância** onde o tiro
+   caiu e clique em **Salvar**.
+2. Com **3 disparos** medidos, o bot já corrige o erro que se repete. Só contam os disparos do mesmo cenário, e um
+   disparo marcado errado por engano pesa menos.
+3. Com **15 ou mais**, clique em **Reajustar o modelo** para recalcular as constantes físicas.
+
+Na tabela, **Previsto** é onde o bot esperava que o tiro caísse e **Origem** diz de onde veio o disparo ("jogo
+real" ou "simulado"). Disparos simulados, como os da demonstração, nunca corrigem a mira do jogo.
 
 A calculadora da mesma aba mostra as opções de tiro (tabelas 20/30/50/65, tiro alto, tiro médio e busca física)
 com a chance estimada de acerto de cada uma.
+
+**Força do disparo.** Em Configurações > **Força do disparo**, o padrão para quem instala agora é **3,33 s** até a
+força 100 e **0,06 s** até a barra começar a encher (medidas de outro programa no DDClássico, ainda não conferidas
+pelo JonFlow). Quem já usava o JonFlow mantém o tempo que estava salvo. Se os tiros saem sempre fortes ou sempre
+fracos, meça no seu jogo e ajuste esses dois valores.
 
 ## Problemas comuns
 
@@ -228,8 +285,16 @@ com a chance estimada de acerto de cada uma.
 <summary><b>O botão Iniciar está cinza (desativado)</b></summary>
 
 No jogo real, Iniciar só fica ativo com o **jogo conectado** (Passo 3), uma **atividade escolhida** e a
-**calibração completa** para ela. Veja logo abaixo da lista do Início o que ainda falta calibrar; o atalho leva
-direto à Calibração.
+**calibração completa** para ela. O painel ao lado da lista mostra o que ainda falta; **Ver pendências** leva à
+lista completa, com o como fazer de cada item.
+</details>
+
+<details>
+<summary><b>A atividade aparece como "✕ não achada"</b></summary>
+
+O bot abriu o menu do seu jogo e não encontrou a opção dessa instância (ou o botão da dificuldade), então pausou em
+vez de escolher outra. Se a instância existe no seu jogo, capture a opção de novo em Calibração > **Menu** ou
+clique em **Aparece no meu jogo**. Se ela realmente não existe no seu servidor, deixe como está.
 </details>
 
 <details>
@@ -244,8 +309,9 @@ Motivos comuns: você trocou de janela, o foco ficou no launcher, uma tela não 
 <details>
 <summary><b>O bot não encontra o jogo</b></summary>
 
-Confira se o jogo já abriu (não só o launcher) e use **Mostrar onde está o jogo** na janela do Detectar jogo para
-clicar sobre ele.
+Confira se o jogo já abriu (não só o launcher). Na janela do Detectar jogo, clique em **Escolher pela imagem** e
+escolha a prévia que mostra o jogo. Se a prévia não aparecer (jogo minimizado ou coberto), use **Apontar com o
+mouse** e deixe o mouse parado sobre o jogo por 3 segundos.
 </details>
 
 <details>
@@ -298,8 +364,9 @@ de disparos e registros (`dados\logs\ddbot.log`). O caminho exato aparece na aba
 
 | Palavra | O que quer dizer |
 |---|---|
-| **Atividade** | Algo que o bot sabe jogar: uma instância ou um tipo de partida do menu do seu jogo. |
+| **Atividade** | Algo que o bot sabe jogar: uma das instâncias cadastradas ou uma instância ou partida que você capturou do menu do seu jogo. |
 | **Calibração** | Ensinar o bot a enxergar o seu jogo, capturando pedaços da tela. |
+| **Pendências** | O que ainda falta calibrar para a atividade escolhida jogar sozinha (Calibração > Pendências). |
 | **Região** | Uma área da tela onde o bot deve olhar (por exemplo, onde fica o número do vento). |
 | **Modelo** | Uma imagem pequena que o bot procura na tela (uma tela, um botão, um personagem). |
 | **Confiança** | O quanto o bot tem certeza de uma leitura. Leitura com confiança baixa não faz o bot agir. |
@@ -326,8 +393,9 @@ Agentes de código (Claude Code, Codex etc.) devem ler também o [`AGENTS.md`](A
   - `--gui-smoke S`: abre a interface e exercita Iniciar/Pausar/Retomar/Parar/Emergência em modo simulado.
 - **Testes:** `python -m pytest -q tests`. O que cada um cobre: [`docs/TESTES.md`](docs/TESTES.md).
 - **CI:** `.github/workflows/windows-build.yml` testa no Linux e no Windows (também com a escala do Windows em
-  125%), compila, extrai o ZIP numa pasta sem Python, roda o autoteste e o teste de interface do `.exe` e publica
-  o ZIP como artefato.
+  125%), compila, extrai o ZIP numa pasta sem Python, roda o autoteste e o teste de interface do `.exe`, tira as
+  capturas da interface em 100%, 125% e 150% e reprova se a auditoria do layout achar algo cortado, e publica o ZIP
+  como artefato.
 - **Publicar uma versão:** atualize `src/ddbot/__init__.py`, `packaging/version_info.txt`,
   `docs/RELEASE_NOTES.md` e `PROGRESS.md`, faça o merge na `main` e envie uma tag `vX.Y.Z`
   (`git tag vX.Y.Z && git push origin vX.Y.Z`). A CI compila, testa os dois executáveis e cria a Release com o
@@ -336,6 +404,8 @@ Agentes de código (Claude Code, Codex etc.) devem ler também o [`AGENTS.md`](A
   - jogo e launcher: `detection.py` (detectar jogo), `game_window.py` (perfil, foco), `winapi.py`;
   - percepção: `capture.py`, `vision/`;
   - decisão: `aiming.py`, `physics.py`, `calibration.py`, `tracking.py`, `combat.py`, `activities.py`;
+  - estratégias e atividades cadastradas: `strategy.py`, `catalog.py`, `readiness.py` (com os dados em
+    `data/knowledge/instances.json` e `catalogo.json`);
   - execução: `automation/` (SendInput com travas);
   - interface: `service.py` e `gui/`.
 - **Pesquisa e fontes:** [`docs/RESEARCH.md`](docs/RESEARCH.md). **Andamento:** [`PROGRESS.md`](PROGRESS.md).

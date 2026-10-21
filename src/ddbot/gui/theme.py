@@ -32,6 +32,9 @@ STATE_STYLES = {
     "emergency": ("#B3261E", "#FFFFFF", "■"),
 }
 RESULT_COLORS = {"erro": "#B3261E", "aviso": "#8A5600", "resultado": "#1F7A4D"}
+# fontes com todos os ícones da faixa: sem o glifo (ex.: "❚❚" na Bahnschrift) o Tk varre as fontes do
+# sistema no primeiro desenho e a interface para por até alguns segundos (medido na CI do Windows)
+ICON_FAMILIES = ["Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols2", "Noto Sans Symbols"]
 
 # ------------------------------------------------------------ espaçamento
 SPACE = {"xs": 4, "s": 8, "m": 12, "l": 16, "xl": 24}
@@ -65,8 +68,16 @@ class Theme:
             "count": tkfont.Font(root, family=display, size=20, weight="bold"),
             "button": tkfont.Font(root, family=body, size=10, weight="bold"),
             "mono": tkfont.Font(root, family=_family(["Consolas", "DejaVu Sans Mono"], "TkFixedFont"), size=9),
+            "icon": tkfont.Font(root, family=_family(ICON_FAMILIES, body), size=14, weight="bold"),
         }
+        self.warm_icons()
         self._apply()
+
+    def warm_icons(self):
+        """Mede os ícones uma vez na abertura: qualquer procura de glifo acontece antes da janela aparecer,
+        e não no meio da rotina (a faixa troca de ícone ao pausar)."""
+        for _, _, icon in STATE_STYLES.values():
+            self.fonts["icon"].measure(icon)
 
     def _detect_scale(self) -> float:
         override = os.environ.get("DDBOT_UI_SCALE")
@@ -136,13 +147,18 @@ class Theme:
                      font=f["button"], padding=pad)
         st.map("Danger.TButton", background=[("disabled", BG), ("active", "#FBEDEC")],
                foreground=[("disabled", "#C9A9A6")], bordercolor=[("disabled", LINE)])
-        # seletor de fluxo (Instâncias | Partidas)
-        st.configure("Segment.TRadiobutton", background=SURFACE, foreground=MUTED, font=f["button"],
-                     padding=(px(16), px(8)), indicatorsize=0, borderwidth=1, relief="flat")
+        # botão secundário baixo (atalhos dentro de painéis): cada pixel de altura conta em telas a 150%
+        st.configure("Small.TButton", padding=(px(10), px(4)))
+        # seletor das páginas da Calibração: botões com a moldura dos botões comuns, em linhas que quebram
+        # (seis abas não cabiam na coluna e os nomes ficavam cortados)
+        st.configure("Segment.TRadiobutton", background=SURFACE, foreground=MUTED, font=f["body"],
+                     padding=(px(6), px(5)), anchor="center", bordercolor=LINE, lightcolor=SURFACE,
+                     darkcolor=SURFACE, relief="raised")  # sem relevo o clam não desenha a moldura
         st.map("Segment.TRadiobutton", background=[("selected", "#DCE8F7"), ("active", "#F4F6F9")],
-               foreground=[("selected", "#123A69")])
-        st.layout("Segment.TRadiobutton", [("Radiobutton.padding", {"sticky": "nswe", "children": [
-            ("Radiobutton.focus", {"sticky": "nswe", "children": [("Radiobutton.label", {"sticky": "nswe"})]})]})])
+               foreground=[("selected", "#123A69")], bordercolor=[("selected", PRIMARY), ("focus", FOCUS)],
+               lightcolor=[("selected", "#DCE8F7")], darkcolor=[("selected", "#DCE8F7")],
+               font=[("selected", f["strong"])])
+        st.layout("Segment.TRadiobutton", st.layout("TButton"))
         st.configure("TRadiobutton", background=BG)
         st.configure("Surface.TRadiobutton", background=SURFACE)
         st.configure("TCheckbutton", background=BG)
@@ -157,9 +173,9 @@ class Theme:
                      font=f["body"])
         st.map("TNotebook.Tab", background=[("selected", SURFACE)], foreground=[("selected", INK)],
                font=[("selected", f["strong"])])
-        st.configure("Sub.TNotebook", background=SURFACE)
-        st.configure("Sub.TNotebook.Tab", background=SURFACE, padding=(px(10), px(5)))
-        st.map("Sub.TNotebook.Tab", background=[("selected", "#DCE8F7")])
+        # caderno sem abas: a página é escolhida pelo seletor (Segment.TRadiobutton)
+        st.configure("Sub.TNotebook", background=SURFACE, tabmargins=0)
+        st.layout("Sub.TNotebook.Tab", [])
         st.configure("Treeview", background=SURFACE, fieldbackground=SURFACE, foreground=INK,
                      rowheight=px(24), bordercolor=LINE, font=f["body"])
         st.configure("Treeview.Heading", background=BG, foreground=MUTED, font=f["small"], relief="flat",

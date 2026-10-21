@@ -1,7 +1,8 @@
 """Percorre os estados da interface e salva capturas da janela (revisão visual).
 
-Também audita o layout: widgets com texto cortado (pedem mais espaço do que receberam)
-ou que saem da janela. Roda em modo demonstração; nada é enviado a jogo nenhum.
+Também audita o layout: widgets com texto cortado (pedem mais espaço do que receberam), abas
+espremidas, widgets que saem da janela ou do painel onde estão e listas sem espaço para duas
+linhas. Roda em modo demonstração; nada é enviado a jogo nenhum.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from pathlib import Path
 from ..activities import RunStatus
 
 log = logging.getLogger(__name__)
+MIN_LIST_ROWS = 2  # uma lista (Treeview) precisa mostrar ao menos estas linhas inteiras
 
 
 def _grab(root, path: Path) -> bool:
@@ -29,42 +31,116 @@ def _grab(root, path: Path) -> bool:
         return False
 
 
+def _text(w) -> str:
+    try:
+        return str(w.cget("text"))[:60] if "text" in w.keys() else ""
+    except Exception:
+        return ""
+
+
+def _ints(value) -> list[int]:
+    """Números de uma opção de estilo: o ttk devolve tupla ((10, 5)) ou texto ("10 5")."""
+    items = value if isinstance(value, (tuple, list)) else str(value).translate(str.maketrans("{}(),", "     ")).split()
+    try:
+        return [int(float(str(v))) for v in items]
+    except ValueError:
+        return []
+
+
+def _squeezed_tabs(nb) -> dict | None:
+    """Abas de um ttk.Notebook mais largas, somadas, que o próprio caderno (o Tk as espreme e corta os nomes).
+
+    A largura natural de cada aba é pelo menos o texto mais o espaço interno do estilo; cadernos com as abas
+    escondidas (layout vazio) não entram."""
+    import tkinter as tk
+    from tkinter import ttk
+    st = ttk.Style(nb)
+    style = str(nb.cget("style") or "TNotebook")
+    tab = f"{style}.Tab"
+    try:
+        layout = st.layout(tab)
+    except tk.TclError:
+        layout = None  # sem layout próprio: usa o do estilo pai, com as abas visíveis
+    if layout and all(name == "null" for name, _ in layout):
+        return None
+    pad = _ints(st.lookup(tab, "padding")) or [0]
+    pad_x = pad[0] + (pad[2] if len(pad) > 2 else pad[0])
+    margins = _ints(st.lookup(style, "tabmargins")) or [0]
+    font = st.lookup(tab, "font") or "TkDefaultFont"
+    texts = [str(nb.tab(t, "text")) for t in nb.tabs()]
+    need = sum(int(nb.tk.call("font", "measure", font, t)) + pad_x for t in texts)
+    need += margins[0] + (margins[2] if len(margins) > 2 else margins[0])
+    if need > nb.winfo_width() + 2:
+        return {"tipo": "abas cortadas", "widget": "TNotebook", "texto": " | ".join(texts)[:60],
+                "pedido": need, "recebido": nb.winfo_width()}
+    return None
+
+
+def _list_rows(tree, visible_h: int) -> float:
+    from tkinter import ttk
+    style = str(tree.cget("style") or "Treeview")
+    row_h = (_ints(ttk.Style(tree).lookup(style, "rowheight")) or [20])[0] or 20
+    heading = row_h if "headings" in str(tree.cget("show")) else 0  # o cabeçalho tem mais ou menos uma linha
+    return (visible_h - heading) / row_h
+
+
 def audit_layout(root) -> list[dict]:
-    """Labels/botões cuja largura pedida não cabe na recebida, e widgets fora da janela."""
+    """Problemas de layout da janela ``root`` (a janela principal ou um diálogo).
+
+    - texto cortado: label/botão que pede mais largura do que recebeu (sem quebra de linha);
+    - abas cortadas: as abas de um caderno não cabem e o Tk espreme os nomes;
+    - fora da janela / cortado: widget que passa da borda da janela ou do painel onde está (áreas com
+      rolagem, dentro de um Canvas, não contam);
+    - lista sem espaço: Treeview que mostra menos de ``MIN_LIST_ROWS`` linhas inteiras.
+    Só o widget mais externo de cada corte é listado (os de dentro dele são consequência).
+    """
+    import tkinter as tk
     problems = []
-    rw, rh = root.winfo_width(), root.winfo_height()
-    stack = [root]
+    ox, oy = root.winfo_rootx(), root.winfo_rooty()
+    # (widget, área visível herdada (x0, y0, x1, y1) ou None dentro de rolagem, corte já informado acima)
+    stack = [(root, (0, 0, root.winfo_width(), root.winfo_height()), False)]
     while stack:
-        w = stack.pop()
-        stack.extend(w.winfo_children())
+        w, clip, reported = stack.pop()
+        if w is not root and isinstance(w, tk.Toplevel):
+            continue  # outra janela (diálogo): auditada à parte
         if not w.winfo_ismapped():
             continue
         cls = w.winfo_class()
-        x, y = w.winfo_rootx() - root.winfo_rootx(), w.winfo_rooty() - root.winfo_rooty()
+        x, y = w.winfo_rootx() - ox, w.winfo_rooty() - oy
         ww, wh = w.winfo_width(), w.winfo_height()
-        if ww <= 1 or wh <= 1:
-            continue
-        if cls in ("TLabel", "TButton", "TCheckbutton", "TRadiobutton", "Label"):
-            try:
-                wrap = int(str(w.cget("wraplength")) or 0)
-            except Exception:
-                wrap = 0
-            if wrap == 0 and w.winfo_reqwidth() > ww + 2:
-                problems.append({"tipo": "texto cortado", "widget": cls, "texto": str(w.cget("text"))[:60],
-                                 "pedido": w.winfo_reqwidth(), "recebido": ww})
-        if x + ww > rw + 2 or y + wh > rh + 2:
-            # dentro de áreas com rolagem isso é esperado
-            parent = w.master
-            scrolled = False
-            while parent is not None:
-                if parent.winfo_class() == "Canvas":
-                    scrolled = True
-                    break
-                parent = parent.master
-            if not scrolled:
-                problems.append({"tipo": "fora da janela", "widget": cls,
-                                 "texto": str(w.cget("text"))[:60] if "text" in w.keys() else "",
-                                 "x": x, "y": y, "w": ww, "h": wh})
+        child_clip = clip
+        if ww > 1 and wh > 1:
+            if cls in ("TLabel", "TButton", "TCheckbutton", "TRadiobutton", "Label"):
+                try:
+                    wrap = int(str(w.cget("wraplength")) or 0)
+                except Exception:
+                    wrap = 0
+                if wrap == 0 and w.winfo_reqwidth() > ww + 2:
+                    problems.append({"tipo": "texto cortado", "widget": cls, "texto": _text(w),
+                                     "pedido": w.winfo_reqwidth(), "recebido": ww})
+            if cls == "TNotebook":
+                squeezed = _squeezed_tabs(w)
+                if squeezed:
+                    problems.append(squeezed)
+            visible_h = wh
+            if clip is not None:
+                vx0, vy0 = max(x, clip[0]), max(y, clip[1])
+                vx1, vy1 = min(x + ww, clip[2]), min(y + wh, clip[3])
+                visible_h = max(0, vy1 - vy0)
+                cut = vx1 - vx0 < ww - 2 or vy1 - vy0 < wh - 2
+                if cut and not reported:
+                    outside = x + ww > root.winfo_width() + 2 or y + wh > root.winfo_height() + 2
+                    problems.append({"tipo": "fora da janela" if outside else "cortado", "widget": cls,
+                                     "texto": _text(w), "x": x, "y": y, "w": ww, "h": wh,
+                                     "visivel": [max(0, vx1 - vx0), visible_h]})
+                    reported = True
+                child_clip = (vx0, vy0, max(vx0, vx1), max(vy0, vy1))
+            if cls == "Treeview" and _list_rows(w, visible_h) < MIN_LIST_ROWS - 0.05:
+                problems.append({"tipo": "lista sem espaço", "widget": cls, "texto": "",
+                                 "linhas": round(_list_rows(w, visible_h), 2), "altura_visivel": visible_h})
+        if cls == "Canvas":
+            child_clip = None  # o conteúdo de uma área com rolagem pode passar da borda
+        stack.extend((c, child_clip, reported) for c in w.winfo_children())
     return problems
 
 

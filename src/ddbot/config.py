@@ -32,7 +32,10 @@ DEFAULTS: dict = {
         "keys": {"angle_up": "up", "angle_down": "down", "fire": "space", "pass_turn": None,
                  "face_left": "left", "face_right": "right"},
         "power_mode": "timed",
-        "power_full_time_s": 4.0,
+        # medido por terceiros no DDClássico (AINBOT, 2026: 3,30 a 3,35 s e 44 a 94 ms até a barra começar);
+        # outros servidores tinham 4 s. Confira no seu cliente (Configurações) ou use a leitura da barra
+        "power_full_time_s": 3.33,
+        "power_start_delay_s": 0.06,
         "power_offset": 0.0,
         "forbidden_templates": [],
         "allowed_paid_templates": [],
@@ -59,6 +62,7 @@ RANGES = {
     "thresholds.vision_min_confidence": (0.0, 1.0),
     "thresholds.auto_min_hit_probability": (0.0, 1.0),
     "automation.power_full_time_s": (0.5, 15.0),
+    "automation.power_start_delay_s": (0.0, 0.5),
     "automation.power_offset": (-20.0, 20.0),
     "automation.min_seconds_between_shots": (0.0, 60.0),
     "automation.post_shot_wait_s": (0.0, 30.0),
@@ -72,6 +76,7 @@ LABELS = {
     "thresholds.template": "Semelhança mínima das imagens",
     "thresholds.vision_min_confidence": "Confiança mínima para atirar",
     "automation.power_full_time_s": "Segundos até a força 100",
+    "automation.power_start_delay_s": "Espera até a barra começar a encher",
     "automation.power_offset": "Compensação de força",
     "automation.min_seconds_between_shots": "Intervalo entre disparos",
     "instances.max_defeats": "Limite de derrotas",

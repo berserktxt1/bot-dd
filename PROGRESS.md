@@ -1,10 +1,270 @@
 # Andamento
 
-Última atualização: 2026-10-20. Versão 0.4.4 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-20. Versão: **0.5.0** (**JonFlow**, antes *DDClássico Bot*), publicada pela tag
+`v0.5.0` (ver a primeira seção). A anterior é a 0.4.4.
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Versão 0.5.0 (2026-10-20): seis atividades prioritárias pré-cadastradas
+
+### Onde parou (retomar daqui)
+
+| Item | Estado em 2026-10-20 |
+|---|---|
+| Versão | **0.5.0** (`src/ddbot/__init__.py`, `packaging/version_info.txt`, `docs/RELEASE_NOTES.md`) |
+| Git Flow | `feature/atividades-prioritarias` mesclada em `develop` (`37e2151`); `release/0.5.0` saiu de `develop` e vai para `main` (tag `v0.5.0`) e de volta para `develop`. A pedido do usuário, as branches temporárias (`feature/atividades-prioritarias`, `release/0.5.0` e a de diagnóstico `diag/layout-windows`) são apagadas depois da publicação |
+| Release | a tag `v0.5.0` dispara a CI que publica a Release; a conferência fica na seção "Publicação" abaixo |
+| Commits desta fase | `8dc8c79` (atividades, estratégias, interface), `c47061c` (layout: páginas da Calibração e Histórico em 150%), `6fd3e2a` (texto das pendências), `fab2d2a` (espaços em janela baixa; janelas de teste vivas), `d78c520` (`pytest.ini` com captura `sys`) e os de documentação |
+| CI da branch de trabalho | 39476307312 (`8dc8c79`) aprovada, mas as capturas do Windows mostraram os defeitos de layout. 39525965108 (`c73d753`) e 39528958704 (`fab2d2a`): falharam no Windows (Histórico em 150% com a Segoe UI; Tk que não abre ou derruba o processo nos testes). Diagnósticos 39527994935, 39529912761, 39530194693 e 39530426640. **39531730837 (`d78c520`) aprovada**: Linux 307 aprovados e 4 pulados; Windows 307 aprovados e 4 pulados na tela de 1024×768 (os 4 de layout) e **311 de 311 em 125%** (1920×1080, com os de layout); janelas reais 12 de 12 em 100% e em 125%; `.exe` da pasta e de arquivo único com autoteste e interface OK (atraso máximo 41 e 87 ms; pasta somente leitura 228 ms); **layout das capturas sem problemas em 100%, 125% e 150%** |
+| CI do commit `8dc8c79` | execução 39476307312 **aprovada**: Linux 302 aprovados e 4 pulados; Windows 306 de 306 em 100% e em 125%; janelas reais num venv com o Chrome aberto 12 de 12 nas duas escalas; `.exe` da pasta e de arquivo único com autoteste e interface OK (atraso máximo 104 e 41 ms); pasta somente leitura OK. As capturas da interface no Windows mostraram dois defeitos de layout que a auditoria não pegou (seção seguinte) |
+| Documentos de usuário | `README.md` (LEIA-ME do pacote), `docs/ROTEIRO_TESTE_REAL.md` e `docs/RELEASE_NOTES.md` descrevem a interface da 0.5.0 (`c73d753`), com os nomes dos botões conferidos no código |
+
+### Publicação
+
+CI da `release/0.5.0`: a execução 39534334539 (`build: versão 0.5.0`) falhou só na suíte em 125% do Windows, em
+`test_vision_to_keyboard_shot`: a força saiu 6,4 pontos acima (tolerância 6) numa rodada lenta (442 s; o normal é
+240–300 s). O jogo falso desse teste enchia a barra em 0,5 s, então 6 pontos eram só 30 ms; os outros testes de
+força já usavam 2 s. O teste passou a usar 2 s (o programa não mudou; no jogo real, com 3,33 s, 32 ms são ~1 ponto).
+
+A tag `v0.5.0` (no merge da `release/0.5.0` em `main`) dispara a CI que compila, testa e publica a Release com
+`JonFlow.exe`, `JonFlow.zip`, `SHA256SUMS.txt`, `build-info.json` e os relatórios. A conferência da Release
+publicada (assets, somas, `build-info.json`, links do README) é registrada aqui, em `develop`, depois da publicação.
+
+### O que foi implementado e corrigido (commit `8dc8c79`)
+
+**Atividades pré-cadastradas** (`src/ddbot/catalog.py`, `data/knowledge/catalogo.json`)
+- As seis atividades aparecem no Início **antes de conectar ao jogo**, na seção **Instâncias**: Formigueiro —
+  Fácil, Formigueiro — Normal, Galinheiro — Fácil, Galinheiro — Normal, Galinheiro — Difícil e Olimpíadas
+  Bugou — Normal. A seção **Partidas automáticas** mostra só as modalidades capturadas do cliente (e a partida
+  de demonstração no modo demonstração).
+- **Castelo do Reino de Bugou — Normal saiu da lista principal** (registrado em `fora_da_lista_principal`); o
+  perfil `bugou_normal` continua para atividades capturadas pelo menu.
+- O fluxo usa modelos compartilhados: a opção da instância (`instancia_<instancia>`, uma captura para todas as
+  dificuldades) e o botão da dificuldade (`dificuldade_facil|normal|dificil`, uma captura para todas as
+  instâncias). Um arquivo do usuário com o mesmo id em `instancias/` substitui a versão do catálogo.
+- **Disponibilidade só por evidência** (`dados/atividades_estado.json`): "vista no menu" (opção reconhecida numa
+  captura ou escolhida pela rotina), "não encontrada no menu" (a rotina procurou e não achou), "indisponível"
+  (marcada pelo usuário). A demonstração não muda nada disso.
+- Opção ou dificuldade ausente no menu: a rotina **pausa** com "… não foi encontrada no menu do jogo …: o bot não
+  escolhe outra atividade no lugar" (sem tentar fechar avisos). O clique numa opção (instância, partida ou
+  dificuldade) é **recusado** quando outra opção do mesmo tipo casa no mesmo lugar quase tão bem (diferença menor
+  que 0,03): evita confundir Olimpíadas Bugou com o Castelo de Bugou.
+
+**Estratégias** (`src/ddbot/strategy.py`, `data/knowledge/instances.json` versão 2)
+- Perfis por dificuldade com herança (`base`, `etapas_ids`, `ajustes_etapas`, `limites_extra`, `fontes_extra`);
+  as dificuldades usam as mesmas capturas de alvos (`modelos`: `alvo_formigueiro_rainha` serve ao Fácil e ao
+  Normal).
+- A etapa é a que a tela mostra (`entra_com`), inclusive voltando para uma etapa anterior quando nada da atual
+  está na tela; nunca larga uma etapa com o chefe dela visível. Motivo: as fontes divergem na ordem das etapas.
+- Tipos de etapa novos: `pontuacao` (alvos com pontos: mira o que mais soma contando o que a explosão pega em
+  volta e nunca um alvo que tira pontos) e `corrida`. Papéis a `evitar` (o juiz): nenhum disparo perto deles.
+  Etapas que não são combate comum exigem os modelos (`requer`): sem eles, **pausa** em vez de atirar. Efeito novo
+  `vulneravel` (prioridade).
+- `match_profile`: com dificuldade no nome, prefere o perfil daquela dificuldade; sem dificuldade, só o perfil
+  geral (nunca chuta uma dificuldade); "Bugou Normal" sozinho não associa nenhuma das duas instâncias.
+
+**Interface** (`gui/main_window.py`, `gui/detect_dialog.py`, `gui/theme.py`, `gui/widgets.py`, `gui/states.py`)
+- Início em três colunas: **Atividades** (seções Instâncias e Partidas automáticas, com o estado de cada uma:
+  pronta, calibrar, não achada, indisponível, demo), **detalhes** (estratégia, conexão, disponibilidade, quantos
+  itens obrigatórios já são reconhecidos, pendências, "Ver pendências", "Não aparece no meu jogo", quantas vezes,
+  Iniciar/Pausar-Retomar/Parar) e **Andamento** (contadores e mira).
+- Calibração: página **Pendências** (primeira) com cada item, o "como fazer" e **Fazer agora** (abre a página
+  certa com o item escolhido e captura a tela se preciso); página Menu associa a opção a uma instância do
+  catálogo; Regiões com **Sugerir regiões** e **Ângulo pelas teclas**; Alvos mostra a estratégia fixa das
+  pré-cadastradas e marca os alvos obrigatórios.
+- Mira e disparos: colunas Previsto, Origem e Instância; estatística só do cenário atual e quantos disparos são
+  de outros cenários.
+
+**Defeitos corrigidos**
+- **Camada escura na seleção da janela** (relatado em versões anteriores): a causa era a `PickOverlay`, uma janela
+  preta semitransparente sobre todos os monitores. Removida. Agora: **Escolher pela imagem** (galeria com a
+  prévia de cada janela candidata) e, como exceção, **Apontar com o mouse** (a janela Detectar jogo sai da
+  frente, a principal continua minimizada, um aviso pequeno no canto conta 3 s e escolhe a janela sob o mouse,
+  sem clique; volta com a prévia para confirmar).
+- **Parada intermitente do `--gui-smoke` no Windows** (1,7 a 5,3 s depois de Pausar, aberta desde a 0.3.0): o
+  ícone "❚❚" da faixa não existe na Bahnschrift e o Tk varria as fontes do sistema (556 ms frio medido na CI de
+  diagnóstico 39440415870). O ícone ganhou fonte própria (`Segoe UI Symbol`, `theme.ICON_FAMILIES`) e os ícones
+  são medidos na abertura. Na CI 39476307312 o teste da interface passou nas 4 execuções no Windows (suíte em
+  100% e em 125%, `.exe` da pasta e de arquivo único; atraso máximo 104 ms). Como a parada era intermitente, uma
+  execução não prova que acabou: continuar observando.
+- Captura da tela na Calibração e "Salvar captura" rodavam na thread do Tk; agora em thread. Se a captura for
+  recusada porque a janela do JonFlow cobre o jogo, ela se minimiza só durante a captura e volta.
+
+**Mira e calibração** (`aiming.py`, `combat.py`, `calibration.py`, `game_io.py`, `vision/autodetect.py`)
+- Sugestão de regiões por conteúdo da imagem (barra de força, ângulo, vento, área de jogo com faixas dos dois
+  lados) e ângulo pela diferença ao apertar ↑/↓ no seu turno (não atira). Sempre confirmadas pelo usuário; regiões
+  já marcadas não são trocadas (só o Ângulo pelas teclas, pedido explícito, troca a do ângulo).
+- Cada disparo registra instância, dificuldade, etapa, alvo e **cenário** (modo de controlar a força + programa do
+  cliente). A correção usa só disparos do mesmo cenário e da mesma arma; bancos antigos ganham as colunas e os
+  disparos antigos (sem cenário) ficam fora da correção. Ajuste com **pesos de Huber** (robusto a disparos
+  marcados errado).
+- Ângulo recomendado **estável no turno** (só troca se outro for 5 pontos de chance melhor). Força recomendada
+  limitada a **98** (perto do fim a barra volta a esvaziar).
+- Padrão da barra para instalações novas: **3,33 s** até 100 e **0,06 s** até começar a encher (medida de
+  terceiros no DDClássico, AINBOT 2026; antes 4,0 s). Quem já tem `config.json` mantém o tempo salvo (4,0 s),
+  mas passa a usar a espera inicial de 0,06 s, que é um campo novo (Configurações > Força do disparo). A
+  confirmar no cliente.
+
+### Defeitos de layout achados nas capturas do Windows (CI 39476307312) e corrigidos
+
+As capturas da interface que a CI tira no Windows (Segoe UI, 1920×1080, escala simulada com `DDBOT_UI_SCALE`)
+mostraram defeitos que a auditoria automática não acusava. Medidas no container (DejaVu, janela de 1830×948 em
+150%, como num PC 1080p a 150% com a barra de tarefas):
+
+| Defeito | Causa encontrada | Correção (commit `c47061c`) |
+|---|---|---|
+| Abas da Calibração cortadas ("Pendênc", "Regiõ", "Mer", "Alvc") em **100%, 125% e 150%** | Com a página Pendências, seis abas não cabiam na coluna de 390 px (pediam 446 px em 100% e 562 px em 125%); o ttk espreme as abas e corta os nomes. A auditoria só olhava labels e botões | As páginas são escolhidas por **botões em duas linhas** (`Segment.TRadiobutton`, com a moldura dos botões comuns); o caderno continua trocando o conteúdo, sem abas (layout `null`), e o seletor acompanha as trocas feitas pelo código (Ver pendências, Fazer agora) |
+| Em **1080p a 150%** o Histórico do Início ficava sem nenhuma linha (0,8 linha, cabeçalho cortado) | Na 0.5.0 o Início ganhou três colunas e o Andamento, mais estreito, empilhava os contadores em 2×2 com o rótulo embaixo e a situação numa linha própria: a linha de cima pedia 468–490 px, e a janela a 150% tem só ~630 px lógicos de altura. O grid corta o que não cabe | Andamento: situação e barra na mesma linha, contadores com o rótulo ao lado. Detalhes: espaçamentos menores, atalhos mais baixos (`Small.TButton`) e "Falta calibrar" numa linha (o primeiro item; a lista completa fica em Ver pendências). Atividades com barra de rolagem, pedindo 8 linhas em janela baixa. Mínimo do Histórico para o título, o cabeçalho e duas linhas. No container isso deu 2,5–2,8 linhas em 150%, mas **no Windows não bastou** (CI 39525965108: as linhas da Segoe UI são ~14% mais altas que as da DejaVu). Por isso, em janela baixa, a barra do topo, a faixa de estado, o espaço entre os painéis e as margens dos painéis do Início também ficam menores (commit `fab2d2a`): 4,2–4,5 linhas no container e, no Windows (diagnóstico 39527994935, Segoe UI), nada cortado em 100%, 125% e 150%, com 3 a 4 linhas visíveis no combate em 150% |
+| Lista dos disparos registrados (aba Mira) com menos de uma linha em 150% (**já era assim na 0.4.4**) | As opções de disparo pediam 7 linhas fixas | Em janela baixa (`MainWindow.compact`: menos de 700 px lógicos de altura, como 1080p a 150%) pedem 5, com rolagem; em 100% e 125% continuam as 7 |
+| Auditoria cega a esses casos | Só via texto cortado e widget fora da janela; e o `lookup` do ttk devolve tupla, que era lida como zero | `audit_layout` também acusa abas espremidas (largura natural das abas maior que o caderno), widget cortado pelo painel onde está e Treeview com menos de duas linhas inteiras; só o widget mais externo de cada corte é listado |
+
+Testes novos em `tests/test_gui_layout.py` (precisam de tela de 1920×1080; pulados em telas menores): a auditoria
+pega os três tipos de defeito; a janela em 100%, 125% e 150% não tem nada cortado no Início (sem jogo,
+demonstração e combate), nas abas e nas seis páginas da Calibração; os botões das páginas abrem a página certa.
+Com a interface do `8dc8c79` eles **reprovam** (abas 446 > 366 px em 100% e 562 > 458 px em 125%; Histórico com
+0,83 linha em 150%). A CI agora roda o Linux com tela de 1920×1080 e tem o passo **"Layout das capturas"**, que
+reprova se algum relatório de layout das capturas do Windows tiver problema.
+
+**Queda do processo de testes no Windows** (CI 39525965108, rodada em 125%, na primeira vez que os testes de layout
+rodaram lá): `Windows fatal exception: code 0x80000003`, o *panic* do Tcl. A pilha mostra a coleta de lixo rodando
+na thread de procura do jogo (`refresh_windows` → `auto_connect`) de uma janela de teste já fechada: ela liberou o
+interpretador Tk fora da thread que o criou. Uma primeira correção (esperar as threads e coletar o lixo na thread
+principal) trocou o problema por outro, visto no diagnóstico 39527994935: liberado no meio da sessão, o Tk criado
+em seguida às vezes não lia os próprios arquivos ("Can't find a usable init.tcl … couldn't read file … No error").
+Com as janelas guardadas vivas até o fim do processo (fixture `tk_cleanup`, `fab2d2a`), a queda sumiu, mas o Tk
+seguinte ainda falhou na CI 39528958704 (5º Tk do processo, sem nenhuma janela do JonFlow montada antes). Dois
+diagnósticos no Windows isolaram a causa:
+
+| Experimento | Resultado |
+|---|---|
+| 39529912761: fora do pytest, 12 `Tk()` por processo em 7 cenários (vivos, destruídos, coletados, com o tema e com a janela do JonFlow, 2 vezes cada) | **nenhuma falha** |
+| 39530194693: só os testes de interface, 4 vezes com a captura `fd` (padrão do pytest) e 4 com `sys` | nenhuma falha |
+| 39530426640: suíte completa, 2 vezes com `fd` e 2 com `sys` | `fd`: **1 de 2 falhou** ("Can't find a usable tk.tcl"); `sys`: 2 de 2 passaram |
+
+A captura `fd` troca os *handles* padrão do Windows a cada teste e fecha os anteriores; o Tcl guarda os canais
+padrão com esses *handles*, e a falha aparece quando a suíte inteira já abriu e fechou muitos arquivos antes. O
+`pytest.ini` novo fixa `--capture=sys` (vale para a CI, o `build_windows.bat` e quem roda localmente). Ficam as duas
+proteções: captura `sys` e janelas de teste vivas até o fim. **Só os testes eram afetados**: o programa abre um
+único Tk, que só é liberado na saída, e não troca os *handles* padrão.
+
+Também corrigido: as instruções das pendências diziam "Deixe o jogo **em a** tela principal" / "em o menu"
+(`readiness.STATE_HINTS` agora vem com a contração; commit `6fd3e2a`, com teste).
+
+A afirmação anterior deste arquivo ("nenhum texto cortado" nas capturas do container) valia só para o que a
+auditoria antiga olhava: as abas da Calibração já estavam espremidas também no container.
+
+### As seis atividades prioritárias
+
+| Atividade | Perfil e etapas | No DDClássico (fontes lidas) | Simulação | Jogo real |
+|---|---|---|---|---|
+| Formigueiro — Fácil | `formigueiro_facil`: formigas → rainha | **sem notícia oficial**; existia na versão clássica | completa (1 e 3 execuções) | não testado |
+| Formigueiro — Normal | `formigueiro_normal`: formigas → rainha | notícia oficial 37 (16/10/2026) | completa | não testado |
+| Galinheiro — Fácil | `galinheiro_facil`: pintinhos → chefe e gaiola | **sem notícia oficial** | completa | não testado |
+| Galinheiro — Normal | `galinheiro_normal`: pintinhos → construção → chefe e gaiola | vídeo de jogador (07/09/2026) | completa | não testado |
+| Galinheiro — Difícil | `galinheiro_dificil`: pintinhos → galos e galinhas → chefe e gaiola → construção (ordem suposta) | notícia oficial 37 | completa | não testado |
+| Olimpíadas Bugou — Normal | `olimpiadas_bugou_normal`: balões (pontuação) → corrida (rivais) → Boxiador (juiz a evitar) | Difícil na notícia 37; Normal em vídeos e no DDMira | completa, sem balão verde nem juiz atingidos | não testado |
+
+"Simulação" = cenários **fictícios** (vida, posições e quantidades inventadas) que exercitam a lógica; não dizem
+nada sobre o jogo real. Para jogar no cliente, cada atividade ainda depende das capturas listadas em
+Calibração > Pendências (telas, botões, opção da instância, botão da dificuldade, regiões, números, marcadores e,
+nas Olimpíadas, os modelos obrigatórios dos balões verdes, dos rivais e do juiz).
+
+### Testes executados nesta sessão
+
+| Verificação | Onde | Resultado |
+|---|---|---|
+| `python -m pyflakes src tools tests` | Linux (dev) | sem avisos |
+| pytest, suíte completa | Linux (dev, Rocky 10, sem tela) | **296 aprovados, 6 pulados** (2 sem tela, 4 só no Windows), 271 s |
+| pytest, suíte completa | container Ubuntu 24.04 + Xvfb (imagem `jonflow-ci`) | **302 aprovados, 4 pulados** (só Windows), 270 s |
+| `--selftest` | Linux (dev) | OK; as seis atividades e os três perfis gerais completam na simulação (~25 s nessa etapa); também aprovado dentro da suíte (`test_selftest_cli`) no código do `8dc8c79` |
+| `--gui-smoke 8` | container + Xvfb | OK, atraso máximo 100 ms numa execução avulsa; também aprovado dentro da suíte (`test_gui_smoke`) no código do `8dc8c79` |
+| `--screenshots` em 100%, 125% e 150% (1920×1080) | container + Xvfb | nenhum texto cortado nem elemento fora da janela pela auditoria **da época** (que não olhava abas nem cortes por painel: ver "Defeitos de layout") |
+| `--simulate 25` | Linux (dev) | ver abaixo |
+| CI GitHub Actions (Linux + Windows, exe, capturas) | execução 39476307312 | aprovada (números na tabela "Onde parou") |
+
+Depois das correções de layout e dos testes (código do `d78c520`, 2026-10-20 à noite):
+
+| Verificação | Onde | Resultado |
+|---|---|---|
+| `python -m pyflakes src tools tests` | Linux (dev) | sem avisos |
+| pytest, suíte completa | Linux (dev, sem tela) | 296 aprovados, 7 pulados (3 sem tela, 4 só no Windows), na `release/0.5.0` com a versão 0.5.0 |
+| pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **307 aprovados, 4 pulados** (só Windows), com o `pytest.ini` |
+| `--gui-smoke 8` | container + Xvfb | OK, 29 verificações, atraso máximo 88 ms |
+| `--selftest` | Linux (dev) | OK |
+| `--screenshots` em 100%, 125% e 150% | container + Xvfb | auditoria nova sem problemas (19 capturas por escala) |
+| Capturas e testes de layout com a Segoe UI | Windows, diagnóstico 39527994935 | nada cortado em 100%, 125% e 150% |
+| CI completa | execução 39531730837 (`d78c520`) | aprovada (números na tabela "Onde parou") |
+
+O `--simulate` não foi repetido: nada da mira nem da simulação mudou depois do `8dc8c79`.
+
+`--simulate 25` (semente fixa 1; "jogo" simulado com velocidade +3%, vento +25%, arrasto −5% em relação ao modelo):
+
+| | Disparos | Acerto | Vitórias | Erro médio 1ª / 2ª metade (régua) | Turnos perdidos |
+|---|---|---|---|---|---|
+| sem calibração, `8dc8c79` | 166 | 42,2% (70) | 22 | 0,671 / 0,593 | 0 |
+| com calibração, `8dc8c79` | 79 | 94,9% (75) | 25 | 0,185 / 0,140 | 0 |
+| sem calibração, v0.4.4 (mesmo comando) | 166 | 42,2% (70) | 22 | 0,672 / 0,593 | 0 |
+| com calibração, v0.4.4 (mesmo comando) | 79 | 94,9% (75) | 25 | 0,184 / 0,135 | 0 |
+
+- Mesmos disparos, acertos e vitórias que a v0.4.4. Isolando cada mudança, só os **pesos de Huber** mudam o
+  resultado: erro da 2ª metade com calibração 0,135 → 0,140 (a simulação não tem disparos marcados errado; o
+  ajuste robusto troca um pouco de eficiência por resistência a eles). O teto de força 98 e o ângulo estável não
+  mudaram nada nestas 25 batalhas.
+- Histórico: 50 batalhas na 0.4.2–0.4.4 deram 40,0% / 96,2%; 15 batalhas, 41,4% / 91,8%. Com 25, 42,2% / 94,9%:
+  as diferenças vêm do número de batalhas (o sorteio é o mesmo, a amostra é outra). `--simulate 50` não foi
+  executado nesta sessão, como pedido.
+- É simulação: um alvo num terreno plano, leituras com ruído e sem a visão. **Não mede a precisão no DDClássico.**
+
+### DDTankBot-Clib: o que foi aproveitado e o que falta avaliar
+
+- Lido: README, `main.py`, `wind_image_ocr.py`, `possible_wind_sets.py` (2023, sem licença: nada copiado).
+- Aproveitado como ideia (já existia no JonFlow de forma equivalente): ler números por moldes de dígitos com
+  limiar de semelhança (no JonFlow, `DigitReader` com glifos aprendidos e confiança mínima) e reescalar moldes
+  quando a janela muda de tamanho (no JonFlow, busca em várias escalas com a escala memorizada).
+- Não aproveitado: ângulo, força e turno por **leitura de memória** (fora do escopo; o JonFlow só usa a tela),
+  compra automática de itens (bloqueada no JonFlow), regiões fixas em frações de uma janela de 942×646, valor do
+  vento sem sinal montado como "d1.d2".
+- A avaliar: se o vento do DDClássico tem o mesmo formato (dígito, ponto, dígito; o AINBOT descreve dígito
+  vermelho, ponto e dígito ciano) e se o leitor de dígitos do JonFlow lê o ponto decimal nesse visor. Precisa de
+  capturas reais.
+
+### Limitações conhecidas
+
+- **Nada foi validado no jogo nem no launcher reais.** Detecção, captura, telas, botões, leitura, disparos,
+  etapas e disponibilidade só foram testados com simulação, imagens sintéticas e janelas de teste.
+- As etapas vêm de guias de 2011–2015, notícias oficiais (sem mecânicas) e vídeos de 2026 (só títulos); o
+  DDClássico diz ter reconstruído os sistemas do zero. A ordem do Galinheiro Difícil e a corrida da OBN são
+  incertas; o "Meka" é desconhecido.
+- Valores dos balões (vermelho +3, verde −2,5, dobro +6) são médias das fontes, não leituras do jogo; a meta de
+  99 pontos não é lida da tela.
+- Sugestões automáticas de regiões só foram testadas em imagens sintéticas; o indicador de turno e os marcadores
+  continuam dependendo de captura manual.
+- Corrida e balões exigem modelos capturados no cliente; sem eles a etapa pausa (seguro, mas não joga).
+- O bot nunca acorda o juiz das Olimpíadas (tática que os guias recomendam até 2 vezes): o usuário faz isso com a
+  rotina pausada.
+- Regras do servidor sobre automação: os termos (`/classic/terms`) ainda não foram lidos.
+
+### Próximos passos (em ordem)
+
+Feitos nesta fase: CI conferida (e os defeitos que ela mostrou, corrigidos), documentos de usuário atualizados e
+publicação da 0.5.0 pelo Git Flow (conferência na seção "Publicação").
+
+1. **Primeiro teste no cliente real** (usuário): roteiro em `docs/ROTEIRO_TESTE_REAL.md` e a seção "As seis
+   atividades pré-cadastradas" de `docs/TESTES.md`: Detectar jogo, capturar a opção de cada instância e os
+   botões de dificuldade, seguir a página Pendências, uma execução de cada atividade com o dedo no F12.
+2. **Medir no cliente** o tempo da barra e a espera inicial (padrão 3,33 s + 0,06 s vem de terceiros), a faixa e
+   o formato do vento, e conferir se Formigueiro Fácil e Galinheiro Fácil existem.
+3. **Investigar com capturas reais**: etapas do Galinheiro por dificuldade, se a OBN tem a corrida e o que é o
+   "Meka", como aparecem os balões e o juiz; ajustar `instances.json` (sem mexer no código) e os cenários da
+   simulação.
+4. Observar a parada da interface depois de Pausar no Windows (causa provável corrigida na 0.5.0; era
+   intermitente) e o Tk dos testes no Windows (`pytest.ini` com captura `sys`; se voltar, o `faulthandler` da CI
+   mostra a pilha).
+5. Ler os termos do DDClássico pelo endereço espelho (`https://ddtclassico.com/classic/terms`).
+6. Ideias da pesquisa ainda não implementadas: posições pelo minimapa (alvos fora da tela), escala pela régua do
+   rodapé, próprio personagem pela pulsação, prévia da trajetória na interface, fixar à mão o alvo invisível.
 
 ## Versão 0.4.4
 

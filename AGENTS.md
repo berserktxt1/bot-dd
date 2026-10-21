@@ -18,6 +18,9 @@ empacotado com PyInstaller.
   todos os testes usam simulação, imagens sintéticas ou janelas de teste. Não afirme que algo "funciona no jogo".
 - Andamento e pendências: [`PROGRESS.md`](PROGRESS.md). Pesquisa e fontes da física/mira:
   [`docs/RESEARCH.md`](docs/RESEARCH.md). O que cada teste cobre: [`docs/TESTES.md`](docs/TESTES.md).
+- **Estado em 2026-10-20:** a 0.5.0 (seis atividades pré-cadastradas) está na branch
+  `feature/atividades-prioritarias`, ainda sem Release; a versão no código continua 0.4.4. Antes de continuar,
+  leia a primeira seção do `PROGRESS.md` ("Onde parou" e "Próximos passos").
 
 ## Idioma
 
@@ -29,15 +32,19 @@ mensagens de commit. Identificadores de código (funções, classes, variáveis)
 ```
 src/ddbot/
   detection.py, game_window.py, winapi.py   jogo e launcher (Detectar jogo, perfil, foco, Win32)
-  capture.py, vision/                       percepção (captura, regiões, modelos, dígitos, menu)
+  capture.py, vision/                       percepção (captura, regiões, modelos, dígitos, menu,
+                                            sugestão automática de regiões em vision/autodetect.py)
   aiming.py, physics.py, calibration.py,    decisão (mira, modelo físico, calibração,
   tracking.py, combat.py, activities.py     rastreio de alvo, combate, fluxo das atividades)
-  readiness.py                              o que falta calibrar antes de jogar sozinho
+  strategy.py                               estratégias por instância e dificuldade (etapas, alvos, estados)
+  catalog.py                                atividades pré-cadastradas e disponibilidade no cliente
+  readiness.py                              o que falta calibrar antes de jogar sozinho (com instruções)
   automation/                               execução: SendInput (input.py) e travas (safety.py)
   service.py, gui/                          camada de serviço e interface Tkinter
   simulation.py                             jogo simulado (modo demonstração, testes, --selftest)
   app.py                                    linha de comando e ponto de entrada
-data/knowledge/                             tabelas de ângulo, mecânicas, parâmetros do modelo, fontes
+data/knowledge/                             tabelas de ângulo, mecânicas, parâmetros do modelo, fontes,
+                                            perfis das instâncias (instances.json) e catálogo (catalogo.json)
 config/default_config.json                  configuração padrão
 packaging/                                  specs do PyInstaller, version_info.txt, run_ddbot.py
 tests/                                      pytest (fixtures em conftest.py e fixtures/)
@@ -58,6 +65,20 @@ PYTHONPATH=src python -m ddbot --gui-smoke 8  # exercita a interface em modo sim
 
 Variáveis de ambiente: `DDBOT_HOME` (pasta de dados; os testes usam a fixture `home`), `DDBOT_HEADLESS`,
 `DDBOT_UI_SCALE`, `DDBOT_SELFTEST_OUT`, `DDBOT_SMOKE_OUT`.
+
+No Linux de desenvolvimento (Rocky 10) não há Xvfb: os testes de interface (`test_gui_smoke`,
+`tests/test_gui_selecao.py`, `tests/test_gui_layout.py`) e as capturas rodam no container local `jonflow-ci`
+(Ubuntu 24.04, venv em `/venv`). Use `--init` (sem ele o `xvfb-run`, como processo 1, pode esperar o Xvfb para
+sempre) e copie só as pastas do projeto (a pasta `dados/` local e a `.venv` não entram):
+
+```bash
+docker run --rm --init -v "$PWD":/src:ro jonflow-ci bash -lc 'mkdir -p /tmp/w && cp -r /src/src /src/tests \
+  /src/data /src/config /src/assets /src/tools /src/packaging /src/docs /src/.github /src/README.md \
+  /src/requirements.txt /src/requirements-dev.txt /src/build_windows.bat /tmp/w/ && cd /tmp/w && \
+  xvfb-run -a -s "-screen 0 1920x1080x24" /venv/bin/python -m pytest -q tests -rs'
+# capturas (direto de /src, só leitura): -e DDBOT_UI_SCALE=1.5 -e DDBOT_HOME=/tmp/h -e PYTHONPATH=/src/src
+#   -e PYTHONDONTWRITEBYTECODE=1 -v <pasta>:/out ... 'cd /src && xvfb-run ... /venv/bin/python -m ddbot --screenshots /out'
+```
 
 O build do `.exe` só roda no Windows (`build_windows.bat`); a CI (`.github/workflows/windows-build.yml`) testa no
 Linux com Xvfb e no Windows, compila e testa os executáveis. `test_windows_real.py` e alguns testes de interface
@@ -83,6 +104,17 @@ Para acompanhar a CI: `gh run list --limit 5`, `gh run view <id>`, `gh run view 
   tecla às cegas. Na dúvida, o bot **pausa e explica** em vez de agir.
 - **Nada inventado sobre o jogo.** Coordenadas, telas e botões vêm das capturas do usuário; constantes físicas
   vêm de `data/knowledge` com fonte registrada em `sources.json`. Não fixe nomes de janela/processo nem posições.
+  Sugestões automáticas (regiões, etapas) são só sugestões: o usuário confirma, e o que ele já marcou não é trocado.
+- **Atividades pré-cadastradas** (`catalogo.json`): aparecem sempre, mas a disponibilidade no cliente só muda
+  com evidência (opção vista no menu, não encontrada pela rotina, marcada pelo usuário). Opção ou dificuldade
+  ausente ou ambígua no menu **pausa**: o bot nunca escolhe outra atividade no lugar. Olimpíadas Bugou
+  (`GuluOlympics`) e Castelo do Reino de Bugou (`GuluKingdom`) são instâncias diferentes.
+- **Estratégias** (`instances.json`): mudanças de etapas, alvos e dificuldades vão para os dados, com fonte e
+  confiança; as dificuldades herdam da instância (`base`) e usam as mesmas capturas de alvos. Etapas que não são
+  combate comum (pontuação, corrida, papéis a evitar) pausam sem os modelos obrigatórios.
+- **Calibração por resultados**: cada disparo guarda instância, dificuldade, etapa, alvo e cenário (modo da força
+  e cliente); a correção só usa disparos do mesmo cenário. Disparos simulados nunca corrigem a mira do jogo real
+  e resultados simulados nunca são apresentados como do jogo.
 - Telas e fins de batalha só valem após leituras seguidas; leitura com baixa confiança não dispara.
 - **Escala do Windows (DPI).** Um programa sem suporte a DPI (como a janela de teste e muitos jogos) desenha no
   tamanho de 100% e o Windows amplia a imagem na tela. A imagem pedida à janela (`winapi.print_window`) vem no DPI
@@ -97,7 +129,15 @@ Para acompanhar a CI: `gh run list --limit 5`, `gh run view <id>`, `gh run view 
 - Dependências com versão fixa em `requirements*.txt`; actions da CI fixadas por SHA. Não adicione dependência sem
   necessidade clara.
 - Todo defeito corrigido ganha teste de regressão (ver `tests/test_audit_regressions.py`). Mudanças de interface
-  devem continuar cabendo em 1080p a 100/125/150% de escala.
+  devem continuar cabendo em 1080p a 100/125/150% de escala: a auditoria de `gui/screenshots.py` (texto e abas
+  cortados, painel que passa da borda, lista com menos de duas linhas) roda em `tests/test_gui_layout.py` e no
+  passo "Layout das capturas" da CI, que reprova. Revise também as capturas do Windows (Segoe UI): as do
+  container usam DejaVu e medem diferente. Em 1080p a 150% a janela tem só ~630 px lógicos de altura
+  (`MainWindow.compact`): cada linha a mais no Início tira espaço do Histórico.
+- Testes que abrem janelas Tk no próprio processo usam a fixture `tk_cleanup` (guarda a janela viva até o fim do
+  processo): no Windows, liberar um Tk no meio da sessão derruba o processo (Tcl liberado numa thread da janela).
+  O `pytest.ini` fixa `--capture=sys`: com a captura `fd` o Tk às vezes não abre na suíte completa do Windows
+  ("Can't find a usable init.tcl/tk.tcl"). Não troque isso sem repetir a suíte no Windows.
 - Siga o estilo vizinho: `from __future__ import annotations`, `logging.getLogger(__name__)`, docstrings curtas.
 
 ## Git e versões

@@ -42,6 +42,10 @@ ADVICE = [
     ("launcher está aberto", "Entre no jogo pelo launcher. O bot conecta sozinho quando o jogo abrir."),
     ("na frente do jogo", "Deixe a janela do jogo visível; não coloque outras janelas por cima durante a rotina."),
     ("foco do teclado", "Clique uma vez dentro da área do jogo (não no launcher) e depois em Retomar."),
+    ("no menu do jogo", "Confira no jogo se a atividade existe (nível, evento, página do menu). Se existir, capture "
+                        "a opção de novo em Calibração > Menu; o bot nunca escolhe outra no lugar."),
+    ("precisa reconhecer", "Numa batalha da instância, capture os alvos pedidos em Calibração > Alvos."),
+    ("jogue esta etapa", "Jogue essa etapa você mesmo e clique em Retomar quando ela terminar."),
     ("não foi encontrad", "Abra o DDClássico pelo launcher e clique em Detectar jogo, no topo."),
     ("tela desconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
     ("não reconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
@@ -57,6 +61,9 @@ ADVICE = [
     ("ângulo atual desconhecido", "Treine os números do ângulo em Calibração > Números."),
 ]
 
+
+DIFFICULTY_NAMES = {"facil": "Fácil", "normal": "Normal", "dificil": "Difícil", "avancado": "Avançado",
+                    "heroico": "Heroico"}
 
 METHOD_LABELS = {"fisica": "Modelo físico", "a20": "Tabela 20°", "a30": "Tabela 30°", "a50": "Tabela 50°",
                  "a65": "Tabela 65°", "high": "Tiro alto", "medium": "Tiro médio"}
@@ -135,8 +142,8 @@ def _describe(s: UiSnapshot) -> Banner:
                       "Para conhecer o programa sem o jogo, ligue o modo demonstração.")
     if not s.activity_name:
         return Banner("idle", "Escolha o que jogar",
-                      "As instâncias e partidas aparecem aqui depois de capturadas do menu do jogo "
-                      "(Calibração > Menu). No modo demonstração há uma de cada para testar.")
+                      "As instâncias pré-cadastradas estão na lista Atividades; as partidas aparecem depois de "
+                      "capturadas do menu do jogo (Calibração > Menu). No modo demonstração dá para testar sem o jogo.")
     if not s.activity_auto:
         return Banner("warning", f"{s.activity_name} envolve outros jogadores",
                       "O bot não joga sozinho contra pessoas. Use a mira assistida na aba Diagnóstico.")
@@ -157,6 +164,8 @@ def humanize(message: str) -> str:
     message = re.sub(r"^tela: (\w+)$", tela, message)
     message = re.sub(r"\b(botao_\w+|carta_recompensa|estado_\w+)\b", lambda m: names.get(m.group(1), m.group(1)),
                      message)
+    message = re.sub(r"\bdificuldade_(\w+)", lambda m: f"botão da dificuldade "
+                     f"{DIFFICULTY_NAMES.get(m.group(1), m.group(1).replace('_', ' '))}", message)
     message = re.sub(r"\b(instancia|partida)_(\w+)", lambda m: m.group(2).replace("_", " "), message)
     message = message.replace(" -> ", ": ")
     return message[:1].upper() + message[1:]

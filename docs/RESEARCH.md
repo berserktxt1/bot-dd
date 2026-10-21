@@ -1,8 +1,9 @@
 # Pesquisa — referências e conclusões
 
 Este documento junta a pesquisa de 2026-10-15 (tabelas, regras de vento e modelo físico), a de 2026-10-16
-(bots, calculadoras e fórmulas citados no pedido) e a de 2026-10-19 (instâncias e mais uma calculadora). A lista de fontes legível pelo programa fica em
-`data/knowledge/sources.json`.
+(bots, calculadoras e fórmulas citados no pedido), a de 2026-10-19 (instâncias e mais uma calculadora) e a de
+2026-10-20 (aimbots e bots pedidos na missão da 0.5.0, notícias oficiais do DDClássico e as seis instâncias
+prioritárias). A lista de fontes legível pelo programa fica em `data/knowledge/sources.json`.
 
 ## Como a pesquisa orientou a implementação
 
@@ -23,6 +24,11 @@ Este documento junta a pesquisa de 2026-10-15 (tabelas, regras de vento e modelo
 | Uma estratégia por atividade, com contrato comum (`FarmAction`) | DavidBarishev | perfis em `data/knowledge/instances.json` + `strategy.py::StrategyPlanner` (mesmo motor de mira) |
 | Etapas e alvos prioritários por instância (formigas → rainha; Barão, Midas, Matias) | guias de instância (2012–2017) | `instances.json`, `strategy.py` |
 | Chefe imune de frente, escudo que só se vence por cima, pavio que exige gelo | bielpontes 2012, ddtdjpj | estados `imune`, `so_por_cima`, `pausar` em `strategy.py` |
+| Etapas e dificuldades de Formigueiro, Galinheiro e Olimpíadas (balões, corrida, Boxiador, juiz) | ddtdjpj (olim.html, 2015), ddtankdicasjogar 2013, shekinah 2011, emuladores (só apoio) | perfis por dificuldade em `instances.json` (herança `base`, `etapas_ids`); tipos de etapa `pontuacao`/`corrida`, papéis a `evitar` |
+| Etapa escolhida pelo que a tela mostra (as fontes divergem na ordem) | contradições entre guia de 2013, vídeos e emulador no Galinheiro | `StrategyPlanner.update` troca de etapa por `entra_com`, inclusive para trás, sem largar um chefe visível |
+| Barra de força do DDClássico em ~3,33 s com ~44–94 ms até começar | registro do AINBOT (2026) | padrão `automation.power_full_time_s` 3,33 e `power_start_delay_s` 0,06 (a confirmar no cliente) |
+| Recalibrar pela mediana dos impactos reais | AINBOT (κ pela mediana) | `Calibrator._fit` com pesos de Huber |
+| Regiões marcadas sobre uma captura; ângulo como a parte que muda ao apertar a tecla | DSS, AINBOT, PyPI `ddtank` (diferença entre quadros) | `vision/autodetect.py` (sugestões confirmadas pelo usuário) |
 
 **Licenças.** Nenhum código de terceiros foi copiado: qozi/windors, HexorCatZ, BoomShot e ddcalculator não têm
 licença (todos os direitos reservados); DavidBarishev é GPL-3.0 e Stardust é AGPL-3.0; ddladora declara MIT sem
@@ -42,6 +48,107 @@ invisibilidade **não foram confirmados**. Por isso:
 **Modalidades.** A matéria do Mobile Gamer (08/2026) confirma PvE (instâncias), PvP por turnos, ranqueadas e
 partidas casuais. O bot só joga sozinho atividades das categorias PvE/solo. Fila e PvP envolvem outros jogadores:
 nesses casos o bot oferece apenas a mira assistida e nunca entra sozinho em ranqueadas.
+
+---
+
+## Pesquisa de 2026-10-20 (missão da 0.5.0: aimbots, DDClássico e as seis instâncias)
+
+Método: código e documentação lidos nos arquivos (API do GitHub, raw, PyPI), HTML bruto dos blogs e títulos,
+descrições e capítulos de vídeos (nenhum vídeo foi assistido). Nada foi executado de código baixado. Licença
+"nenhuma" = API do GitHub com `license: null` e sem arquivo LICENSE: todos os direitos reservados, só ideias
+foram usadas. Nada aqui foi conferido no cliente do DDClássico.
+
+### DDClássico: fontes oficiais
+
+- `ddclassico.com` continua respondendo 403 (Cloudflare). O mesmo site responde em
+  **`https://ddtclassico.com/classic/news/<n>`** (mesmo layout, `og:url` para ddclassico.com, mesmas redes e
+  instalador em `download.ddclassico.com`). Confiança alta de que é o conteúdo oficial; não é prova formal de
+  dono do domínio. Os termos de uso (`/classic/terms`) **ainda não foram lidos**.
+- **Notícia 37 (16/10/2026, "Caça aos Clones das Sombras")**, lida: "Onde caçar: Formigueiro (Normal),
+  Galinheiro (Difícil), Castelo do Reino de Bugou (Difícil), Covil do Dragão (Normal), Redemoinho (Fácil),
+  Olimpíadas Boom (Difícil), Castelo Sombrio (Normal) e Tribo Piatan (Normal)"; evento de 16/10 a 22/10.
+- Outras notícias: n13 (16/09) drops no "Castelo do Rei Bugou Normal"; n14 (25/09) "Explore 8 instâncias"
+  (Central de Expedições); n30 (13/10) nível 33 liberado; n36 (15/10) "A dificuldade Difícil da Tribo Piatan
+  será liberada hoje": **as dificuldades são liberadas aos poucos** (por isso a disponibilidade de cada atividade
+  é conferida no cliente, por evidência). Nenhuma notícia descreve etapas, turnos, energia, ingressos ou solo.
+
+### Nomenclatura: Olimpíadas Bugou × Olimpíadas Boom × Castelo do Reino de Bugou
+
+**Olimpíadas Boom, Olimpíadas Bugou, Olimpíadas de Bogou e Desafio de Bugous são a mesma instância** (nome
+interno `GuluOlympics`; confiança alta). O **Castelo do Reino de Bugou** (Castelo Bugou, do Rei Bugou;
+`GuluKingdom`) é **outra** instância, com Fácil e com Barão, Midas e Matias (confiança alta). Evidências:
+"Olimpíadas Boom (Desafio de Bugous)" na estreia (shekinahddtank, 26/09/2011); vídeo "OLIMPÍADAS BOOM (BUGOU)
+DIFÍCIL" (2025); scripts `GuluOlympics` × `GuluKingdom` (crieddtank, 2012); a notícia 37 lista as duas
+separadamente; jogadores do DDClássico usam "Olimpíadas Bugou" (vídeos de 06/09/2026, DDMira "OBN"/"OBD").
+No JonFlow: modelo da opção `instancia_olimpiadas_bugou` ≠ `instancia_bugou_normal`, perfis com modelos de
+alvo separados, e `match_profile` não associa "Bugou Normal" a nenhum dos dois.
+
+### Instâncias prioritárias
+
+| Instância | Dificuldades | Etapas | Confiança e contradições |
+|---|---|---|---|
+| Formigueiro | só Fácil e Normal (3 fontes clássicas); no DDClássico só o Normal tem notícia oficial | 1) formigas (um guia: 20); 2) só a rainha Pandora | alta para 2 etapas; diferença entre as dificuldades documentada só no nível recomendado (8–12 × 12–15); ataques da rainha e limite de turnos não descritos; solo feito em vídeos de 2011–2012 |
+| Galinheiro (Pintinho Corre Rápido) | Fácil, Normal, Difícil; no DDClássico, Difícil (notícia 37) e Normal (vídeo de 07/09/2026) | guia de 2013: Fácil = pintinhos → Burrinho e gaiola; Normal = pintinhos → construção → Burrinho e gaiola; Difícil = pintinhos → Burrinho e gaiola → construção | **as fontes se contradizem**: vídeos e emulador mostram 4 etapas no Difícil e 3 em parte dos Fáceis; o nome Burrinho tem fonte única; o que faz perder não é descrito; recomendado 2 a 4 jogadores, há vídeo "Difícil SOLO" (2013) |
+| Olimpíadas Bugou | Normal, Difícil, Avançado (sem Fácil); no DDClássico, Difícil (notícia 37) e Normal (vídeos, DDMira) | Normal clássico (olim.html, 2015): balões → corrida → Boxiador. Difícil/Avançado: balões → Boxiador → Juiz ladrão | média-alta para a estrutura; estreia (2011) e um servidor de 2025 falam em 4 etapas; o DDMira cita na 2ª etapa da OBN um alvo prioritário "Meka" que nenhuma outra fonte descreve |
+
+Olimpíadas, por etapa (olim.html 2015 e shekinah 2011):
+- **Balões**: 99 pontos; vermelhos somam 1 a 5, verdes tiram 1 a 4; um balão especial dobra (de flor, que dobra o
+  total, ou com X, que dobra a rodada: as fontes divergem); 40 rodadas (2011) ou 10 turnos por jogador
+  (emulador).
+- **Corrida (só Normal)**: o seu time (rosa/vermelho) precisa levar todos ao pódio antes do rival (azul); ferir
+  os rivais ("os muito feridos não andam", dica: ferir 3 por rodada); o seu time não toma dano dos seus tiros;
+  se o rival chegar antes, recomeça.
+- **Boxiador (Menino Torto)**: duas vidas; deixa cansado, selado e algemado; a torcida dopa o juiz, ataca e
+  defende; **acordar o juiz** anula efeitos de dano e armadura, mas **na 3ª vez o personagem morre**.
+- **Juiz ladrão (Difícil/Avançado)**: só recebe dano pelas costas (ou no alto do chapéu); bolha quando bebe.
+- Solo: nenhuma fonte trata; os dados de base sugerem 3 a 4 jogadores.
+
+Referências de mira da rainha (só referência, sem posição nem vento): 40/60 e 24/100 (guia), 23/100 (vídeo do
+Fácil, 2015), 28/70 (vídeo do Normal, 2015).
+
+### Bots e aimbots pedidos na missão
+
+| Projeto | Licença | O que foi lido | Aproveitado (só ideias) | Não serve |
+|---|---|---|---|---|
+| [tkzt/ddt-sharp-shooter](https://github.com/tkzt/ddt-sharp-shooter) (arquivado; 2019–2025) | nenhuma | main.py, ocr.py, force.py, km.py, dss.spec, tags v1/v2 | modelo com arrasto linear em forma fechada (mesma família do nosso; constantes de 2025: R 1,05235, w 5,50187, g −163,566); unidade = largura do retângulo do minimapa / 10; README: barra cheia em 4,0–4,3 s em servidores antigos e skill de pet que acelera a barra quebra o disparo por tempo | regiões fixas (escala w/1500 com bug na origem), OCR genérico (ddddocr) com remendos, posições marcadas à mão, disparo sem conferência |
+| [vitor-carvalho-ddt/DDTankBot-Clib](https://github.com/vitor-carvalho-ddt/DDTankBot-Clib) (2023) | nenhuma | README, main.py, wind_image_ocr.py, possible_wind_sets.py | só o vento é lido da tela: recortes em frações da janela, cinza ampliado 4×, `matchTemplate` ≥ 0,85 contra 121 moldes de dígitos (valor montado "d1.d2", sem sinal); moldes reescalados quando a janela difere de 942×646 | ângulo, força e turno por **leitura de memória** (fora do escopo, não detalhado); **compra itens sozinho**; módulo ausente no repositório; o README admite que o vento falha; nenhuma fórmula de mira |
+| [DavidBarishev/DDtankFarmingBot](https://github.com/DavidBarishev/DDtankFarmingBot) | GPL-3.0 | conferência | nada novo (contrato de módulo `FarmAction`) | — |
+| [qozi/ddtank-onhook](https://github.com/qozi/ddtank-onhook) (fork de windors/ddtank) | nenhuma | conferência | nada novo; windors avisou em 2025-09-30 que não haverá atualização | — |
+| [DDMira](https://ddmira.com/aimbot-ddtank) (comercial, r454) | — | página, capturas da HUD | ideias de interface: prévia da trajetória, marcador na barra, "Configure fora da partida", sequência de atividades; nomes OBN/OBD | alegações de desempenho não verificáveis; anuncia **PvP automático** (o JonFlow não faz) |
+| [DDTool](https://ddtanktool-br.blogspot.com/p/guia-de-uso.html) (2012-12-23) | — | guia e 3 imagens | invisíveis: alvo e origem fixados **à mão**; vento manual | não estima posição de invisíveis |
+| [AINBOT, felpp25/ddtank-bot](https://github.com/felpp25/ddtank-bot) (2026-09-10, feito para o DDClássico) | nenhuma | README, solver.py, tables.py, calib.py, vision.py, tiro.py, log | **única medida do DDClássico**: barra cheia em 3,30–3,35 s e 44–94 ms até começar (navegador); vento 0,0 a 4,0 (dígito vermelho, ponto, dígito ciano); escala pela régua do rodapé e pelo minimapa; κ do vento pela mediana dos impactos; ângulo exibido com histerese | modelo sem arrasto (só corrige vento e desnível sobre as tabelas); posições ainda marcadas com F1/F2 |
+| PyPI `ddtank` 1.1.3 / `ddtcv` | MIT declarado sem texto próprio | aim.py, status.py | desnível por referencial girado; o próprio personagem achado pela diferença entre duas capturas | coordenadas fixas 1000×600, cliente Flash |
+| SoBadFish/DDT_YOLO_AI (AGPL-3.0), Mikasa1997/ddtCalculator, FogMoe/DDT.Helper (GPL-2.0) | — | arquivos principais | detecção em dois estágios com leituras estáveis; tempo por ponto de força varia por servidor (33 a 57,5 ms) | — |
+
+Calculadoras reconferidas (ddladora, huongtx498, BoomShot): nenhuma fórmula mudou desde 2026-10-19.
+
+**Correções a seções anteriores (texto integral do 52pojie, página 1, 2020-03-16):** os dados do ajuste usam
+**tiro alto com força 90** (não 95) e, nos ângulos fixos, **F = tabela − vento**; o autor descarta o modelo sem
+arrasto porque o erro depende do ângulo (não por "arredondamento das entradas", que não aparece na página 1); a
+tabela de 65° que o autor usa é a do TechTudo (a citada como "52pojie" veio de uma resposta de 2020-04-18). Uma
+reimplementação própria do modelo com arrasto, comparada às tabelas (vento 0, terreno plano), dá erro médio de
+0,6 a 1,6 ponto de força conforme o ângulo, próximo do nosso ajuste (RMSE 1,01).
+
+### O que virou código na 0.5.0 (não validado no jogo)
+
+- Seis atividades pré-cadastradas (`data/knowledge/catalogo.json`) com perfis por dificuldade
+  (`instances.json`, versão 2). Fácil e Normal do Formigueiro só diferem nos metadados (as fontes não mostram
+  outra diferença).
+- Olimpíadas Bugou Normal: balões como etapa de **pontuação** (mira o balão que mais soma contando a explosão,
+  nunca um verde; valores médios das fontes: vermelho +3, verde −2,5, dobro +6), **corrida** contra os Bugous
+  rivais (escolha "agrupado"), **Boxiador** com o **juiz como papel a evitar**. Sem os modelos dos balões
+  verdes, dos rivais ou do juiz, a etapa pausa em vez de atirar.
+- Galinheiro: etapas por dificuldade conforme o guia de 2013, com troca de etapa pelo que a tela mostra.
+- Barra de força 3,33 s + 0,06 s como padrão para instalações novas; força recomendada limitada a 98.
+
+### Ainda a avaliar
+
+- No cliente: se Formigueiro Fácil e Galinheiro Fácil existem no DDClássico; as etapas reais do Galinheiro e se
+  a OBN tem a corrida; o que é o "Meka"; o tempo real da barra (e se algum pet a acelera).
+- Ideias ainda não implementadas: posições pelo **minimapa** (alvos fora da tela), escala pela **régua do
+  rodapé**, próprio personagem pela **pulsação/diferença entre quadros**, prévia da trajetória na interface,
+  fixar à mão alvo e origem de invisíveis (DDTool), tridente (±5°, força ×1,1/×0,9).
+- Termos do DDClássico (`/classic/terms` pelo endereço espelho) sobre programas de automação.
 
 ---
 

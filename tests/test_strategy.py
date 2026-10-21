@@ -12,12 +12,16 @@ import pytest
 from ddbot.activities import ActivityDef, RunStatus, activity_from_option
 from ddbot.automation.safety import NeedsAttention
 from ddbot.combat import BattleObservation
-from ddbot.simulation import DEMO_SCENARIOS, SimSettings, drive, simulated_activity
+from ddbot.simulation import SimSettings, drive, scenario_for, simulated_activity
 from ddbot.strategy import GENERIC_ROLE, StrategyPlanner, load_profiles, match_profile
 from ddbot.vision.perception import Character
 
 ROOT = Path(__file__).resolve().parents[1]
-PRIORITY = ("formigueiro", "galinheiro", "bugou_normal")
+ORIGINAL = ("formigueiro", "galinheiro", "bugou_normal")  # perfis gerais (atividades capturadas até a 0.4.x)
+# perfis das seis atividades pré-cadastradas (uma por instância e dificuldade)
+CATALOG = ("formigueiro_facil", "formigueiro_normal", "galinheiro_facil", "galinheiro_normal", "galinheiro_dificil",
+           "olimpiadas_bugou_normal")
+PRIORITY = ORIGINAL + CATALOG
 
 
 @pytest.fixture(scope="module")
@@ -44,12 +48,12 @@ def test_profiles_load_and_cite_registered_sources(profiles):
     sources = {s["id"] for s in json.loads((ROOT / "data/knowledge/sources.json").read_text("utf-8"))["sources"]}
     for key in PRIORITY:
         p = profiles[key]
-        assert p.runnable and len(p.stages) >= 2 and key in DEMO_SCENARIOS
+        assert p.runnable and len(p.stages) >= 2 and scenario_for(p) is not None
     for p in profiles.values():
         assert p.sources and set(p.sources) <= sources, (p.key, set(p.sources) - sources)
     # as de pesquisa não jogam sozinhas
     assert not any(profiles[k].runnable for k in ("covil_dragao", "tribo_piatan", "castelo_sombrio",
-                                                    "olimpiadas_boom", "ilha_enamorados", "redemoinho",
+                                                    "olimpiadas_bugou", "ilha_enamorados", "redemoinho",
                                                     "arena_guerreiros"))
 
 
