@@ -216,7 +216,7 @@ def test_window_minimized_pauses(kb, params, inst):
 def test_no_focus_waits_then_pauses(kb, params, inst):
     status, r, c = run(kb, params, inst, runs=1, faults={"no_focus_at": 4})
     assert status == RunStatus.PAUSED and "frente" in r.reason
-    assert c.clicks == [("lobby", "botao_instancias")] or len(c.clicks) <= 1  # nada clicado sem foco
+    assert c.clicks == [("lobby", "botao_cais")] or len(c.clicks) <= 1  # nada clicado sem foco
 
 
 def test_transient_read_errors_tolerated(kb, params, inst):
@@ -293,3 +293,13 @@ def test_multistage_defeat_prevails(kb, params, inst):
     runner._run_actions("vitoria", [inst.flow["vitoria"][0]], client.read(), clock())
     assert runner._pending_result == "derrota"
     cleanup()
+
+
+def test_action_condition_parses_and_round_trips():
+    from ddbot.activities import Action
+    a = Action.parse({"clicar": "botao_iniciar", "espera": 2.0, "se": "com_escolha"})
+    assert a.when == "com_escolha" and Action.parse(a.to_raw()) == a
+    assert Action.parse({"clicar": "botao_iniciar"}).when is None
+    for bad in ({"clicar": "botao_iniciar", "se": "talvez"}, {"aguardar": 1.0, "se": "sem_escolha"}):
+        with pytest.raises(ValueError):
+            Action.parse(bad)

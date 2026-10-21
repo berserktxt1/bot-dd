@@ -278,3 +278,52 @@ def test_victory_banner_over_battle_wins(tmp_path):
     snap = Snapshot(width=1000, height=600)
     Perception(Config(data={}), lib, tmp_path).classify_state(frame, snap)
     assert snap.state == "vitoria"
+
+
+def test_template_with_a_wrong_learned_scale_is_searched_again(tmp_path):
+    """Regressão: um modelo que memorizou uma escala errada (uma coincidência >= 0,80) nunca mais era procurado nas
+    outras escalas depois que qualquer tela tinha sido reconhecida: aquela tela deixava de ser reconhecida até
+    reabrir o programa."""
+    from ddbot.vision.templates import FULL_EVERY, TemplateLibrary
+    rng = np.random.default_rng(7)
+    lib = TemplateLibrary(tmp_path)
+    tpl = rng.integers(0, 255, (40, 120, 3), dtype=np.uint8)
+    lib.add("estado_sala", tpl)
+    frame = np.full((600, 1000, 3), 60, np.uint8)
+    frame[200:240, 300:420] = tpl                       # na tela, na escala 1,0
+    lib._scales[("estado_sala", 0, frame.shape[:2])] = 0.75  # escala errada memorizada
+    lib._shape_scale[frame.shape[:2]] = 0.75                 # e outra tela já reconhecida nesse tamanho
+    scores = [lib.best("estado_sala", frame).score for _ in range(FULL_EVERY + 1)]
+    assert max(scores) > 0.95
+    assert lib.best("estado_sala", frame).score > 0.95  # depois de achada, a escala certa fica memorizada
+
+
+def test_unrecognized_screen_explains_the_closest_calibrated_screens(tmp_path):
+    from ddbot.vision.perception import Perception, Snapshot
+    rng = np.random.default_rng(8)
+    lib = TemplateLibrary(tmp_path)
+    lib.add("estado_lobby", rng.integers(0, 255, (40, 120, 3), dtype=np.uint8))
+    lib.add("estado_sala", rng.integers(0, 255, (40, 120, 3), dtype=np.uint8))
+    per = Perception(Config(data={}), lib, tmp_path)
+    snap = Snapshot(width=1000, height=600)
+    per.classify_state(np.full((600, 1000, 3), 60, np.uint8), snap)
+    assert snap.state == "desconhecido"
+    text = per.explain_state(snap)
+    assert "Lobby" in text and "Sala/preparação" in text and "mínimo 0,80" in text
+    assert set(snap.summary()["telas_parecidas"]) == {"Lobby", "Sala/preparação"}
+
+
+def test_dialogs_over_the_room_win_over_the_room(tmp_path):
+    """A janela de escolher a instância e o aviso de instância difícil aparecem por cima da sala."""
+    from ddbot.vision.perception import Perception, Snapshot
+    rng = np.random.default_rng(9)
+    room, warn = (rng.integers(0, 255, (40, 120, 3), dtype=np.uint8) for _ in range(2))
+    lib = TemplateLibrary(tmp_path)
+    lib.add("estado_sala", room)
+    lib.add("estado_aviso_sozinho", warn)
+    frame = np.full((600, 1000, 3), 60, np.uint8)
+    frame[500:540, 100:220] = room
+    frame[200:240, 440:560] = np.clip(warn.astype(int) + rng.integers(-40, 40, warn.shape), 0, 255).astype(np.uint8)
+    snap = Snapshot(width=1000, height=600)
+    Perception(Config(data={}), lib, tmp_path).classify_state(frame, snap)
+    assert snap.state == "aviso_sozinho"

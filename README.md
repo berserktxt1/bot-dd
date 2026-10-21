@@ -141,8 +141,8 @@ escolhido. **Fazer agora** abre a página certa já com o item escolhido e captu
 | O que capturar | Exemplos | Para que serve |
 |---|---|---|
 | **Regiões** | número do ângulo, vento, barra de força, indicador de turno, área de jogo | Dizer ao bot **onde** olhar na tela. |
-| **Modelos de tela** (`estado_...`) | lobby, menu de instâncias, menu de partidas, sala, carregando, batalha, etapa concluída, recompensa, vitória, derrota, desconectado | Saber **em que tela** o jogo está. Capture um pedaço que só aparece naquela tela. |
-| **Botões** | abrir instâncias, abrir partidas, confirmar, iniciar, continuar, sair, fechar (X), carta de recompensa e os botões de dificuldade **Fácil**, **Normal** e **Difícil** | Saber **onde clicar**. Cada botão de dificuldade é capturado uma vez e serve para todas as instâncias. |
+| **Modelos de tela** (`estado_...`) | lobby, Cais de Expedição, sala, escolha da instância, aviso de instância difícil, menu de partidas, carregando, batalha, etapa concluída, recompensa, vitória, derrota, desconectado | Saber **em que tela** o jogo está. Capture um pedaço que só aparece naquela tela (na escolha da instância e no aviso, um pedaço da própria janela, não da sala atrás dela). |
+| **Botões** | Cais de Expedição (no lobby), Criar sala, o botão da sala que abre a escolha da instância, confirmar, Iniciar, confirmar do aviso de instância difícil, abrir partidas, continuar, sair, fechar (X), carta de recompensa e os botões de dificuldade **Fácil**, **Normal** e **Difícil** | Saber **onde clicar**. Cada botão de dificuldade é capturado uma vez e serve para todas as instâncias. |
 | **Marcadores** | seu personagem, um inimigo, indicador de turno, setas do vento | Achar **quem é quem** na batalha e o sentido do vento. |
 | **Números** | ângulo e vento | Ler os **valores**. Marque o número, digite o valor que aparece e clique em **Aprender**. Repita com valores diferentes até cobrir os dígitos de 0 a 9. |
 
@@ -155,7 +155,8 @@ escolhido. **Fazer agora** abre a página certa já com o item escolhido e captu
 
 Depois, ligue as atividades ao menu do seu jogo:
 
-1. **Opções do menu (página Menu).** No jogo, abra o menu de instâncias. No JonFlow, capture a tela e clique em
+1. **Opções do menu (página Menu).** No jogo, entre numa sala pelo Cais de Expedição e abra a escolha da
+   instância. No JonFlow, capture a tela e clique em
    **Detectar opções**. Escolha uma opção na lista e diga em **Esta opção é** o que ela é:
    - **Formigueiro**, **Galinheiro** ou **Olimpíadas Bugou**: a atividade cadastrada passa a usar essa captura (uma
      captura serve para todas as dificuldades da instância);
@@ -200,6 +201,15 @@ Na aba **Início**:
    que ainda falta calibrar.
 2. Em **Quantas vezes**, escolha **Uma vez**, **Repetir** (e o número de vezes) ou **Até eu parar**.
 3. Clique em **Iniciar** (F5).
+
+O caminho das instâncias é o do jogo: **lobby → Cais de Expedição → Criar sala → na sala, escolher a instância e a
+dificuldade → Iniciar**. A cada execução o bot escolhe a instância de novo dentro da sala, mesmo que ela já esteja
+escolhida, para nunca iniciar outra.
+
+Se, ao clicar em Iniciar, o jogo avisar que a **instância é difícil para um jogador**, o bot **pausa** e pergunta.
+Para continuar sozinho mesmo assim, clique em **Confirmar o aviso e continuar** (aparece no Início durante a pausa;
+a rotina segue da mesma tela, sem recomeçar). A permissão fica em Configurações > Automação e pode ser desmarcada.
+Ela só vale para esse aviso, reconhecido pelo modelo que você capturou: não libera nenhum outro botão nem bloqueio.
 
 Durante a rotina a janela do JonFlow se minimiza para não cobrir o jogo e volta sozinha quando a rotina pausa,
 termina ou precisa de você.
@@ -304,6 +314,12 @@ clique em **Aparece no meu jogo**. Se ela realmente não existe no seu servidor,
 Motivos comuns: você trocou de janela, o foco ficou no launcher, uma tela não foi reconhecida (a imagem fica em
 `dados\capturas`; capture essa tela em Calibração) ou outra janela cobriu o jogo. Resolva e clique em
 **Retomar** (F6).
+
+Quando a tela não é reconhecida, o Histórico diz quais telas calibradas mais se pareceram e com que nota (por
+exemplo "mais parecidas: Lobby 0,62, Sala/preparação 0,55 (mínimo 0,80)"). Uma nota baixa em todas quer dizer que
+falta capturar aquela tela em Calibração > Modelos; a aba Diagnóstico mostra as mesmas notas ao vivo
+("telas_parecidas"). Na batalha, se o bot não consegue ler o seu turno ou mirar (personagem, inimigo ou régua não
+encontrados), ele avisa o motivo e, se continuar assim, pausa.
 </details>
 
 <details>

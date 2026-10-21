@@ -51,6 +51,45 @@ nesses casos o bot oferece apenas a mira assistida e nunca entra sozinho em ranq
 
 ---
 
+## Pesquisa de 2026-10-21 (Formigueiro, caminho do Cais e aviso de jogador sozinho)
+
+Feita por leitura de arquivos de texto (GitHub raw/API) e de 6 imagens; nenhum binário baixado nem executado.
+Classificação: (a) comprovado para o DDClássico, (b) adaptável com validação, (c) sem validação suficiente.
+
+| Fonte | O que trouxe | Licença | Classe |
+|---|---|---|---|
+| github.com/yutikeyux/ddt-34-csharp (servidor C#, DDTank 4.1) | Formigueiro (`AntCave*Game.cs`, missões KD/KT1120–1121, IA da rainha): só Fácil e Normal; etapa 1 com 20 formigas no total (até 10 vivas, reforços), formigas andam até o jogador; etapa 2 com a rainha à direita, guardas, tiro, ataque em área x10 em quem passa para a direita dela; 200 turnos por etapa; vida da rainha 8000/10500. Física: Euler dt 0,04 s, `vx = força·cos`, g 700 px/s², arrasto 0,2/s, vento 24 px/s² por ponto; vento muda até 1,0 por turno, alvo em [-4; 4) | MIT | (b) |
+| github.com/yutikeyux/ddt-34-flash (cliente AS3 4.1, palco 1000×600) | Barra de força: 0 a 100 na tela (2000 internos), 20 por quadro; cheia, **volta a esvaziar**; se chegar a 0, perde o turno. Aviso de sala de instância com **1 jogador** em qualquer dificuldade (`DungeonRoomView.checkCanStartGame`) | MIT | (b) |
+| github.com/thurdev/ddtank-reborn | Texto pt-BR do aviso: "Lembrete — Esta masmorra é muito difícil, recomendada para equipes de 2 ou mais pessoas, deseja participar mesmo assim?" (Confirmar, Cancelar, X; Enter confirma). Pagos em cupons: "Ir à última fase", "Tentar de novo", 3ª carta de recompensa. Capturas (Ruffle 1100×700, vietnamita) só como referência de layout | MIT no código; arte de terceiros | (b) |
+| github.com/gustavoif0/ddtank_bot (jun/2025, "DDTank Brasil 3.6", marca 7teen) | Caminho: Central → sala → configurar o mapa → instância → dificuldade → OK → Início → OK do aviso de sozinho; Formigueiro com Fácil e Normal | **nenhuma** (só a ordem das telas foi usada) | (b), provável antecessor do DDClássico |
+| github.com/Ring0eh/toolgunny-re-and-defense (`dumps/FORMULA.md`) | Mesma física por outra fonte (DragonTank) | NOASSERTION | (b) |
+| ddtclassico.com/classic/terms | Sem cláusula sobre bots (remete às "Regras de Conduta", não encontradas); §5 proíbe copiar e distribuir arte e software do jogo | — | (a) |
+
+Uso no JonFlow:
+
+- **Caminho do Cais e aviso:** confirmam o que o usuário descreveu em 2026-10-21; viraram o fluxo padrão das
+  instâncias e a tela `aviso_sozinho` (confirmada só com a permissão do usuário).
+- **Formigueiro:** os fatos acima foram para `instances.json` como limites, com a fonte `emulador_ddt34_formigueiro`
+  (confiança do perfil continua "media"). As posições do emulador são do mapa (que rola), não da tela: não viraram
+  regiões.
+- **Botões pagos:** `botao_ultima_fase`, `botao_tentar_novamente` e `carta_paga` entraram na lista de proibidos.
+- **Física:** **não** substituiu o modelo do JonFlow. Comparação (1 distância ≈ 97 px, 105 casos de 20° a 80°,
+  forças 40–95, vento −2/0/+2): diferença média +0,25 da régua, mediana 0,40, máximo 1,11 (maior com vento contra).
+  Os dois reproduzem as tabelas da comunidade e nenhum foi medido no DDClássico; a calibração por disparos reais
+  corrige o viés que sobrar. Candidata a teste quando houver disparos reais registrados.
+- **Força:** a força recomendada vai até 100 (o usuário informou que a força vai de 0 a 100). Como a barra volta a
+  esvaziar depois de cheia, mirar 100 com atraso de alguns milissegundos dá ~99, o mesmo erro de execução de
+  qualquer outra força.
+- **Capturas:** nenhuma imagem do DDClássico foi encontrada; as que existem são de outro cliente, resolução ou sem
+  licença, e o §5 dos termos proíbe distribuir a arte do jogo. **Os modelos continuam sendo capturados pelo
+  usuário**; não há perfil pronto com imagens.
+
+Buscas sem resultado (não repetir): "DDClássico Formigueiro instância solo"; "弹弹堂 蚂蚁洞穴 副本 攻略 蚁后"; "Gunny
+Huyệt Ma Kiến hướng dẫn"; GitHub "ddtank opencv", "ddt auto angle", "gunny bot"; notícias 41–46 do espelho não existem.
+Descartados por serem de outro jogo ou sem conteúdo útil: 1141389743/ddtank-sniper, lcs-al/DDTankAutoPlay,
+AlefeSam/ddtank_bot, Thom-0/DDT-TRIAL-BOT, rafaellyfsilva/ddtankbot, kahramanemir/bombom-hesap,
+AndrusGerman/DDTankCalculator, Tziheng/DDTankAuto (AGPL, 新弹弹堂).
+
 ## Pesquisa de 2026-10-20 (missão da 0.5.0: aimbots, DDClássico e as seis instâncias)
 
 Método: código e documentação lidos nos arquivos (API do GitHub, raw, PyPI), HTML bruto dos blogs e títulos,

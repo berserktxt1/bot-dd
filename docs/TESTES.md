@@ -30,6 +30,24 @@ Para rodar: `python -m pytest -q tests` (com `PYTHONPATH=src`, ou pelo `build_wi
 | `test_gui_layout.py` (0.5.0, precisa de tela 1920×1080) | interface/regressão | a auditoria do layout pega abas espremidas, painel cortado por outro painel e lista sem espaço para duas linhas (antes só via texto cortado e o que saía da janela); a janela em 1080p a **100%, 125% e 150%** (escala simulada com `DDBOT_UI_SCALE`) não tem nada cortado no Início (sem jogo, demonstração, combate), nas abas Diagnóstico, Mira, Configurações e Registro e nas seis páginas da Calibração; os botões das páginas abrem a página certa e acompanham Ver pendências. Reprova a interface do `8dc8c79` (abas da Calibração cortadas em 100% e 125%; Histórico sem linhas em 150%). Numa tela menor é pulado. As janelas ficam vivas até o fim do processo (fixture `tk_cleanup`: no Windows, liberar um Tk no meio da sessão derrubava o processo) |
 | `test_simulation_service.py` | cenário/regressão/interface | a calibração melhora a precisão; o `--simulate` não perde o 1º turno de cada batalha; inimigos invisíveis na simulação; serviço completo em modo simulado (iniciar, pausar, retomar e parar em menos de 3,5 s); recusas sem janela e sem autorização (isoladas da área de trabalho real: antes, num PC com o DDTank aberto, o bot conectava no jogo e a recusa vinha pelas regras); demonstração sem autorização nem janela; emergência e reinício; `--selftest` pela linha de comando; **teste de interface** `--gui-smoke` (precisa de tkinter: roda na CI Windows e na CI Linux com Xvfb) |
 
+## Testes de regressão de 2026-10-21 (caminho do Cais, aviso, reconhecimento e mira)
+
+| Teste | O que garante |
+|---|---|
+| `test_catalogo.py::test_instance_goes_through_the_dock_and_chooses_inside_the_room_every_run` | lobby → Cais de Expedição → Criar sala → na sala, escolher a instância e a dificuldade → Iniciar; na volta à sala (que ainda mostra a instância anterior) escolhe de novo antes de Iniciar |
+| `test_catalogo.py::test_start_in_a_room_without_instance_never_clicks_start_first` | começando numa sala vazia, o primeiro clique é escolher a instância, nunca Iniciar |
+| `test_catalogo.py::test_solo_warning_pauses_without_permission_and_continues_after_it` | aviso de instância difícil (um jogador): sem permissão, pausa explicando e sem clicar; com a permissão, Retomar confirma e segue para a batalha na mesma ida (sem recomeçar) |
+| `test_catalogo.py::test_solo_warning_permission_does_not_unlock_forbidden_buttons` | a permissão não libera um botão proibido |
+| `test_activities.py::test_action_condition_parses_and_round_trips` | ações com `se` (`sem_escolha`/`com_escolha`) e as recusas de condição inválida |
+| `test_readiness.py::test_instance_lists_the_expedition_dock_path_in_order` | Pendências na ordem do jogo (Lobby, botão do Cais, tela do Cais, Criar sala, Sala, escolher, Iniciar, escolha, opção) com instruções |
+| `test_vision.py::test_template_with_a_wrong_learned_scale_is_searched_again` | **defeito corrigido**: um modelo com escala errada memorizada nunca mais era procurado nas outras escalas; reprova o código anterior |
+| `test_vision.py::test_unrecognized_screen_explains_the_closest_calibrated_screens` | tela não reconhecida diz as telas calibradas mais parecidas, a nota e o mínimo (também no Diagnóstico) |
+| `test_vision.py::test_dialogs_over_the_room_win_over_the_room` | escolha da instância e aviso de instância difícil, por cima da sala, valem mais que a sala |
+| `test_safety_combat.py::test_unreadable_turn_is_explained_and_pauses_in_auto` | **defeito corrigido**: batalha com o turno ilegível ficava parada em silêncio; agora avisa em 20 s e pausa em 60 s no automático |
+| `test_safety_combat.py::test_my_turn_without_aim_explains_and_pauses_after_two_turns` | seu turno sem personagem, inimigo ou régua: um aviso por turno com o motivo; dois turnos seguidos pausam no automático |
+| `test_mira_calibracao.py::test_recommended_force_can_reach_100` | a força recomendada vai até 100 (antes, teto de 98); reprova o teto antigo |
+| `test_gui_layout.py` | também com o botão "Confirmar o aviso e continuar" visível, em 100/125/150% |
+
 ## Teste de interface (`--gui-smoke`)
 
 Abre a janela de verdade e, em modo de demonstração, aciona os botões: lista a demonstração, *Iniciar*, confere

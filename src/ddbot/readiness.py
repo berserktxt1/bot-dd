@@ -4,7 +4,7 @@ Sem as telas, os botões e as leituras do combate capturados do cliente do usuá
 não reconhece nada e a rotina pararia em "tela desconhecida". Esta verificação diz antes
 de começar exatamente o que falta, onde capturar e como fazer (uma frase objetiva por item).
 
-Obrigatório: as telas em que o fluxo age (lobby, menu, sala, batalha, vitória, derrota),
+Obrigatório: as telas em que o fluxo age (lobby, Cais de Expedição, sala, escolha, batalha, vitória, derrota),
 os botões que o fluxo precisa clicar (inclusive a opção da instância e o botão da dificuldade),
 e no combate o ângulo, o vento, o indicador de turno, as setas do vento e os marcadores dos
 personagens. Telas e botões opcionais (carregando, etapa concluída, recompensa, confirmar) só
@@ -19,18 +19,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .activities import COMMON_TEMPLATES, ActivityDef
+from .activities import CLICKS, COMMON_TEMPLATES, ActivityDef
 from .vision.perception import REGION_KEYS, STATE_LABELS
 
-OPTIONAL_STATES = ("carregando", "etapa_concluida", "recompensa")
+OPTIONAL_STATES = ("carregando", "etapa_concluida", "recompensa", "aviso_sozinho")
 
 # onde cada tela costuma ser vista (para dizer ao usuário quando capturar), já com a preposição:
 # "Deixe o jogo na tela principal" (e não "em a tela principal")
 STATE_HINTS = {
     "lobby": "na tela principal, depois de entrar no jogo",
-    "menu_instancias": "no menu em que se escolhe a instância",
+    "cais_expedicao": "no Cais de Expedição (a lista de salas, aberta pelo botão do lobby)",
+    "menu_instancias": "na janela de escolher a instância, aberta dentro da sala",
+    "aviso_sozinho": "no aviso que aparece ao clicar em Iniciar sozinho numa instância difícil",
     "menu_partidas": "no menu em que se escolhe a modalidade de partida",
-    "sala": "na sala de preparação, antes de iniciar",
+    "sala": "na sala, antes de iniciar (com ou sem instância escolhida)",
     "carregando": "na tela de carregamento da batalha",
     "batalha": "numa batalha em andamento",
     "vitoria": "na tela de vitória",
@@ -74,18 +76,22 @@ def check(d: ActivityDef, has_template, config, angle_trained: bool, wind_traine
             out.append(Missing(f"tela {STATE_LABELS.get(state, state)}", "Calibração > Modelos", required,
                                _how_state(state), f"estado_{state}"))
         for a in actions:
-            if a.kind not in ("clicar", "clicar_opcional") or not a.target or has_template(a.target):
+            if a.kind not in CLICKS or not a.target or has_template(a.target):
                 continue
             need = a.kind == "clicar" and required
             if a.target.startswith(("instancia_", "partida_")):
                 name = option_labels.get(a.target) or d.name
+                where = ("na sala, abra a escolha da instância" if a.target.startswith("instancia_")
+                         else "abra no jogo o menu de partidas")
                 out.append(Missing(f"opção {name} no menu", "Calibração > Menu", need,
-                                   f"Abra no jogo o menu com a opção {name}, capture a tela, clique em Detectar "
-                                   f"opções, escolha a opção na lista e indique que ela é {name}.", a.target))
+                                   f"No jogo, {where} com a opção {name} visível, capture a tela, clique em "
+                                   f"Detectar opções, escolha a opção na lista e indique que ela é {name}.",
+                                   a.target))
             elif a.target in difficulty_labels:
                 desc = difficulty_labels[a.target]
                 out.append(Missing(desc[:1].lower() + desc[1:], "Calibração > Modelos", need,
-                                   "Abra o menu de instâncias com uma instância escolhida, capture a tela, arraste "
+                                   "Na sala, abra a escolha da instância com uma instância escolhida, capture a "
+                                   "tela, arraste "
                                    f"só sobre o botão e salve como \"{desc}\". Vale para todas as instâncias.",
                                    a.target))
             else:

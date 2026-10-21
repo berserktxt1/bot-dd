@@ -19,11 +19,14 @@ log = logging.getLogger(__name__)
 MAX_WIND = 10.0  # o indicador do jogo mostra valores pequenos; acima disso é leitura errada
 
 # estados reconhecidos por modelos "estado_<nome>"
-STATES = ["batalha", "vitoria", "derrota", "recompensa", "etapa_concluida", "lobby",
-          "menu_instancias", "menu_partidas", "sala", "carregando", "desconectado"]
+STATES = ["batalha", "vitoria", "derrota", "recompensa", "etapa_concluida", "lobby", "cais_expedicao",
+          "menu_instancias", "aviso_sozinho", "menu_partidas", "sala", "carregando", "desconectado"]
+# telas que aparecem POR CIMA de outra (cuja imagem continua visível atrás): reconhecidas, valem mais que ela
+OVERLAY_STATES = ("vitoria", "derrota", "desconectado", "menu_instancias", "aviso_sozinho")
 STATE_LABELS = {
     "batalha": "Batalha", "vitoria": "Vitória", "derrota": "Derrota", "recompensa": "Recompensa",
-    "etapa_concluida": "Etapa concluída", "lobby": "Lobby", "menu_instancias": "Menu de instâncias",
+    "etapa_concluida": "Etapa concluída", "lobby": "Lobby", "cais_expedicao": "Cais de Expedição",
+    "menu_instancias": "Escolha da instância", "aviso_sozinho": "Aviso de instância difícil (um jogador)",
     "menu_partidas": "Menu de partidas",
     "sala": "Sala/preparação", "carregando": "Carregando", "desconectado": "Desconectado",
     "desconhecido": "Desconhecido",
@@ -68,6 +71,7 @@ class Snapshot:
     unit_px: float = 0.0                # pixels por unidade de régua
     warnings: list[str] = field(default_factory=list)
     regions_px: dict = field(default_factory=dict)
+    state_scores: dict = field(default_factory=dict)  # semelhança de cada tela calibrada (diagnóstico)
 
     def summary(self) -> dict:
         return {
@@ -75,6 +79,9 @@ class Snapshot:
             "meu_turno": self.my_turn, "vento": self.wind, "angulo": self.angle, "forca": self.power,
             "eu": None if not self.me else (round(self.me.x), round(self.me.y)),
             "inimigos": len(self.enemies), "avisos": self.warnings,
+            # semelhança das telas calibradas (as 4 maiores): mostra por que uma tela não foi reconhecida
+            "telas_parecidas": {STATE_LABELS.get(st, st): round(sc, 2) for st, sc in
+                                sorted(self.state_scores.items(), key=lambda kv: -kv[1])[:4]},
         }
 
 
@@ -98,6 +105,14 @@ class Perception:
     def threshold(self):
         return float(self.config.get("thresholds.template", 0.8))
 
+    def explain_state(self, snap: Snapshot, top: int = 3) -> str:
+        """Por que a tela foi (ou não) reconhecida: as telas calibradas mais parecidas, com a nota, e o mínimo."""
+        if not snap.state_scores:
+            return "nenhuma tela calibrada (Calibração > Modelos)"
+        ranked = sorted(snap.state_scores.items(), key=lambda kv: -kv[1])[:top]
+        parts = ", ".join(f"{STATE_LABELS.get(st, st)} {sc:.2f}".replace(".", ",") for st, sc in ranked)
+        return f"mais parecidas: {parts} (mínimo {self.threshold():.2f})".replace(".", ",")
+
     # ------------------------------------------------------------------ leitura
     def classify_state(self, img, snap: Snapshot):
         roi = self.region("states")
@@ -113,12 +128,13 @@ class Perception:
                 scores[st] = m.score
             if m and m.score > best_score:
                 best, best_score = st, m.score
-        # o aviso de resultado/desconexão aparece POR CIMA da batalha (cujo painel continua visível):
-        # reconhecido, ele vale mais que a batalha, mesmo com semelhança um pouco menor
-        over = [(sc, st) for st, sc in scores.items()
-                if st in ("vitoria", "derrota", "desconectado") and sc >= self.threshold()]
+        # o aviso de resultado/desconexão aparece POR CIMA da batalha (cujo painel continua visível); a
+        # janela de escolher a instância e o aviso de instância difícil, por cima da sala: reconhecidos,
+        # valem mais que a tela de baixo, mesmo com semelhança um pouco menor
+        over = [(sc, st) for st, sc in scores.items() if st in OVERLAY_STATES and sc >= self.threshold()]
         if over:
             best_score, best = max(over)
+        snap.state_scores = scores
         if best_score >= self.threshold():
             snap.state, snap.state_confidence = best, best_score
         else:

@@ -91,6 +91,7 @@
     "unknown_state_timeout_s": 20,
     "action_timeout_s": 60,
     "battle_timeout_s": 900,
+    "confirm_solo_warning": false,
     "runs": 1
   },
   "ui": {
