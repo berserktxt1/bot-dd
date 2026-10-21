@@ -99,7 +99,7 @@ O executável não tem assinatura digital. Se o Windows mostrar "O Windows prote
 
 - Commit: `{COMMIT}`
 - Execução da CI: {RUN_URL}
-- Testes no Windows: {TESTES}
+- Testes no Windows: {TESTES}. Os pulados são os testes de layout (`test_gui_layout.py`), que precisam de tela 1920×1080: nessa rodada a tela do runner é 1024×768; eles rodam no passo com a escala em 125% e no Linux.
 - `.exe` da pasta extraída do ZIP e `.exe` de arquivo único sozinho numa pasta vazia, os dois sem Python no PATH: autoteste e teste de interface aprovados.
 - Estratégias das instâncias: validadas **só em simulação** (cenários fictícios com os papéis de cada perfil) e com imagens sintéticas.
 - Interface: auditada em 1080p a 100%, 125% e 150% com as fontes do Windows (nada cortado).
