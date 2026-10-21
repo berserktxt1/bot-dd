@@ -646,3 +646,20 @@ def test_release_publishes_the_programs_and_readme_links_them():
     readme = (root / "README.md").read_text(encoding="utf-8")
     for name in ("JonFlow.zip", "JonFlow.exe"):
         assert f"https://github.com/berserktxt1/bot-dd/releases/latest/download/{name}" in readme
+
+
+def test_local_release_script_keeps_accents_and_notes_placeholders():
+    """Sem a CI, a Release sai do tools/compilar_local.ps1 no Windows do usuário. O PowerShell 5.1 lê script sem BOM
+    como ANSI: os acentos e as substituições das notas ("Execução da CI", "1920×1080") deixariam de casar."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    raw = (root / "tools" / "compilar_local.ps1").read_bytes()
+    assert raw.startswith(b"\xef\xbb\xbf")
+    script = raw.decode("utf-8-sig")
+    notes = (root / "docs" / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+    for placeholder in ("{COMMIT}", "{TESTES}", "{SHA_ZIP}", "{SHA_EXE}"):
+        assert placeholder in notes and f'Replace("{placeholder}"' in script
+    assert "- Execução da CI: {RUN_URL}" in notes and '"- Execução da CI: {RUN_URL}"' in script
+    for name in ("JonFlow.zip", "JonFlow.exe", "SHA256SUMS.txt", "build-info.json"):
+        assert f"release\\{name}" in script                             # anexados pelo gh release create
+    assert "--verify-tag" in script and "worktree" in script            # só publica a tag, compilada a partir dela
