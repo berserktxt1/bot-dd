@@ -134,6 +134,10 @@ Para acompanhar a CI: `gh run list --limit 5`, `gh run view <id>`, `gh run view 
   passo "Layout das capturas" da CI, que reprova. Revise também as capturas do Windows (Segoe UI): as do
   container usam DejaVu e medem diferente. Em 1080p a 150% a janela tem só ~630 px lógicos de altura
   (`MainWindow.compact`): cada linha a mais no Início tira espaço do Histórico.
+- Testes que abrem janelas Tk no próprio processo usam a fixture `tk_cleanup` (guarda a janela viva até o fim do
+  processo): no Windows, liberar um Tk no meio da sessão derruba o processo (Tcl liberado numa thread da janela).
+  O `pytest.ini` fixa `--capture=sys`: com a captura `fd` o Tk às vezes não abre na suíte completa do Windows
+  ("Can't find a usable init.tcl/tk.tcl"). Não troque isso sem repetir a suíte no Windows.
 - Siga o estilo vizinho: `from __future__ import annotations`, `logging.getLogger(__name__)`, docstrings curtas.
 
 ## Git e versões
