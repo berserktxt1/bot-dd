@@ -1,26 +1,31 @@
 # Andamento
 
-Última atualização: 2026-10-20. Versão publicada: **0.4.4** (**JonFlow**, antes *DDClássico Bot*). Em
-desenvolvimento: **0.5.0** na branch `feature/atividades-prioritarias`, **sem Release** (ver a primeira seção).
+Última atualização: 2026-10-20. Versão: **0.5.0** (**JonFlow**, antes *DDClássico Bot*), publicada pela tag
+`v0.5.0` (ver a primeira seção). A anterior é a 0.4.4.
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
 
-## 0.5.0 em desenvolvimento (2026-10-20): seis atividades prioritárias pré-cadastradas
+## Versão 0.5.0 (2026-10-20): seis atividades prioritárias pré-cadastradas
 
 ### Onde parou (retomar daqui)
 
 | Item | Estado em 2026-10-20 |
 |---|---|
-| Branch de trabalho | `feature/atividades-prioritarias`, criada de `develop` (`0a6b39b`) e enviada ao GitHub |
-| Commits da branch | `8dc8c79` (código e testes) e, em seguida, o commit desta documentação (`docs:`) |
-| `develop` e `main` | **inalteradas**: `0a6b39b` e `71403ee` (este é só o merge de `develop`, sem diferença de código) |
-| Versão no código | ainda **0.4.4** (`src/ddbot/__init__.py`, `packaging/version_info.txt`); a 0.5.0 **não** foi preparada |
-| Tags e Releases | a última é `v0.4.4` (*Latest*). **Não há tag nem Release da 0.5.0**; nada novo foi publicado |
+| Versão | **0.5.0** (`src/ddbot/__init__.py`, `packaging/version_info.txt`, `docs/RELEASE_NOTES.md`) |
+| Git Flow | `feature/atividades-prioritarias` mesclada em `develop` (`37e2151`); `release/0.5.0` saiu de `develop` e vai para `main` (tag `v0.5.0`) e de volta para `develop`. A pedido do usuário, as branches temporárias (`feature/atividades-prioritarias`, `release/0.5.0` e a de diagnóstico `diag/layout-windows`) são apagadas depois da publicação |
+| Release | a tag `v0.5.0` dispara a CI que publica a Release; a conferência fica na seção "Publicação" abaixo |
+| Commits desta fase | `8dc8c79` (atividades, estratégias, interface), `c47061c` (layout: páginas da Calibração e Histórico em 150%), `6fd3e2a` (texto das pendências), `fab2d2a` (espaços em janela baixa; janelas de teste vivas), `d78c520` (`pytest.ini` com captura `sys`) e os de documentação |
+| CI da branch de trabalho | 39476307312 (`8dc8c79`) aprovada, mas as capturas do Windows mostraram os defeitos de layout. 39525965108 (`c73d753`) e 39528958704 (`fab2d2a`): falharam no Windows (Histórico em 150% com a Segoe UI; Tk que não abre ou derruba o processo nos testes). Diagnósticos 39527994935, 39529912761, 39530194693 e 39530426640. **39531730837 (`d78c520`) aprovada**: Linux 307 aprovados e 4 pulados; Windows 307 aprovados e 4 pulados na tela de 1024×768 (os 4 de layout) e **311 de 311 em 125%** (1920×1080, com os de layout); janelas reais 12 de 12 em 100% e em 125%; `.exe` da pasta e de arquivo único com autoteste e interface OK (atraso máximo 41 e 87 ms; pasta somente leitura 228 ms); **layout das capturas sem problemas em 100%, 125% e 150%** |
 | CI do commit `8dc8c79` | execução 39476307312 **aprovada**: Linux 302 aprovados e 4 pulados; Windows 306 de 306 em 100% e em 125%; janelas reais num venv com o Chrome aberto 12 de 12 nas duas escalas; `.exe` da pasta e de arquivo único com autoteste e interface OK (atraso máximo 104 e 41 ms); pasta somente leitura OK. As capturas da interface no Windows mostraram dois defeitos de layout que a auditoria não pegou (seção seguinte) |
-| Documentos de usuário | `README.md` (vira o LEIA-ME do pacote), `docs/ROTEIRO_TESTE_REAL.md` e `docs/RELEASE_NOTES.md` **ainda descrevem a interface da 0.4.4** ("O que jogar", "Criar atividade", "Mostrar onde está o jogo" com a tela escurecendo: README linhas ~110, 142, 164, 247; roteiro linhas ~36 e 55). Atualizar antes da release |
-| Atualizados nesta sessão | `PROGRESS.md`, `AGENTS.md`, `docs/RESEARCH.md` (pesquisa de 2026-10-20) e `docs/TESTES.md` |
+| Documentos de usuário | `README.md` (LEIA-ME do pacote), `docs/ROTEIRO_TESTE_REAL.md` e `docs/RELEASE_NOTES.md` descrevem a interface da 0.5.0 (`c73d753`), com os nomes dos botões conferidos no código |
+
+### Publicação
+
+A tag `v0.5.0` (no merge da `release/0.5.0` em `main`) dispara a CI que compila, testa e publica a Release com
+`JonFlow.exe`, `JonFlow.zip`, `SHA256SUMS.txt`, `build-info.json` e os relatórios. A conferência da Release
+publicada (assets, somas, `build-info.json`, links do README) é registrada aqui, em `develop`, depois da publicação.
 
 ### O que foi implementado e corrigido (commit `8dc8c79`)
 
@@ -170,9 +175,24 @@ nas Olimpíadas, os modelos obrigatórios dos balões verdes, dos rivais e do ju
 | pytest, suíte completa | container Ubuntu 24.04 + Xvfb (imagem `jonflow-ci`) | **302 aprovados, 4 pulados** (só Windows), 270 s |
 | `--selftest` | Linux (dev) | OK; as seis atividades e os três perfis gerais completam na simulação (~25 s nessa etapa); também aprovado dentro da suíte (`test_selftest_cli`) no código do `8dc8c79` |
 | `--gui-smoke 8` | container + Xvfb | OK, atraso máximo 100 ms numa execução avulsa; também aprovado dentro da suíte (`test_gui_smoke`) no código do `8dc8c79` |
-| `--screenshots` em 100%, 125% e 150% (1920×1080) | container + Xvfb | nenhum texto cortado nem elemento fora da janela (fontes DejaVu; no Windows a fonte é Segoe UI) |
+| `--screenshots` em 100%, 125% e 150% (1920×1080) | container + Xvfb | nenhum texto cortado nem elemento fora da janela pela auditoria **da época** (que não olhava abas nem cortes por painel: ver "Defeitos de layout") |
 | `--simulate 25` | Linux (dev) | ver abaixo |
 | CI GitHub Actions (Linux + Windows, exe, capturas) | execução 39476307312 | aprovada (números na tabela "Onde parou") |
+
+Depois das correções de layout e dos testes (código do `d78c520`, 2026-10-20 à noite):
+
+| Verificação | Onde | Resultado |
+|---|---|---|
+| `python -m pyflakes src tools tests` | Linux (dev) | sem avisos |
+| pytest, suíte completa | Linux (dev, sem tela) | 296 aprovados, 7 pulados (3 sem tela, 4 só no Windows), na `release/0.5.0` com a versão 0.5.0 |
+| pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **307 aprovados, 4 pulados** (só Windows), com o `pytest.ini` |
+| `--gui-smoke 8` | container + Xvfb | OK, 29 verificações, atraso máximo 88 ms |
+| `--selftest` | Linux (dev) | OK |
+| `--screenshots` em 100%, 125% e 150% | container + Xvfb | auditoria nova sem problemas (19 capturas por escala) |
+| Capturas e testes de layout com a Segoe UI | Windows, diagnóstico 39527994935 | nada cortado em 100%, 125% e 150% |
+| CI completa | execução 39531730837 (`d78c520`) | aprovada (números na tabela "Onde parou") |
+
+O `--simulate` não foi repetido: nada da mira nem da simulação mudou depois do `8dc8c79`.
 
 `--simulate 25` (semente fixa 1; "jogo" simulado com velocidade +3%, vento +25%, arrasto −5% em relação ao modelo):
 
@@ -223,28 +243,22 @@ nas Olimpíadas, os modelos obrigatórios dos balões verdes, dos rivais e do ju
 
 ### Próximos passos (em ordem)
 
-1. **Conferir a CI** desta branch (`gh run list --branch feature/atividades-prioritarias`): no Windows, a suíte
-   em 100% e 125%, os testes de janelas reais, o `.exe` (autoteste, `--gui-smoke`, pasta somente leitura) e as
-   capturas da interface com Segoe UI. Confirmar que a parada do `--gui-smoke` depois de Pausar não volta.
-   Falhas: corrigir na mesma branch.
-2. **Atualizar os documentos de usuário** para a interface nova: `README.md`/LEIA-ME (Início com as seções,
-   Pendências, Detectar jogo sem camada escura, Escolher pela imagem, Apontar com o mouse, Sugerir regiões,
-   Ângulo pelas teclas, novos padrões da barra), `docs/ROTEIRO_TESTE_REAL.md` e `docs/RELEASE_NOTES.md`
-   (novidades da 0.5.0), conferindo os nomes dos botões no código.
-3. **Publicar a 0.5.0 pelo Git Flow**: merge da feature em `develop`; `release/0.5.0` com a versão em
-   `__init__.py`, `version_info.txt`, `RELEASE_NOTES.md` e `PROGRESS.md`; CI verde; merge em `main` e
-   `develop`; tag `v0.5.0`; conferir na Release o `JonFlow.exe`, o `JonFlow.zip`, o `SHA256SUMS.txt`, o
-   `build-info.json` e os relatórios, e os links do README. Não sobrescrever Releases anteriores.
-4. **Primeiro teste no cliente real** (usuário): roteiro em `docs/ROTEIRO_TESTE_REAL.md` e a seção "As seis
+Feitos nesta fase: CI conferida (e os defeitos que ela mostrou, corrigidos), documentos de usuário atualizados e
+publicação da 0.5.0 pelo Git Flow (conferência na seção "Publicação").
+
+1. **Primeiro teste no cliente real** (usuário): roteiro em `docs/ROTEIRO_TESTE_REAL.md` e a seção "As seis
    atividades pré-cadastradas" de `docs/TESTES.md`: Detectar jogo, capturar a opção de cada instância e os
    botões de dificuldade, seguir a página Pendências, uma execução de cada atividade com o dedo no F12.
-5. **Medir no cliente** o tempo da barra e a espera inicial (padrão 3,33 s + 0,06 s vem de terceiros), a faixa e
+2. **Medir no cliente** o tempo da barra e a espera inicial (padrão 3,33 s + 0,06 s vem de terceiros), a faixa e
    o formato do vento, e conferir se Formigueiro Fácil e Galinheiro Fácil existem.
-6. **Investigar com capturas reais**: etapas do Galinheiro por dificuldade, se a OBN tem a corrida e o que é o
+3. **Investigar com capturas reais**: etapas do Galinheiro por dificuldade, se a OBN tem a corrida e o que é o
    "Meka", como aparecem os balões e o juiz; ajustar `instances.json` (sem mexer no código) e os cenários da
    simulação.
-7. Ler os termos do DDClássico pelo endereço espelho (`https://ddtclassico.com/classic/terms`).
-8. Ideias da pesquisa ainda não implementadas: posições pelo minimapa (alvos fora da tela), escala pela régua do
+4. Observar a parada da interface depois de Pausar no Windows (causa provável corrigida na 0.5.0; era
+   intermitente) e o Tk dos testes no Windows (`pytest.ini` com captura `sys`; se voltar, o `faulthandler` da CI
+   mostra a pilha).
+5. Ler os termos do DDClássico pelo endereço espelho (`https://ddtclassico.com/classic/terms`).
+6. Ideias da pesquisa ainda não implementadas: posições pelo minimapa (alvos fora da tela), escala pela régua do
    rodapé, próprio personagem pela pulsação, prévia da trajetória na interface, fixar à mão o alvo invisível.
 
 ## Versão 0.4.4
