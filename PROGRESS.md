@@ -1,14 +1,30 @@
 # Andamento
 
-Última atualização: 2026-10-21. Versão publicada: **0.5.0** (**JonFlow**, antes *DDClássico Bot*). Em
-desenvolvimento: correções do uso real (caminho do Cais de Expedição, aviso de jogador sozinho, reconhecimento de
-telas e explicações do combate), na branch `feature/cais-aviso-diagnostico` (primeira seção).
+Última atualização: 2026-10-21. Versão: **0.5.1** (**JonFlow**, antes *DDClássico Bot*), mesclada em `main` e
+`develop` com a tag `v0.5.1`, **sem `.exe`**: a CI não inicia por cobrança do GitHub Actions (seção seguinte).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
 
-## Correções do primeiro uso no cliente real (2026-10-21, em desenvolvimento)
+## Versão 0.5.1 (2026-10-21): merge sem a CI
+
+A pedido do usuário, as correções do primeiro uso real (seção seguinte) foram publicadas como 0.5.1 pelo Git Flow
+mesmo com a CI parada: `feature/cais-aviso-diagnostico` → `develop` → `release/0.5.1` → `main` (tag `v0.5.1`) e de
+volta para `develop`.
+
+| Item | Estado |
+|---|---|
+| CI | nova tentativa da 39609330850 em 2026-10-21: de novo "The job was not started because recent account payments have failed or your spending limit needs to be increased". **Sem testes no Windows e sem `.exe` da 0.5.1** |
+| Testes locais (`release/0.5.1`) | `pyflakes` sem avisos; Linux sem tela 308 aprovados e 7 pulados; container Ubuntu 24.04 + Xvfb 1920×1080 **319 aprovados e 4 pulados** (só Windows); `--selftest` OK |
+| Release no GitHub | **não criada**: os arquivos só são compilados no Windows da CI. O LEIA-ME e o guia do usuário apontam para a v0.5.0 até lá |
+| Guia do usuário | passo a passo em documento compartilhável (Claude Docs), com o caminho do Cais e o aviso de jogador sozinho |
+
+**Falta (quando a cobrança for resolvida):** `gh run rerun` da execução da tag `v0.5.1` (ou um novo push da tag),
+conferir Windows em 100% e 125%, janelas reais, layout das capturas com Segoe UI e o `.exe`; publicar a Release
+v0.5.1 com os artefatos da CI. Se o Windows reprovar algo, corrigir num `hotfix/0.5.2`.
+
+## Correções do primeiro uso no cliente real (2026-10-21, versão 0.5.1)
 
 Relato do usuário: muitas telas não são reconhecidas mesmo depois de calibrar; no Formigueiro, depois de Iniciar,
 o bot não joga e parece não fazer nada; aparece um aviso de instância difícil com um jogador e não há como confirmar
@@ -54,10 +70,9 @@ de outra versão do jogo. Detalhes da pesquisa em `docs/RESEARCH.md` (seção de
 
 ### Onde parou
 
-- Branch `feature/cais-aviso-diagnostico` (commits `d083614` código e testes, `35dc5f2` documentos) enviada ao
-  GitHub, **sem merge** em `develop`: falta a CI do Windows (suíte em 100% e 125%, janelas reais, `.exe`, layout
-  das capturas com Segoe UI), bloqueada pela cobrança do GitHub Actions. Resolvida a cobrança: rodar de novo
-  (`gh run rerun 39609330850`), conferir, mesclar em `develop` e publicar uma 0.5.1 pelo Git Flow.
+- Branch `feature/cais-aviso-diagnostico` (commits `d083614` código e testes, `35dc5f2` documentos) mesclada em
+  `develop` e publicada como 0.5.1 sem a CI do Windows (seção "Versão 0.5.1" acima): falta a suíte em 100% e 125%,
+  janelas reais, `.exe` e layout das capturas com Segoe UI.
 - **Nada disto foi validado no cliente real.** Simulação e imagens sintéticas provam a lógica, não o jogo.
 
 ### O que depende do usuário
