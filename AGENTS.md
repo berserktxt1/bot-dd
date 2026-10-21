@@ -18,9 +18,9 @@ empacotado com PyInstaller.
   todos os testes usam simulação, imagens sintéticas ou janelas de teste. Não afirme que algo "funciona no jogo".
 - Andamento e pendências: [`PROGRESS.md`](PROGRESS.md). Pesquisa e fontes da física/mira:
   [`docs/RESEARCH.md`](docs/RESEARCH.md). O que cada teste cobre: [`docs/TESTES.md`](docs/TESTES.md).
-- **Estado em 2026-10-20:** a 0.5.0 (seis atividades pré-cadastradas) está na branch
-  `feature/atividades-prioritarias`, ainda sem Release; a versão no código continua 0.4.4. Antes de continuar,
-  leia a primeira seção do `PROGRESS.md` ("Onde parou" e "Próximos passos").
+- **Estado em 2026-10-21:** a 0.5.0 (seis atividades pré-cadastradas) está publicada (tag `v0.5.0`, *Latest*); só
+  existem `main` e `develop`. O GitHub Actions da conta ficou sem minutos (cobrança): até isso ser resolvido, a CI
+  não inicia. Antes de continuar, leia a primeira seção do `PROGRESS.md` ("Onde parou" e "Próximos passos").
 
 ## Idioma
 
