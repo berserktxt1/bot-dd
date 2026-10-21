@@ -18,14 +18,16 @@ SIX = ["formigueiro_facil", "formigueiro_normal", "galinheiro_facil", "galinheir
 
 
 @pytest.fixture
-def app(home, monkeypatch):
+def app(tk_cleanup, home, monkeypatch):
     monkeypatch.setenv("DDBOT_HEADLESS", "1")
     from ddbot.gui.main_window import MainWindow
     from ddbot.service import BotService
     svc = BotService(home, start_hotkey=False)
     monkeypatch.setattr(svc, "inventory", lambda ranked=True: [])  # a área de trabalho real não entra
     root = tk.Tk()
+    tk_cleanup(root)  # vivo até o fim do processo: liberar o Tk no meio da sessão derruba o Windows
     win = MainWindow(root, svc)
+    tk_cleanup(win)
     root.update()
     yield win
     win._closing = True

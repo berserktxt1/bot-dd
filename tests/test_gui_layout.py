@@ -9,20 +9,27 @@ import sys
 
 import pytest
 
+from ddbot import winapi
+
 tk = pytest.importorskip("tkinter")
 if sys.platform != "win32" and not os.environ.get("DISPLAY"):
     pytest.skip("sem display", allow_module_level=True)
+
+# como o app, o processo se declara ciente da escala do Windows (winapi) antes do primeiro Tk: senão, numa tela em
+# 125%, o Tk vê a tela "virtual" de 1536×864 e os testes de 1080p são pulados (diagnóstico 39527994935)
+DPI_AWARE = winapi.IS_WINDOWS
 
 PAGES = ["Pendências", "Regiões", "Modelos", "Números", "Menu", "Alvos"]
 COMBAT_TEXT = "Etapa Formigas. Alvo a 11,1 de distância, altura -0,6. Modelo físico, chance estimada 79%."
 
 
-def test_audit_finds_squeezed_tabs_clipped_panels_and_lists_without_rows():
+def test_audit_finds_squeezed_tabs_clipped_panels_and_lists_without_rows(tk_cleanup):
     """Antes a auditoria só via texto cortado e o que saía da janela: os defeitos abaixo passavam."""
     from tkinter import ttk
 
     from ddbot.gui.screenshots import audit_layout
     root = tk.Tk()
+    tk_cleanup(root)
     try:
         root.geometry("1000x240+0+0")
         nb = ttk.Notebook(root)
@@ -47,7 +54,7 @@ def test_audit_finds_squeezed_tabs_clipped_panels_and_lists_without_rows():
 
 
 @pytest.fixture
-def app_at(home, monkeypatch):
+def app_at(tk_cleanup, home, monkeypatch):
     made = []
 
     def build(scale: str):
@@ -56,12 +63,14 @@ def app_at(home, monkeypatch):
         from ddbot.gui.main_window import MainWindow
         from ddbot.service import BotService
         root = tk.Tk()
+        tk_cleanup(root)  # vivo até o fim do processo: liberar o Tk no meio da sessão derruba o Windows
         if root.winfo_screenwidth() < 1920 or root.winfo_screenheight() < 1080:
             root.destroy()
             pytest.skip("o layout é conferido numa tela de 1920×1080 (no Linux: Xvfb -screen 0 1920x1080x24)")
         svc = BotService(home, start_hotkey=False)
         monkeypatch.setattr(svc, "inventory", lambda ranked=True: [])  # a área de trabalho real não entra
         win = MainWindow(root, svc)
+        tk_cleanup(win)
         made.append((win, svc, root))
         root.update()
         return win
@@ -81,12 +90,14 @@ def test_interface_fits_1080p_at_each_scale(app_at, scale):
     from ddbot.gui.screenshots import audit_layout
     app = app_at(scale)
     root = app.root
+    found = {}  # junta tudo antes de reprovar: a CI do Windows mostra todos os problemas de uma vez
 
     def audit(where):
         root.update_idletasks()
         root.update()
         problems = audit_layout(root)
-        assert problems == [], f"{where} em {scale}: {problems}"
+        if problems:
+            found[where] = problems
 
     app.nb.select(app.tab_home)
     audit("Início sem jogo")  # com "Falta calibrar" e os atalhos de pendências
@@ -110,6 +121,7 @@ def test_interface_fits_1080p_at_each_scale(app_at, scale):
         audit(f"Calibração > {app.calib_nb.tab(page, 'text')}")
         assert app.calib_page.get() == page  # o seletor acompanha a página aberta pelo código
     assert [b.cget("text") for b in app.calib_page_buttons] == PAGES
+    assert not found, f"layout em {scale} (janela {root.winfo_geometry()}, compacta={app.compact}): {found}"
 
 
 def test_calibration_page_buttons_open_their_pages(app_at):

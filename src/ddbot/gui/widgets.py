@@ -38,14 +38,14 @@ class Panel(ttk.Frame):
 class StatusBanner(tk.Frame):
     """Faixa de estado: ícone + título + orientação. Cor, ícone e texto mudam juntos."""
 
-    def __init__(self, master, th: T.Theme):
+    def __init__(self, master, th: T.Theme, compact: bool = False):
         super().__init__(master, background=T.STATE_STYLES["idle"][0])
         self.th = th
         pad = th.px(T.SPACE["l"])
         self.icon = tk.Label(self, font=th.fonts["icon"], width=2, anchor="center")
-        self.icon.pack(side="left", padx=(pad, th.px(4)), pady=th.px(8))
+        self.icon.pack(side="left", padx=(pad, th.px(4)), pady=th.px(4 if compact else 8))
         box = tk.Frame(self)
-        box.pack(side="left", fill="x", expand=True, pady=th.px(6))
+        box.pack(side="left", fill="x", expand=True, pady=th.px(3 if compact else 6))
         self.title = tk.Label(box, font=th.fonts["banner"], anchor="w", justify="left")
         self.title.pack(fill="x")
         self.detail = tk.Label(box, font=th.fonts["body"], anchor="w", justify="left")

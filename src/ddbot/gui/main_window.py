@@ -101,12 +101,13 @@ class MainWindow:
         self.nb.pack(fill="both", expand=True, padx=px(12), pady=(0, px(4)))
         # voltar ao Início depois de calibrar atualiza o que ainda falta
         self.nb.bind("<<NotebookTabChanged>>", lambda e: self._on_tab_changed())
-        self.tab_home = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
-        self.tab_calib = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
-        self.tab_diag = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
-        self.tab_aim = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
-        self.tab_cfg = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
-        self.tab_log = ttk.Frame(self.nb, padding=(0, px(12), 0, 0))
+        tab_pad = (0, px(8 if self.compact else 12), 0, 0)
+        self.tab_home = ttk.Frame(self.nb, padding=tab_pad)
+        self.tab_calib = ttk.Frame(self.nb, padding=tab_pad)
+        self.tab_diag = ttk.Frame(self.nb, padding=tab_pad)
+        self.tab_aim = ttk.Frame(self.nb, padding=tab_pad)
+        self.tab_cfg = ttk.Frame(self.nb, padding=tab_pad)
+        self.tab_log = ttk.Frame(self.nb, padding=tab_pad)
         for tab, text in ((self.tab_home, "Início"), (self.tab_calib, "Calibração"),
                           (self.tab_diag, "Diagnóstico"), (self.tab_aim, "Mira e disparos"),
                           (self.tab_cfg, "Configurações"), (self.tab_log, "Registro técnico")):
@@ -127,7 +128,8 @@ class MainWindow:
     # ================================================================ layout
     def _build_top(self):
         px = self.th.px
-        top = ttk.Frame(self.root, padding=(px(16), px(12), px(16), px(8)))
+        top = ttk.Frame(self.root, padding=(px(16), px(8), px(16), px(6)) if self.compact
+                        else (px(16), px(12), px(16), px(8)))
         top.pack(fill="x")
         if self._logo is not None:
             ttk.Label(top, image=self._logo).pack(side="left", padx=(0, px(8)))
@@ -175,15 +177,17 @@ class MainWindow:
     # ---------------------------------------------------------------- Início
     def _build_home(self):
         px, t = self.th.px, self.tab_home
-        gap = px(T.SPACE["m"])
+        # janela baixa: espaços e margens menores (sobra altura para o histórico)
+        pad = "s" if self.compact else "m"
+        gap = px(T.SPACE[pad])
         for col, weight in ((0, 10), (1, 14), (2, 9)):
             t.columnconfigure(col, weight=weight, uniform="home")
         t.rowconfigure(2, weight=1)
-        self.banner = StatusBanner(t, self.th)
+        self.banner = StatusBanner(t, self.th, compact=self.compact)
         self.banner.grid(row=0, column=0, columnspan=3, sticky="we")
 
         # atividades: duas seções, as instâncias pré-cadastradas sempre visíveis (antes de conectar ao jogo)
-        acts = Panel(t, self.th, "Atividades", pad="m")
+        acts = Panel(t, self.th, "Atividades", pad=pad)
         acts.grid(row=1, column=0, sticky="nsew", pady=(gap, 0), padx=(0, gap))
         ab = acts.body
         ab.rowconfigure(0, weight=1)
@@ -205,7 +209,7 @@ class MainWindow:
         self.tree_act.bind("<<TreeviewSelect>>", lambda e: self._on_activity_selected())
         self._chosen = None  # atividade escolhida (mantida ao recarregar a lista)
 
-        det = Panel(t, self.th, None, pad="m")
+        det = Panel(t, self.th, None, pad=pad)
         det.grid(row=1, column=1, sticky="nsew", pady=(gap, 0), padx=(0, gap))
         b = det.body
         self.lbl_act_title = ttk.Label(b, text="Escolha uma atividade", style="SurfaceSection.TLabel")
@@ -256,7 +260,7 @@ class MainWindow:
 
         # andamento: progresso e mira num painel só. Em telas baixas (1080p a 150%) cada linha a mais tira
         # espaço do histórico: situação e barra dividem uma linha e cada contador tem o rótulo ao lado
-        prog = Panel(t, self.th, None, pad="m")
+        prog = Panel(t, self.th, None, pad=pad)
         prog.grid(row=1, column=2, sticky="nsew", pady=(gap, 0))
         pb = prog.body
         ttk.Label(pb, text="Andamento", style="SurfaceSection.TLabel").grid(row=0, column=0, columnspan=2,
@@ -292,7 +296,7 @@ class MainWindow:
         aim.bind("<Configure>", lambda e: self.lbl_target.configure(wraplength=max(px(160), e.width - px(4))),
                  add="+")
 
-        hist = Panel(t, self.th, "Histórico", pad="m")
+        hist = Panel(t, self.th, "Histórico", pad=pad)
         hist.grid(row=2, column=0, columnspan=3, sticky="nsew", pady=(gap, 0))
         t.rowconfigure(2, weight=1, minsize=px(124))  # título, cabeçalho e ao menos duas linhas
         hb = hist.body
