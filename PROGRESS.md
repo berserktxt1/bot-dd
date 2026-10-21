@@ -63,7 +63,9 @@ como referência no perfil, não como parâmetro.
 | `--simulate 25` | Linux (dev) | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.1) |
 | CI da 0.5.1 | GitHub Actions 39644308826 (`e2d2844`) | aprovada (seção "Repositório novo") |
 | CI da branch `feature/combate-formigueiro` | GitHub Actions 39657215655 (`d2d597d`) | **aprovada**: Windows 336 aprovados e 4 pulados; Windows em 125% (janelas reais 3 vezes e suíte completa) 340 aprovados; Linux + Xvfb 336 aprovados e 4 pulados; `.exe` compilados e testados |
-| CI da tag `v0.5.2` | GitHub Actions | a registrar (cria a Release) |
+| CI da tag `v0.5.2` | GitHub Actions 39662252613 (`deeaf5d`) | 1ª tentativa: **1 falha** no Windows, o `--gui-smoke` (`test_gui_smoke`), com a interface parada 1,7 s depois da emergência simulada (limite 1,5 s; a pilha mostrava o Tk no `mainloop`, não código do JonFlow); o mesmo commit passou nesse passo nas execuções da `main` (39662246780) e do `develop` (39662247513). 2ª tentativa dos jobs que falharam: **aprovada**, Windows 336 aprovados e 4 pulados, 125% 340 aprovados, Linux 336 aprovados e 4 pulados |
+| Release v0.5.2 | **publicada** pela CI (2026-10-21): `JonFlow.zip`, `JonFlow.exe`, `SHA256SUMS.txt`, `build-info.json` e relatórios; `releases/latest/download/...` responde sem login |
+| `main` e `develop` | 39662246780 e 39662247513: aprovadas |
 
 ### Ainda não validado no jogo
 
@@ -77,6 +79,8 @@ como referência no perfil, não como parâmetro.
 - Se o aviso de um jogador não for capturado, ele é lido como "sala" e a recuperação na sala ainda pode fechar o
   aviso pelo X (uma vez, depois pausa). Capturar o aviso é recomendado na Calibração.
 - Os tempos de aviso e pausa (60/150 s sem turno, 3 turnos sem alvo, 2 turnos sem disparo) são escolhas, não medidas.
+- O `--gui-smoke` passou do limite de 1,5 s uma vez na CI do Windows (tag `v0.5.2`, 1ª tentativa). Se voltar a
+  acontecer, ver em `pilhas_no_atraso` se há código do JonFlow na thread do Tk antes de mexer no limite.
 
 ## Repositório novo e CI de volta (2026-10-21)
 
