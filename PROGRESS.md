@@ -15,7 +15,9 @@
 |---|---|
 | Versão | **0.5.0** (`src/ddbot/__init__.py`, `packaging/version_info.txt`, `docs/RELEASE_NOTES.md`) |
 | Git Flow | `feature/atividades-prioritarias` mesclada em `develop` (`37e2151`); `release/0.5.0` saiu de `develop` e vai para `main` (tag `v0.5.0`) e de volta para `develop`. A pedido do usuário, as branches temporárias (`feature/atividades-prioritarias`, `release/0.5.0` e a de diagnóstico `diag/layout-windows`) são apagadas depois da publicação |
-| Release | a tag `v0.5.0` dispara a CI que publica a Release; a conferência fica na seção "Publicação" abaixo |
+| Release | **v0.5.0 publicada** (*Latest*, 2026-10-21 03:56 UTC), com os arquivos compilados e testados pela CI da tag (39538471617). O job de publicação não pôde iniciar por cobrança da conta do GitHub; a Release foi criada pelo `gh` com as mesmas conferências (seção "Publicação") |
+| Branches | só `main` (`3cc15be`, tag `v0.5.0`) e `develop`; as temporárias foram apagadas, local e no GitHub |
+| **GitHub Actions** | **sem minutos**: "The job was not started because recent account payments have failed or your spending limit needs to be increased" (*Billing & plans*). Até o usuário resolver, nenhuma execução da CI começa |
 | Commits desta fase | `8dc8c79` (atividades, estratégias, interface), `c47061c` (layout: páginas da Calibração e Histórico em 150%), `6fd3e2a` (texto das pendências), `fab2d2a` (espaços em janela baixa; janelas de teste vivas), `d78c520` (`pytest.ini` com captura `sys`) e os de documentação |
 | CI da branch de trabalho | 39476307312 (`8dc8c79`) aprovada, mas as capturas do Windows mostraram os defeitos de layout. 39525965108 (`c73d753`) e 39528958704 (`fab2d2a`): falharam no Windows (Histórico em 150% com a Segoe UI; Tk que não abre ou derruba o processo nos testes). Diagnósticos 39527994935, 39529912761, 39530194693 e 39530426640. **39531730837 (`d78c520`) aprovada**: Linux 307 aprovados e 4 pulados; Windows 307 aprovados e 4 pulados na tela de 1024×768 (os 4 de layout) e **311 de 311 em 125%** (1920×1080, com os de layout); janelas reais 12 de 12 em 100% e em 125%; `.exe` da pasta e de arquivo único com autoteste e interface OK (atraso máximo 41 e 87 ms; pasta somente leitura 228 ms); **layout das capturas sem problemas em 100%, 125% e 150%** |
 | CI do commit `8dc8c79` | execução 39476307312 **aprovada**: Linux 302 aprovados e 4 pulados; Windows 306 de 306 em 100% e em 125%; janelas reais num venv com o Chrome aberto 12 de 12 nas duas escalas; `.exe` da pasta e de arquivo único com autoteste e interface OK (atraso máximo 104 e 41 ms); pasta somente leitura OK. As capturas da interface no Windows mostraram dois defeitos de layout que a auditoria não pegou (seção seguinte) |
@@ -28,9 +30,15 @@ CI da `release/0.5.0`: a execução 39534334539 (`build: versão 0.5.0`) falhou 
 240–300 s). O jogo falso desse teste enchia a barra em 0,5 s, então 6 pontos eram só 30 ms; os outros testes de
 força já usavam 2 s. O teste passou a usar 2 s (o programa não mudou; no jogo real, com 3,33 s, 32 ms são ~1 ponto).
 
-A tag `v0.5.0` (no merge da `release/0.5.0` em `main`) dispara a CI que compila, testa e publica a Release com
-`JonFlow.exe`, `JonFlow.zip`, `SHA256SUMS.txt`, `build-info.json` e os relatórios. A conferência da Release
-publicada (assets, somas, `build-info.json`, links do README) é registrada aqui, em `develop`, depois da publicação.
+| Item | Resultado |
+|---|---|
+| CI da `release/0.5.0` | 39536401918 (`c3a8757`) aprovada: Linux 307 aprovados e 4 pulados; Windows 307 aprovados e 4 pulados (1024×768) e 311 de 311 em 125%; janelas reais 12 de 12 nas duas escalas; `.exe` 0.5.0 com autoteste e interface OK (atraso máximo 87 e 103 ms); layout das capturas sem problemas |
+| Merge e tag | `release/0.5.0` → `main` (`3cc15be`, tag anotada `v0.5.0`, "JonFlow 0.5.0") e → `develop` (`566ae02`). CI da `main` 39538470166 e da `develop` 39538499997: aprovadas |
+| CI da tag | 39538471617: Linux e Windows aprovados (`build-info`: "307 de 311 aprovados (0 falhas, 4 pulados)"; os 4 são os de layout na tela de 1024×768). O job `release` **não iniciou**: a conta do GitHub ficou sem minutos ("recent account payments have failed or your spending limit needs to be increased") |
+| Publicação | feita pelo `gh` com os artefatos dessa execução e as mesmas conferências do job: `sha256sum -c` OK; `build-info.json` com o commit da tag (`3cc15be7508145a639e2b8fe8812f5d503faa2aa`), versão 0.5.0, `refs/tags/v0.5.0` e 0 falhas. As notas são as geradas pela CI, mais uma linha dizendo como a Release foi publicada |
+| Release | v0.5.0, *Latest*, não é rascunho nem pré-release; `JonFlow.exe` (75.447.512 bytes), `JonFlow.zip` (75.764.711 bytes), `SHA256SUMS.txt`, `build-info.json`, `relatorios-de-teste.zip`. O ZIP tem `JonFlow/JonFlow.exe`, `_internal/`, `LEIA-ME.md` (o da 0.5.0) e `COMO-USAR.txt` |
+| Integridade | baixados de novo pelo `gh`: SHA-256 conferem (`JonFlow.zip` `e3d4431e…67c5c8`, `JonFlow.exe` `943042e3…02d400`) |
+| Links do README | `releases/latest` aponta para a v0.5.0 (os links diretos só abrem logado numa conta com acesso: o repositório é privado) |
 
 ### O que foi implementado e corrigido (commit `8dc8c79`)
 
