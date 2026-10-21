@@ -20,9 +20,15 @@ volta para `develop`.
 | Release no GitHub | **não criada**: os arquivos só são compilados no Windows da CI. O LEIA-ME e o guia do usuário apontam para a v0.5.0 até lá |
 | Guia do usuário | passo a passo em documento compartilhável (Claude Docs), com o caminho do Cais e o aviso de jogador sozinho |
 
-**Falta (quando a cobrança for resolvida):** `gh run rerun 39634192655` (execução da tag `v0.5.1`),
-conferir Windows em 100% e 125%, janelas reais, layout das capturas com Segoe UI e o `.exe`; publicar a Release
-v0.5.1 com os artefatos da CI. Se o Windows reprovar algo, corrigir num `hotfix/0.5.2`.
+**Cobrança:** o usuário não vai resolver a cobrança do GitHub Actions. A 0.5.1 será compilada e publicada no PC
+dele com `tools/compilar_local.ps1` (novo, em `develop`): compila a tag `v0.5.1` numa `git worktree`
+(`build-tag\v0.5.1`), roda a suíte no Windows (na escala do PC, sem trocá-la), testa os dois `.exe` sem Python no
+PATH, tira as capturas em 100/125/150% e reprova com a auditoria de layout, gera `SHA256SUMS.txt`,
+`build-info.json` (`ci_execucao: "local"`) e as notas; com `-Publicar`, cria a Release pelo `gh`. O script **não foi
+executado** (não há Windows aqui): só a sintaxe foi conferida (`pwsh` 7.4 em container) e as substituições das
+notas, com o `RELEASE_NOTES.md` real. Diferenças da CI: sem a suíte forçada em 125%, sem as janelas reais 3 vezes
+num venv com o navegador aberto e sem o teste de pasta somente leitura (ele gravaria no `%LOCALAPPDATA%\JonFlow`
+de verdade do usuário). Se o Windows reprovar algo, corrigir num `hotfix/0.5.2`.
 
 ## Correções do primeiro uso no cliente real (2026-10-21, versão 0.5.1)
 

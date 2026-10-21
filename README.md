@@ -416,6 +416,12 @@ Agentes de código (Claude Code, Codex etc.) devem ler também o [`AGENTS.md`](A
   `docs/RELEASE_NOTES.md` e `PROGRESS.md`, faça o merge na `main` e envie uma tag `vX.Y.Z`
   (`git tag vX.Y.Z && git push origin vX.Y.Z`). A CI compila, testa os dois executáveis e cria a Release com o
   ZIP, o `.exe`, `SHA256SUMS.txt`, `build-info.json` e os relatórios de teste.
+- **Publicar sem a CI** (quando o GitHub Actions não roda): num PC com Windows, Python 3.12 64 bits, git e o
+  [`gh`](https://cli.github.com/) logado, na pasta do projeto (qualquer branch), rode
+  `powershell -ExecutionPolicy Bypass -File tools\compilar_local.ps1`. Ele compila a tag da versão numa pasta
+  separada (`build-tag\vX.Y.Z`), roda os testes no Windows, testa os dois `.exe` sem Python no PATH, audita o
+  layout em 100%, 125% e 150% (tela de 1920×1080 ou maior) e gera `SHA256SUMS.txt`, `build-info.json` e as notas.
+  Deu tudo certo? Rode de novo com `-Publicar` para criar a Release.
 - **Arquitetura:**
   - jogo e launcher: `detection.py` (detectar jogo), `game_window.py` (perfil, foco), `winapi.py`;
   - percepção: `capture.py`, `vision/`;

@@ -20,7 +20,8 @@ empacotado com PyInstaller.
   [`docs/RESEARCH.md`](docs/RESEARCH.md). O que cada teste cobre: [`docs/TESTES.md`](docs/TESTES.md).
 - **Estado em 2026-10-21:** a 0.5.1 (caminho do Cais de Expedição, aviso de jogador sozinho, reconhecimento e
   explicações do combate) está em `main` e `develop` com a tag `v0.5.1`, testada só no Linux: a CI não inicia por
-  cobrança do GitHub Actions, então não há `.exe` nem Release da 0.5.1 (a última Release é a v0.5.0). Antes de
+  cobrança do GitHub Actions (o usuário não vai resolver), então a Release da 0.5.1 sai do PC dele com
+  `tools/compilar_local.ps1` (até lá, a última Release é a v0.5.0). Antes de
   continuar, leia a primeira seção do `PROGRESS.md`.
 
 ## Idioma
@@ -93,6 +94,12 @@ No Windows a CI roda, além da suíte completa:
 - os mesmos testes e a suíte completa com a **escala do Windows em 125%** (`tools/display_scale.py`). O runner
   roda em 100%, e falhas de DPI só aparecem acima disso. Capturas recusadas por esses testes vão para os
   relatórios da CI.
+
+**Sem a CI** (o GitHub Actions da conta está bloqueado por cobrança desde 2026-10-21): o usuário compila e publica
+no próprio Windows com `tools/compilar_local.ps1` (tag numa `git worktree` em `build-tag\vX.Y.Z`, testes, os dois
+`.exe`, auditoria de layout, SHA-256 e `gh release create` com `-Publicar`). Ele não muda a escala do Windows: os
+testes rodam na escala do PC, registrada em `build-info.json`. Não dá para rodá-lo no Linux; a sintaxe foi conferida
+com o `pwsh` do container `mcr.microsoft.com/powershell`.
 
 Para acompanhar a CI: `gh run list --limit 5`, `gh run view <id>`, `gh run view <id> --log-failed`. Registre no
 `PROGRESS.md` o número da execução e o commit de cada resultado citado.
