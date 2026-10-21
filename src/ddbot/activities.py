@@ -39,10 +39,19 @@ CATEGORIES = {"pve": "PvE / contra o computador", "solo": "Solo", "matchmaking":
 AUTO_CATEGORIES = ("pve", "solo")
 # modelos que nunca são clicados, além dos listados em cada definição e na configuração
 DEFAULT_FORBIDDEN = ("botao_comprar", "botao_loja", "botao_recarregar", "botao_cupons", "botao_premium",
-                     "botao_ranqueada")
+                     "botao_ranqueada",
+                     # pagos nas instâncias (cupons), segundo um emulador do DDTank 4.1 (sources.json)
+                     "botao_ultima_fase", "botao_tentar_novamente", "carta_paga")
 NAME_RE = re.compile(r"[a-z0-9_]{1,64}")
 # modelos que escolhem QUAL atividade jogar: sem eles na tela, o bot pausa (nunca escolhe outra no lugar)
 SELECTION_PREFIXES = ("instancia_", "partida_", "dificuldade_")
+# condição de uma ação ("se" no JSON): a escolha da atividade (opção e dificuldade) já foi feita nesta ida?
+# Na sala do Cais de Expedição a instância é escolhida dentro da própria sala: a mesma tela pede "escolher a
+# instância" antes e "Iniciar" depois.
+CONDITIONS = ("sem_escolha", "com_escolha")
+CLICKS = ("clicar", "clicar_opcional", "confirmar_aviso")  # ações que clicam num modelo
+# aviso do jogo ao iniciar sozinho uma instância difícil: só é confirmado com a permissão do usuário
+SOLO_WARNING = "aviso_sozinho"
 
 
 def is_selection(template: str | None) -> bool:
@@ -56,23 +65,36 @@ def valid_name(name) -> bool:
 
 @dataclass
 class Action:
-    kind: str                 # clicar | clicar_opcional | tecla | aguardar | combate | concluir
+    kind: str                 # clicar | clicar_opcional | confirmar_aviso | tecla | aguardar | combate | concluir
     target: str | None = None  # modelo (clicar), tecla, resultado (concluir)
     seconds: float = 0.0
+    when: str | None = None   # só age nessa condição (CONDITIONS); None = sempre
 
     @classmethod
     def parse(cls, raw: dict) -> "Action":
         if not isinstance(raw, dict):
             raise ValueError(f"ação inválida: {raw!r}")
+        when = raw.get("se")
+        if when is not None and when not in CONDITIONS:
+            raise ValueError(f"condição inválida: {when!r} (use {' ou '.join(CONDITIONS)})")
         for kind, default_wait in (("clicar", 1.0), ("clicar_opcional", 0.5)):
             if kind in raw:
                 if not valid_name(raw[kind]):
                     raise ValueError(f"nome de modelo inválido: {raw[kind]!r}")
-                return cls(kind, raw[kind], _seconds(raw.get("espera", default_wait)))
+                return cls(kind, raw[kind], _seconds(raw.get("espera", default_wait)), when)
+        if "confirmar_aviso" in raw:
+            # clica só com a permissão do usuário (instances.confirm_solo_warning); sem ela, pausa e explica
+            if not valid_name(raw["confirmar_aviso"]):
+                raise ValueError(f"nome de modelo inválido: {raw['confirmar_aviso']!r}")
+            if when is not None:
+                raise ValueError("'se' não vale para confirmar_aviso")
+            return cls("confirmar_aviso", raw["confirmar_aviso"], _seconds(raw.get("espera", 1.5)))
         if "tecla" in raw:
             if not isinstance(raw["tecla"], str) or not re.fullmatch(r"[a-z0-9]{1,12}", raw["tecla"].lower()):
                 raise ValueError(f"tecla inválida: {raw['tecla']!r}")
-            return cls("tecla", raw["tecla"].lower(), _seconds(raw.get("espera", 0.5)))
+            return cls("tecla", raw["tecla"].lower(), _seconds(raw.get("espera", 0.5)), when)
+        if when is not None:
+            raise ValueError("'se' só vale para clicar, clicar_opcional e tecla")
         if "aguardar" in raw:
             return cls("aguardar", None, _seconds(raw["aguardar"]))
         if raw.get("combate"):
@@ -84,8 +106,11 @@ class Action:
         raise ValueError(f"ação desconhecida: {raw}")
 
     def to_raw(self) -> dict:
-        if self.kind in ("clicar", "clicar_opcional", "tecla"):
-            return {self.kind: self.target, "espera": self.seconds}
+        if self.kind in ("clicar", "clicar_opcional", "tecla", "confirmar_aviso"):
+            raw = {self.kind: self.target, "espera": self.seconds}
+            if self.when:
+                raw["se"] = self.when
+            return raw
         if self.kind == "aguardar":
             return {"aguardar": self.seconds}
         if self.kind == "combate":
@@ -125,7 +150,7 @@ class ActivityDef:
     def templates_needed(self) -> list[str]:
         out = [f"estado_{s}" for s in self.flow]
         for actions in self.flow.values():
-            out += [a.target for a in actions if a.kind in ("clicar", "clicar_opcional") and a.target]
+            out += [a.target for a in actions if a.kind in CLICKS and a.target]
         return sorted(set(out))
 
     def to_raw(self) -> dict:
@@ -212,19 +237,44 @@ def unique_slug(base: str, taken) -> str:
     return name
 
 
+def instance_room_flow(selection: list[Action]) -> dict[str, list[Action]]:
+    """Caminho das instâncias no DDClássico (informado pelo usuário em 2026-10-21): lobby -> Cais de Expedição
+    -> Criar sala -> sala sem instância -> escolher a instância (opção, dificuldade, confirmar) -> sala -> Iniciar.
+
+    A escolha é refeita a cada ida, mesmo que a sala ainda mostre a instância anterior: nunca inicia outra.
+    """
+    return {
+        "lobby": [Action("clicar", "botao_cais", 1.5)],
+        "cais_expedicao": [Action("clicar", "botao_criar_sala", 1.5)],
+        "sala": [Action("clicar", "botao_escolher_instancia", 1.5, "sem_escolha"),
+                 Action("clicar", "botao_iniciar", 2.0, "com_escolha")],
+        "menu_instancias": selection + [Action("clicar_opcional", "botao_confirmar", 1.5)],
+        SOLO_WARNING: [Action("confirmar_aviso", "botao_confirmar_aviso", 1.5)],
+    }
+
+
+INSTANCE_START_STATES = ("lobby", "cais_expedicao", "sala", "menu_instancias")
+
+
 def activity_from_option(option_template: str, name: str, kind: str = "instancia",
                          category: str = "pve", key: str | None = None, strategy: str | None = None) -> ActivityDef:
-    """Definição padrão para uma opção capturada no menu de instâncias ou de partidas.
+    """Definição padrão para uma opção capturada na escolha da instância (na sala) ou no menu de partidas.
 
-    Os botões genéricos (``botao_instancias``, ``botao_partidas``, ``botao_iniciar``...)
+    Os botões genéricos (``botao_cais``, ``botao_criar_sala``, ``botao_partidas``, ``botao_iniciar``...)
     são os mesmos para todas as atividades e são capturados uma vez na Calibração.
     """
-    menu, entry = (("menu_instancias", "botao_instancias") if kind == "instancia"
-                   else ("menu_partidas", "botao_partidas"))
-    flow = {
-        "lobby": [Action("clicar", entry, 1.5)],
-        menu: [Action("clicar", option_template, 1.0), Action("clicar_opcional", "botao_confirmar", 1.5)],
-        "sala": [Action("clicar", "botao_iniciar", 2.0)],
+    if kind == "instancia":
+        flow = instance_room_flow([Action("clicar", option_template, 1.0)])
+        start = INSTANCE_START_STATES
+    else:
+        flow = {
+            "lobby": [Action("clicar", "botao_partidas", 1.5)],
+            "menu_partidas": [Action("clicar", option_template, 1.0),
+                              Action("clicar_opcional", "botao_confirmar", 1.5)],
+            "sala": [Action("clicar", "botao_iniciar", 2.0)],
+        }
+        start = ("lobby", "menu_partidas", "sala")
+    flow.update({
         "carregando": [Action("aguardar", None, 1.0)],
         "batalha": [Action("combate")],
         "etapa_concluida": [Action("clicar_opcional", "botao_continuar", 1.5)],
@@ -232,10 +282,10 @@ def activity_from_option(option_template: str, name: str, kind: str = "instancia
                        Action("clicar_opcional", "botao_sair", 1.5)],
         "vitoria": [Action("concluir", "vitoria"), Action("clicar_opcional", "botao_sair", 1.5)],
         "derrota": [Action("concluir", "derrota"), Action("clicar_opcional", "botao_sair", 1.5)],
-    }
+    })
     return ActivityDef(key=key or slug(f"{kind}_{name}"), name=name, kind=kind, category=category,
                        description="Criada a partir de uma opção capturada no menu do cliente.", flow=flow,
-                       start_states=("lobby", menu, "sala"), strategy=strategy if kind == "instancia" else None)
+                       start_states=start, strategy=strategy if kind == "instancia" else None)
 
 
 def instance_from_option(option_template: str, name: str, category: str = "pve") -> ActivityDef:
@@ -244,9 +294,12 @@ def instance_from_option(option_template: str, name: str, category: str = "pve")
 
 # botões e marcadores que a Calibração pede para capturar (chave -> descrição)
 COMMON_TEMPLATES = {
-    "botao_instancias": "Botão que abre o menu de instâncias (no lobby)",
+    "botao_cais": "Botão do Cais de Expedição (no lobby)",
+    "botao_criar_sala": "Botão Criar sala (no Cais de Expedição)",
+    "botao_escolher_instancia": "Botão da sala que abre a escolha da instância",
     "botao_partidas": "Botão que abre o menu de partidas/modalidades (no lobby)",
-    "botao_confirmar": "Botão de confirmar/entrar após escolher a opção",
+    "botao_confirmar": "Botão de confirmar/OK depois de escolher a instância ou a partida",
+    "botao_confirmar_aviso": "Botão de confirmar no aviso de instância difícil (um jogador)",
     "botao_iniciar": "Botão Iniciar na sala de preparação",
     "botao_continuar": "Botão Continuar/Próxima etapa",
     "botao_sair": "Botão Sair/Voltar após o resultado",
@@ -409,6 +462,8 @@ class ActivityRunner:
         # execução atual (uma ida e volta da atividade)
         self._in_activity = False
         self._pending_result: str | None = None
+        self._chosen = False  # a opção (e a dificuldade) desta atividade já foram clicadas nesta ida
+        self.blocked: str | None = None  # pausa que pede uma decisão do usuário (ex.: SOLO_WARNING)
 
     # ------------------------------------------------------------------ util
     def _emit(self, kind, message, **data):
@@ -432,7 +487,7 @@ class ActivityRunner:
                            "o modo automático só roda atividades PvE/solo")
         for state, actions in self.d.flow.items():
             for a in actions:
-                if a.kind in ("clicar", "clicar_opcional") and a.target in self.forbidden():
+                if a.kind in CLICKS and a.target in self.forbidden():
                     return False, f"o fluxo clica em '{a.target}', que está na lista de proibidos"
         return True, ""
 
@@ -464,6 +519,7 @@ class ActivityRunner:
             if self.status != RunStatus.PAUSED:
                 return
             self.status = RunStatus.RUNNING
+            self.blocked = None
             self._resume_pending = True  # o reset da visita é feito pela thread da rotina
             if self._paused_since is not None:
                 self.counters.paused_total += self.clock() - self._paused_since
@@ -605,6 +661,8 @@ class ActivityRunner:
             self.on_battle_start()
         elif state in self.d.start_states and self._in_activity:
             self._close_activity()
+        if state in ("lobby", "cais_expedicao"):
+            self._chosen = False  # saiu da sala: a próxima sala começa sem instância escolhida
         if state in self.d.start_states and not self._in_activity:
             done = self._limits_reached()
             if done:
@@ -616,6 +674,7 @@ class ActivityRunner:
         result = self._pending_result
         self._in_activity = False
         self._pending_result = None
+        self._chosen = False  # a próxima ida escolhe de novo (a sala pode ter ficado com outra instância)
         self.counters.completed += 1
         if result == "vitoria":
             self.counters.victories += 1
@@ -641,6 +700,9 @@ class ActivityRunner:
             return self._wait_for_change(state, actions, screen, now)
         idx = self._visit_done_actions
         a = actions[idx]
+        if a.when is not None and (a.when == "com_escolha") != self._chosen:
+            self._visit_done_actions += 1  # condição não vale agora: a ação não existe nesta visita
+            return True
         if a.kind == "concluir":
             if self._in_activity:
                 # a derrota prevalece se a mesma execução mostrar os dois (várias etapas)
@@ -657,7 +719,14 @@ class ActivityRunner:
             self._visit_done_actions += 1
             self._sleep(a.seconds)
             return True
-        # clicar / clicar_opcional
+        if a.kind == "confirmar_aviso" and not self.config.get("instances.confirm_solo_warning", False):
+            # decisão do usuário, não do bot: pausa na mesma tela; com a permissão, Retomar continua daqui
+            self.blocked = SOLO_WARNING
+            return self._pause_for_user(
+                "o jogo avisa que esta instância é difícil para um jogador. Para continuar mesmo assim, clique em "
+                "Confirmar o aviso e continuar (ou marque a permissão em Configurações e clique em Retomar); para "
+                "desistir, clique em Parar")
+        # clicar / clicar_opcional / confirmar_aviso (com permissão)
         if a.target in self.forbidden():
             return self._fail(f"clique em '{a.target}' bloqueado (proibido nas configurações)")
         if self._visit_clicks >= self.limits.max_clicks_per_visit:
@@ -671,6 +740,7 @@ class ActivityRunner:
             picks = [i for i, x in enumerate(actions) if x.kind == "clicar" and is_selection(x.target)]
             if picks and idx == picks[-1]:
                 data["selecao_feita"] = a.target  # a opção (e a dificuldade) desta atividade estavam no menu
+                self._chosen = True
             self._emit("etapa", f"clicou em {a.target}", **data)
             self._sleep(a.seconds)
             self._visit_done_actions += 1
@@ -718,7 +788,9 @@ class ActivityRunner:
     def _handle_unknown(self, now, screen) -> bool:
         if self._unknown_since is None:
             self._unknown_since = now
-            self._emit("aviso", f"tela não reconhecida (confiança {screen.confidence:.2f})")
+            detail = f": {screen.note}" if screen.note else f" (confiança {screen.confidence:.2f})"
+            self._emit("aviso", f"tela não reconhecida{detail}. Se for uma tela do jogo, capture-a em "
+                       "Calibração > Modelos; a imagem fica em dados\\capturas se o bot pausar")
         elapsed = now - self._unknown_since
         if self.current_state == "batalha" and elapsed < self.limits.unknown_state_timeout_s:
             # explosões e animações atrapalham a leitura: segue observando, sem disparar
@@ -726,19 +798,20 @@ class ActivityRunner:
             self._sleep(self.COMBAT_POLL_S)
             return True
         if elapsed > self.limits.unknown_state_timeout_s:
-            return self._recover("tela desconhecida por tempo demais", screen)
+            return self._recover("tela desconhecida por tempo demais", screen,
+                                 detail=f" ({screen.note})" if screen.note else "")
         self._sleep(self.POLL_S)
         return True
 
-    def _recover(self, why, screen) -> bool:
+    def _recover(self, why, screen, detail: str = "") -> bool:
         """Recuperação só com evidência: fecha um aviso se o botão de fechar for reconhecido.
 
         Sem botão reconhecido, ou na segunda vez pelo mesmo motivo na mesma tela, pausa e
         pede intervenção. Nunca envia teclas às cegas (ESC na batalha pode sair dela).
         """
-        key = (self.current_state, why)
+        key = (self.current_state, why)  # sem ``detail``: as notas mudam a cada leitura
         if self._recovery_attempts.get(key, 0) >= 1:
-            return self._pause_for_user(why)
+            return self._pause_for_user(why + detail)
         self._recovery_attempts[key] = self._recovery_attempts.get(key, 0) + 1
         if self.actor.click("botao_fechar", screen.frame) is True:
             self.counters.recoveries += 1
@@ -747,7 +820,7 @@ class ActivityRunner:
             self._reset_visit()
             self._unknown_since = None
             return True
-        return self._pause_for_user(why)
+        return self._pause_for_user(why + detail)
 
     def _selection_missing(self, template: str) -> bool:
         """A opção (ou a dificuldade) desta atividade não está no menu: pausa, nunca escolhe outra."""
@@ -832,6 +905,7 @@ class ActivityRunner:
         with self._lock:
             self.status = RunStatus.RUNNING
         self.counters = RunCounters(started_at=self.clock(), clock=self.clock)
+        self._chosen = False
         how = "repetição contínua" if not self.limits.runs else (
             "uma vez" if self.limits.runs == 1 else f"{self.limits.runs} vezes")
         self._emit("etapa", f"iniciando {self.d.name} ({how})")

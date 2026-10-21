@@ -1,5 +1,25 @@
 **JonFlow** (antes *DDClássico Bot*): aplicativo para Windows 10/11 (64 bits) que joga partidas e instâncias PvE do DDTank (servidor DDClássico) sozinho, com mira calculada e calibrada pelos seus disparos e interface em português.
 
+## Novidades da 0.5.1
+
+Correções do primeiro uso no cliente real (ainda não conferidas no jogo):
+
+- **Caminho do Cais de Expedição:** as instâncias seguem o caminho do jogo, **lobby → Cais de Expedição → Criar
+  sala → escolher a instância e a dificuldade na sala → Iniciar**. Em Calibração > Modelos entraram as telas
+  **Cais de Expedição**, **Escolha da instância** e **Aviso de instância difícil (um jogador)** e os botões do
+  Cais, **Criar sala**, o da sala que abre a escolha e o **confirmar do aviso**. A cada ida o bot escolhe a
+  instância de novo, para nunca iniciar outra.
+- **Aviso de jogador sozinho:** o bot pausa e explica, sem clicar em nada. Para seguir, clique em **Confirmar o
+  aviso e continuar** no Início: a rotina continua da mesma tela. A permissão fica em Configurações > Automação e
+  só vale para esse aviso.
+- **Explicações quando o bot não age:** tela não reconhecida mostra as telas calibradas mais parecidas e a nota
+  (também no Diagnóstico); na batalha, turno ilegível ou mira sem personagem, inimigo ou régua avisam o motivo e
+  pausam se continuar assim.
+- **Reconhecimento de telas:** um modelo que tinha memorizado uma escala errada voltava a ser procurado só ao
+  reabrir o programa; agora a busca completa volta sozinha.
+- **Força até 100** (antes 98). Os botões pagos **última fase**, **tentar novamente** e **carta paga** ficam
+  bloqueados.
+
 ## Novidades da 0.5.0
 
 - **Seis instâncias cadastradas**, sempre na lista do Início, mesmo antes de conectar o jogo: **Formigueiro** —

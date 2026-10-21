@@ -108,6 +108,17 @@ class CombatEngine:
         self._cache_key: tuple | None = None
         self._steady: tuple | None = None  # (turno, método, ângulo) da recomendação mantida no turno
         self.shots_this_battle = 0
+        # o bot não fica parado em silêncio: turno ilegível ou turnos seus sem mira viram aviso e, no automático,
+        # pausa com o motivo (a janela do JonFlow volta à frente)
+        self.clock = time.monotonic
+        self._noturn_since: float | None = None
+        self._noturn_warned = False
+        self._stuck_turn: int | None = None
+        self._stuck_turns = 0
+
+    STALL_WARN_S = 20.0    # batalha na tela sem conseguir ler de quem é o turno: avisa
+    STALL_PAUSE_S = 60.0   # ... e, no automático, pausa explicando
+    LOST_TURNS_PAUSE = 2   # turnos seus seguidos sem conseguir calcular a mira: pausa no automático
 
     # diferença mínima de chance para trocar de ângulo no mesmo turno: leituras que oscilam um pouco não fazem
     # a recomendação pular entre dois ângulos (menos teclas e um número estável na tela)
@@ -133,6 +144,43 @@ class CombatEngine:
     def _new_gate(self) -> TurnGate:
         return TurnGate(float(self.config.get("automation.min_seconds_between_shots", 3.0)),
                         confirm=int(self.config.get("automation.turn_confirm_reads", 2)))
+
+    def _turn_unreadable(self, allow_fire: bool):
+        now = self.clock()
+        if self._noturn_since is None:
+            self._noturn_since = now
+            return
+        waited = now - self._noturn_since
+        why = ("a batalha está na tela, mas o bot não consegue ler se é o seu turno: confira o modelo \"Indicador de "
+               "que é o seu turno\" e a região do indicador de turno (Calibração; o Diagnóstico mostra a leitura)")
+        if waited >= self.STALL_PAUSE_S and self.mode == Mode.AUTO and allow_fire:
+            self._noturn_since = None
+            raise NeedsAttention(why)
+        if waited >= self.STALL_WARN_S and not self._noturn_warned:
+            self._noturn_warned = True
+            self._emit("aviso", f"{why}; sem isso o bot não dispara")
+
+    @staticmethod
+    def _why_no_distance(obs: BattleObservation) -> str:
+        snap = obs.snapshot
+        if snap is not None and getattr(snap, "me", 1) is None:
+            return "seu personagem não foi encontrado (Calibração > Modelos: marcador do seu personagem)"
+        if snap is not None and not getattr(snap, "enemies", [1]):
+            return "nenhum inimigo foi encontrado (marcador de um inimigo ou os alvos da instância em Calibração)"
+        if snap is not None and not getattr(snap, "unit_px", 1):
+            return "a régua não está calibrada (Calibração > Regiões: área de jogo)"
+        return "a distância até o alvo não pôde ser calculada"
+
+    def _cannot_aim(self, turn: int, why: str, allow_fire: bool):
+        """Seu turno, mas sem mira: avisa uma vez por turno; turnos seguidos assim pausam no automático."""
+        if self._stuck_turn != turn:
+            self._stuck_turn = turn
+            self._stuck_turns += 1
+            self._emit("aviso", f"seu turno, mas sem mira: {why}")
+            if self._stuck_turns >= self.LOST_TURNS_PAUSE and self.mode == Mode.AUTO and allow_fire:
+                self._stuck_turns = 0
+                raise NeedsAttention(f"{self.LOST_TURNS_PAUSE} turnos seus seguidos sem conseguir mirar: {why}")
+        return None
 
     def _emit(self, kind, message, **data):
         if kind == "aviso":
@@ -206,6 +254,10 @@ class CombatEngine:
         self._over_candidate, self._over_reads = None, 0
         if not obs.in_battle:
             return None
+        if obs.my_turn is None:
+            self._turn_unreadable(allow_fire)
+        else:
+            self._noturn_since, self._noturn_warned = None, False
         prev_turn = self.gate.turn_id
         turn = self.gate.update(obs.my_turn)
         if turn != prev_turn:
@@ -234,13 +286,18 @@ class CombatEngine:
         else:
             self.tracker.mark_hidden(obs.target_id, turn)
             decision = self.tracker.decide(obs.target_id, turn, has_area_attack=False)
+            seen = self.tracker.targets.get(obs.target_id)
+            if decision.estimate is None and (seen is None or seen.last is None):
+                # nenhum alvo nesta batalha até agora: não é "alvo escondido", é inimigo não encontrado
+                return self._cannot_aim(turn, self._why_no_distance(obs), allow_fire)
             if decision.decision in (Decision.WAIT, Decision.ASK_USER) or decision.estimate is None:
                 if self._recommended_turn != turn:
                     self._emit("aviso", f"alvo oculto: {decision.reason}", decisao=decision.decision.value)
                     self._recommended_turn = turn
                 return None
             if obs.me_x is None:
-                return None
+                return self._cannot_aim(turn, "seu personagem não foi encontrado (Calibração > Modelos: "
+                                              "marcador do seu personagem)", allow_fire)
             est = decision.estimate
             dx = est.center_x - obs.me_x
             # direção, vento e altura vêm da região estimada (o alvo não está visível)
@@ -254,7 +311,8 @@ class CombatEngine:
             obs.notes.append(f"posição estimada ({decision.reason})")
 
         if distance is None or distance <= 0:
-            return None
+            return self._cannot_aim(turn, self._why_no_distance(obs), allow_fire)
+        self._stuck_turns = 0
         # reaproveita o cálculo enquanto a leitura não muda de forma relevante no turno
         key = (turn, round(distance / 0.05), round((obs.wind or 0.0) / 0.1), round(obs.dy / 0.05),
                obs.wind is None, obs.high_arc)

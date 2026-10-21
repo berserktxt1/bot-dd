@@ -251,19 +251,26 @@ def run_simulation(kb: KnowledgeBase, params: PhysicsParams, battles: int = 20,
 class SimulatedClient:
     """Cliente falso com telas e botões para testar ``ActivityRunner`` de ponta a ponta.
 
-    Transições: lobby -[botao_instancias]-> menu_instancias (ou -[botao_partidas]-> menu_partidas)
-    -[opção]-> sala -[botao_iniciar]-> carregando -> batalha -> vitoria/derrota -[botao_sair]-> lobby.
-    A opção só existe no menu do seu tipo (``partida_*`` no de partidas, as demais no de instâncias).
+    Instâncias, como no DDClássico: lobby -[botao_cais]-> cais_expedicao -[botao_criar_sala]-> sala (sem
+    instância) -[botao_escolher_instancia]-> menu_instancias -[opção, dificuldade]-> sala (com instância)
+    -[botao_iniciar]-> carregando -> batalha -> vitoria/derrota -[botao_sair]-> lobby (ou a sala, com
+    ``back_to_room``: ela volta com a instância anterior escolhida). Partidas: lobby -[botao_partidas]->
+    menu_partidas -[opção]-> sala -[botao_iniciar]-> ... Iniciar numa sala sem instância não faz nada.
+    A opção só existe no menu do seu tipo (``partida_*`` no de partidas, as demais na escolha da instância).
     ``faults`` injeta problemas: {"popup_at": n, "unknown_for": leituras,
-    "disconnect_at": n, "missing_button": nome, "stage_battles": k}.
+    "disconnect_at": n, "missing_button": nome, "stage_battles": k, "solo_warning": True}. Com
+    ``solo_warning``, Iniciar abre o aviso de instância difícil (um jogador): botao_confirmar_aviso segue,
+    botao_fechar volta à sala.
     """
 
     def __init__(self, world: SimulatedWorld, option="instancia_teste", faults: dict | None = None,
-                 loading_reads: int = 2, difficulty: str | None = None):
+                 loading_reads: int = 2, difficulty: str | None = None, back_to_room: bool = False):
         self.world = world
         self.option = option
         self.difficulty = difficulty   # botão de dificuldade que precisa ser clicado depois da opção
         self.selected: list[str] = []  # opção e dificuldade escolhidas no menu (para conferir nos testes)
+        self.room_choice: list[str] | None = None  # o que a sala tem escolhido (None: sala sem instância)
+        self.back_to_room = back_to_room
         self.faults = dict(faults or {})
         self.loading_reads = loading_reads
         self.screen = "lobby"
@@ -352,20 +359,41 @@ class SimulatedClient:
                 return False
             self.selected.append(template)
             self.clicks.append((self.screen, template))
+            self.room_choice = list(self.selected)
             self.screen = "sala"
             return True
         if self.screen == menu and template.startswith("dificuldade_"):
             return False  # outra dificuldade não é a que esta atividade pede
-        nxt = {("lobby", "botao_instancias"): "menu_instancias",
+        if self.screen == "sala" and template == "botao_iniciar" and self.room_choice is None:
+            return False  # sala sem instância escolhida: o jogo não inicia
+        if self.screen == "sala" and template == "botao_iniciar" and self.faults.get("solo_warning"):
+            self.clicks.append((self.screen, template))
+            self.screen = "aviso_sozinho"
+            return True
+        if self.screen == "aviso_sozinho" and template in ("botao_confirmar_aviso", "botao_fechar"):
+            self.clicks.append((self.screen, template))
+            if template == "botao_fechar":
+                self.screen = "sala"
+                return True
+            self._loading_left, self.stage, self.screen = self.loading_reads, 0, "carregando"
+            return True
+        end = "sala" if self.back_to_room else "lobby"
+        nxt = {("lobby", "botao_cais"): "cais_expedicao",
+               ("cais_expedicao", "botao_criar_sala"): "sala",
+               ("sala", "botao_escolher_instancia"): "menu_instancias",
                ("lobby", "botao_partidas"): "menu_partidas",
                (menu, self.option): "sala",
                ("sala", "botao_iniciar"): "carregando",
                ("etapa_concluida", "botao_continuar"): "carregando",
-               ("vitoria", "botao_sair"): "lobby", ("derrota", "botao_sair"): "lobby",
-               ("recompensa", "botao_sair"): "lobby"}.get((self.screen, template))
+               ("vitoria", "botao_sair"): end, ("derrota", "botao_sair"): end,
+               ("recompensa", "botao_sair"): end}.get((self.screen, template))
         if nxt is None:
             return False
         self.clicks.append((self.screen, template))
+        if (self.screen, nxt) in (("cais_expedicao", "sala"), ("lobby", "menu_partidas")):
+            self.room_choice = None  # sala nova
+        if self.screen in ("menu_instancias", "menu_partidas") and nxt == "sala":
+            self.room_choice = [template]
         if nxt == "carregando":
             self._loading_left = self.loading_reads
             if self.screen == "sala":

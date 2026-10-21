@@ -192,6 +192,77 @@ def test_catalog_activity_completes_in_simulation_with_its_own_choice(kb, params
         cleanup()
 
 
+def test_instance_goes_through_the_dock_and_chooses_inside_the_room_every_run(kb, params, catalog, profiles):
+    """Caminho do DDClássico: lobby -> Cais de Expedição -> Criar sala -> na sala, escolher a instância -> Iniciar.
+    A sala volta com a instância anterior escolhida: mesmo assim cada ida escolhe de novo antes de Iniciar."""
+    d = build_activity(catalog.get("formigueiro_normal"), catalog)
+    assert d.start_states == ("lobby", "cais_expedicao", "sala", "menu_instancias")
+    r, client, eng, clock, cleanup = simulated_activity(kb, params, d, runs=2, profile=profiles["formigueiro_normal"],
+                                                        settings=SimSettings(seed=4, max_turns=40,
+                                                                             distance_range=(4.0, 12.0)))
+    client.back_to_room = True
+    try:
+        assert drive(r) == RunStatus.FINISHED, r.reason
+        assert r.counters.completed == 2 and r.counters.victories == 2
+        out = [(s, t) for s, t in client.clicks if s in ("lobby", "cais_expedicao", "sala", "menu_instancias")]
+        choose = [("sala", "botao_escolher_instancia"), ("menu_instancias", "instancia_formigueiro"),
+                  ("menu_instancias", "dificuldade_normal"), ("sala", "botao_iniciar")]
+        assert out == [("lobby", "botao_cais"), ("cais_expedicao", "botao_criar_sala")] + choose + choose
+    finally:
+        cleanup()
+
+
+def test_start_in_a_room_without_instance_never_clicks_start_first(kb, params, catalog, profiles):
+    d = build_activity(catalog.get("galinheiro_facil"), catalog)
+    r, client, eng, clock, cleanup = simulated_activity(kb, params, d, runs=1, profile=profiles["galinheiro_facil"])
+    client.screen = "sala"  # o usuário já estava numa sala vazia
+    try:
+        assert drive(r) == RunStatus.FINISHED, r.reason
+        assert client.clicks[0] == ("sala", "botao_escolher_instancia")
+        assert client.clicks.index(("sala", "botao_iniciar")) > client.clicks.index(("menu_instancias",
+                                                                                      "dificuldade_facil"))
+    finally:
+        cleanup()
+
+
+def test_solo_warning_pauses_without_permission_and_continues_after_it(kb, params, catalog, profiles):
+    """Aviso de instância difícil (um jogador) depois de Iniciar: sem permissão o bot pausa e explica, sem clicar
+    em nada; com a permissão, Retomar confirma o aviso e a mesma ida segue para a batalha (sem reiniciar)."""
+    d = build_activity(catalog.get("formigueiro_facil"), catalog)
+    r, client, eng, clock, cleanup = simulated_activity(kb, params, d, runs=1, profile=profiles["formigueiro_facil"],
+                                                        faults={"solo_warning": True})
+    try:
+        assert drive(r, 5000) == RunStatus.PAUSED
+        assert r.blocked == "aviso_sozinho" and "difícil para um jogador" in r.reason
+        assert client.screen == "aviso_sozinho" and not [t for s, t in client.clicks if s == "aviso_sozinho"]
+        clicks_before = len(client.clicks)
+        r.config.set("instances.confirm_solo_warning", True)
+        r.resume()
+        assert r.blocked is None
+        assert drive(r) == RunStatus.FINISHED, r.reason
+        after = client.clicks[clicks_before:]
+        assert after[0] == ("aviso_sozinho", "botao_confirmar_aviso")
+        assert ("lobby", "botao_cais") not in after  # continuou da mesma tela, não recomeçou
+        assert r.counters.completed == 1 and r.counters.victories == 1
+    finally:
+        cleanup()
+
+
+def test_solo_warning_permission_does_not_unlock_forbidden_buttons(kb, params, catalog, profiles):
+    d = build_activity(catalog.get("formigueiro_facil"), catalog)
+    r, client, eng, clock, cleanup = simulated_activity(kb, params, d, runs=1, profile=profiles["formigueiro_facil"],
+                                                        faults={"solo_warning": True},
+                                                        config_overrides={
+                                                            "instances": {"confirm_solo_warning": True},
+                                                            "automation": {"forbidden_templates":
+                                                                           ["botao_confirmar_aviso"]}})
+    try:
+        ok, why = r.check_allowed()
+        assert not ok and "botao_confirmar_aviso" in why
+    finally:
+        cleanup()
+
+
 def test_option_missing_from_menu_pauses_and_marks_unavailable(home, monkeypatch):
     """Olimpíadas Bugou não aparece no menu deste cliente: pausa explicando; nunca clica em outra opção."""
     import time

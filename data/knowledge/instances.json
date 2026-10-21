@@ -17,7 +17,7 @@
       "solo": "possivel",
       "suporte": "implementado",
       "confianca": "media",
-      "resumo": "Duas etapas nas duas dificuldades: primeiro as formigas (um guia fala em 20), depois só a rainha Pandora.",
+      "resumo": "Duas etapas nas duas dificuldades: primeiro as formigas (20 no total, até 10 vivas com reforços, segundo um guia e um emulador), depois só a rainha.",
       "papeis": [
         {
           "id": "rainha",
@@ -65,8 +65,8 @@
       ],
       "limites": [
         "Ângulos e forças dos guias e vídeos não dizem posição nem vento: são só referência; o bot calcula pela distância, vento e altura lidos.",
-        "Nenhuma fonte descreve os ataques da rainha nem um limite de turnos.",
-        "Sozinho já foi feito em versões antigas (vídeos de 2011 e 2012); no DDClássico não foi conferido."
+        "Sozinho já foi feito em versões antigas (vídeos de 2011 e 2012); no DDClássico não foi conferido.",
+        "Só num emulador do DDTank 4.1: limite de 200 turnos por etapa; a rainha chama guardas e atira; quem passa para a direita dela leva ataque em área (o bot não anda). Não conferido no DDClássico."
       ],
       "fontes": [
         "ddtdjpj_formigueiro",
@@ -75,7 +75,8 @@
         "ddtdicasjogar_2013",
         "crieddtank_2012",
         "yurigameover_2012",
-        "videos_ddclassico_2026"
+        "videos_ddclassico_2026",
+        "emulador_ddt34_formigueiro"
       ]
     },
     {
@@ -91,10 +92,12 @@
       ],
       "limites_extra": [
         "O Fácil não aparece nas notícias oficiais do DDClássico lidas em 20/10/2026 (só o Normal): confira se existe no seu cliente.",
-        "Diferença para o Normal documentada só no nível recomendado (8 a 12 contra 12 a 15)."
+        "Diferença para o Normal documentada só no nível recomendado (8 a 12 contra 12 a 15).",
+        "No emulador 4.1 o Fácil existe, com rainha de 8000 de vida (10500 no Normal)."
       ],
       "fontes_extra": [
-        "videos_formigueiro_2015"
+        "videos_formigueiro_2015",
+        "emulador_ddt34_formigueiro"
       ]
     },
     {
@@ -110,11 +113,13 @@
       ],
       "limites_extra": [
         "Aparece na notícia oficial 37 do DDClássico (evento de 16 a 22/10/2026).",
-        "Diferença para o Fácil documentada só no nível recomendado (12 a 15 contra 8 a 12)."
+        "Diferença para o Fácil documentada só no nível recomendado (12 a 15 contra 8 a 12).",
+        "No emulador 4.1 a rainha do Normal tem 10500 de vida (8000 no Fácil)."
       ],
       "fontes_extra": [
         "videos_formigueiro_2015",
-        "ddclassico_noticia_37"
+        "ddclassico_noticia_37",
+        "emulador_ddt34_formigueiro"
       ]
     },
     {

@@ -277,3 +277,38 @@ def test_shot_recorded_even_if_stopped_during_wait(tmp_path, kb, params):
     eng.step()
     assert len(sh.shots) == 1 and len(eng.calibrator.store.all()) == 1
     assert time.monotonic() - t < 2.0  # a espera pós-disparo respeita a parada
+
+
+def test_unreadable_turn_is_explained_and_pauses_in_auto(tmp_path, kb, params):
+    """Regressão: com a batalha na tela e o turno ilegível o combate não fazia nada nem dizia nada."""
+    from ddbot.automation.safety import NeedsAttention
+    events = []
+    eng = _engine(tmp_path, kb, params, ScriptView([BattleObservation(True, None)]), CountShooter())
+    eng.on_event = events.append
+    clock = [0.0]
+    eng.clock = lambda: clock[0]
+    assert eng.set_mode(Mode.AUTO)[0]
+    eng.step()
+    clock[0] = eng.STALL_WARN_S + 1
+    eng.step()
+    assert any("ler se é o seu turno" in e.message for e in events)
+    clock[0] = eng.STALL_PAUSE_S + 1
+    with pytest.raises(NeedsAttention, match="Indicador de que é o seu turno"):
+        eng.step()
+
+
+def test_my_turn_without_aim_explains_and_pauses_after_two_turns(tmp_path, kb, params):
+    from types import SimpleNamespace
+
+    from ddbot.automation.safety import NeedsAttention
+    events = []
+    snap = SimpleNamespace(me=SimpleNamespace(x=1), enemies=[], unit_px=10.0)
+    lost = my_turn(distance=None, target_x=None, snapshot=snap)
+    enemy = BattleObservation(True, False)
+    eng = _engine(tmp_path, kb, params, ScriptView([lost, lost, enemy, enemy, lost, lost]), CountShooter())
+    eng.on_event = events.append
+    assert eng.set_mode(Mode.AUTO)[0]
+    with pytest.raises(NeedsAttention, match="nenhum inimigo"):
+        for _ in range(6):
+            eng.step()
+    assert sum("sem mira" in e.message for e in events) == 2  # um aviso por turno

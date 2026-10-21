@@ -5,10 +5,11 @@ from ddbot.activities import activity_from_option
 from ddbot.config import Config
 from ddbot.readiness import check, summary
 
-FULL = {f"estado_{s}" for s in ("lobby", "menu_partidas", "menu_instancias", "sala", "batalha", "vitoria",
-                                 "derrota")} | {"botao_partidas", "botao_instancias", "botao_iniciar", "turno",
-                                                "marcador_eu", "marcador_inimigo", "vento_esquerda",
-                                                "vento_direita", "partida_x"}
+FULL = {f"estado_{s}" for s in ("lobby", "cais_expedicao", "menu_partidas", "menu_instancias", "sala", "batalha",
+                                 "vitoria", "derrota")} | {"botao_partidas", "botao_cais", "botao_criar_sala",
+                                                           "botao_escolher_instancia", "botao_iniciar", "turno",
+                                                           "marcador_eu", "marcador_inimigo", "vento_esquerda",
+                                                           "vento_direita", "partida_x", "instancia_x"}
 
 
 def cfg(regions=True):
@@ -62,3 +63,18 @@ def test_service_refuses_real_start_without_calibration(home):
         svc.stop()
     finally:
         svc.close()
+
+
+def test_instance_lists_the_expedition_dock_path_in_order():
+    """Instâncias pelo Cais de Expedição: a lista segue o caminho no jogo (lobby, Cais, Criar sala, sala, escolher)."""
+    d = activity_from_option("instancia_x", "X")
+    missing = check(d, lambda name: False, cfg(), True, True)
+    labels = [m.label for m in missing if m.required]
+    path = ["tela Lobby", "Botão do Cais de Expedição", "tela Cais de Expedição", "Botão Criar sala",
+            "tela Sala/preparação", "Botão da sala que abre a escolha da instância", "Botão Iniciar na sala de preparação",
+            "tela Escolha da instância", "opção X no menu"]
+    assert [lab for lab in labels if lab in path] == path
+    how = {m.label: m.how for m in missing}
+    assert "Cais de Expedição" in how["tela Cais de Expedição"] and "dentro da sala" in how["tela Escolha da instância"]
+    assert "na sala, abra a escolha da instância" in how["opção X no menu"]
+    assert not [m for m in check(d, lambda name: name in FULL, cfg(), True, True) if m.required]  # nada obrigatório
