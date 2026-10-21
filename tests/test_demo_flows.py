@@ -24,12 +24,20 @@ def no_repeated_click(clicks):
     return all(a != b for a, b in zip(clicks, clicks[1:]))
 
 
-@pytest.mark.parametrize("kind,entry,menu", [("partida", "botao_partidas", "menu_partidas"),
-                                             ("instancia", "botao_instancias", "menu_instancias")])
-def test_one_complete_run(kb, params, kind, entry, menu):
+FIRST_CLICKS = {
+    "partida": [("lobby", "botao_partidas"), ("menu_partidas", "partida_teste"), ("sala", "botao_iniciar")],
+    # instâncias pelo Cais de Expedição: cria a sala e escolhe a instância dentro dela
+    "instancia": [("lobby", "botao_cais"), ("cais_expedicao", "botao_criar_sala"),
+                  ("sala", "botao_escolher_instancia"), ("menu_instancias", "instancia_teste"),
+                  ("sala", "botao_iniciar")],
+}
+
+
+@pytest.mark.parametrize("kind", ["partida", "instancia"])
+def test_one_complete_run(kb, params, kind):
     status, runner, client, events = run(kb, params, kind, 1)
     assert status == RunStatus.FINISHED, runner.reason
-    assert client.clicks[:3] == [("lobby", entry), (menu, f"{kind}_teste"), ("sala", "botao_iniciar")]
+    assert client.clicks[:len(FIRST_CLICKS[kind])] == FIRST_CLICKS[kind]
     c = runner.counters
     assert c.completed == 1 and c.victories + c.defeats == 1 and client.battles_started == 1
     assert client.screen == "lobby"  # voltou ao lobby depois do resultado

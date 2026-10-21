@@ -257,6 +257,10 @@ class MainWindow:
         self.btn_pause.pack(side="left", padx=(px(8), 0))
         self.btn_stop = ttk.Button(actions, text="Parar (F8)", style="Danger.TButton", command=self.stop)
         self.btn_stop.pack(side="left", padx=(px(8), 0))
+        # só aparece com a rotina pausada no aviso de instância difícil (decisão do usuário)
+        self.btn_confirm_warning = ttk.Button(b, text="Confirmar o aviso e continuar", style="Primary.TButton",
+                                              command=self.confirm_solo_warning)
+        self._warning_shown = False
 
         # andamento: progresso e mira num painel só. Em telas baixas (1080p a 150%) cada linha a mais tira
         # espaço do histórico: situação e barra dividem uma linha e cada contador tem o rótulo ao lado
@@ -422,9 +426,9 @@ class MainWindow:
         self.digit_value.pack(side="left", padx=(px(8), 0))
         ttk.Button(f, text="Aprender", command=self.learn_digits).grid(row=3, column=0, sticky="we", pady=(px(8), 0))
 
-        f = self.page_menu = page("Menu", "Abra no jogo o menu de instâncias (ou de partidas), capture e clique em "
-                                  "Detectar. Escolha a opção e diga o que ela é: uma instância da lista já fica "
-                                  "pronta; outra opção vira uma atividade nova.")
+        f = self.page_menu = page("Menu", "Na sala, abra a escolha da instância (ou, no lobby, o menu de partidas), "
+                                  "capture e clique em Detectar. Escolha a opção e diga o que ela é: uma instância "
+                                  "da lista já fica pronta; outra opção vira uma atividade nova.")
         ttk.Button(f, text="Detectar opções", command=self.detect_options).grid(row=1, column=0, sticky="we")
         self.lst_tiles = tk.Listbox(f, height=5, exportselection=False, relief="flat", highlightthickness=1,
                                     highlightbackground=T.LINE, font=self.th.fonts["body"],
@@ -621,6 +625,8 @@ class MainWindow:
         self._cfg_check(auth.body, "automation.server_rules_confirmed",
                         "Li as regras do servidor e autorizo o modo automático por minha conta e risco")
         self._cfg_check(auth.body, "safety.require_foreground", "Só enviar comandos com a janela do jogo na frente")
+        self._cfg_check(auth.body, "instances.confirm_solo_warning",
+                        "Confirmar o aviso de instância difícil para um jogador e continuar sozinho")
         for i, (title, fields) in enumerate(self.CFG_GROUPS):
             p = Panel(s, self.th, title)
             p.grid(row=1 + i // 2, column=i % 2, sticky="nsew", pady=(px(12), 0),
@@ -1053,6 +1059,24 @@ class MainWindow:
         self.btn_pause.configure(text="Retomar (F6)" if paused else "Pausar (F6)",
                                  style="Primary.TButton" if paused else "TButton")
         self.btn_stop.state(["!disabled"] if running else ["disabled"])
+        from ..activities import SOLO_WARNING
+        warn = paused and running and getattr(self.svc.runner, "blocked", None) == SOLO_WARNING
+        if warn != self._warning_shown:
+            self._warning_shown = warn
+            if warn:
+                self.btn_confirm_warning.grid(row=7, column=0, sticky="w", pady=(self.th.px(8), 0))
+            else:
+                self.btn_confirm_warning.grid_remove()
+
+    def confirm_solo_warning(self):
+        """O usuário decide continuar sozinho: grava a permissão e retoma na mesma tela (sem reiniciar)."""
+        self.svc.config.set("instances.confirm_solo_warning", True)
+        if "instances.confirm_solo_warning" in getattr(self, "cfg_vars", {}):
+            self.cfg_vars["instances.confirm_solo_warning"].set(True)
+        if self._save_config_file():
+            self.notice("Aviso de instância difícil: o bot confirma e continua (Configurações > Automação).")
+        self.svc.resume()
+        self._update_buttons()
 
     # ------------------------------------------------------------- calibração
     def _on_tab_changed(self):

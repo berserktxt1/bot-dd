@@ -153,7 +153,10 @@ class TemplateLibrary:
             shared = self._shape_scale.get(img.shape[:2])
             if learned is not None:
                 score, x, y, w, h = match_template(img, tpl, scales=NEAR, ref_scale=learned)
-                if score < FOUND and shared is None:  # a tela mudou (zoom, resolução): procura em todas
+                # não achou na escala memorizada: a tela mudou (zoom, resolução) ou a escala era de uma
+                # coincidência. Procura em todas, sempre se nenhuma escala comum é conhecida, senão
+                # periodicamente (antes, com uma escala comum, a escala errada ficava para sempre)
+                if score < FOUND and (shared is None or self._tries.get(mem, 0) % FULL_EVERY == 0):
                     score, x, y, w, h = match_template(img, tpl, ref_scale=scale_hint)
             elif shared is not None and self._tries.get(mem, 0) % FULL_EVERY:
                 score, x, y, w, h = match_template(img, tpl, scales=NEAR, ref_scale=shared)

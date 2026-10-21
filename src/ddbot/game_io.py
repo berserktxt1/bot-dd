@@ -296,7 +296,7 @@ class VisionScreenReader(ScreenReader):
             return self.last
         snap = Snapshot(width=frame.shape[1], height=frame.shape[0])
         self.perception.classify_state(frame, snap)
-        self.last = ScreenState(snap.state, snap.state_confidence, frame)
+        self.last = ScreenState(snap.state, snap.state_confidence, frame, self.perception.explain_state(snap))
         return self.last
 
 

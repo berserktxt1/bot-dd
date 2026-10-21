@@ -369,6 +369,33 @@
       "conteudo": "Modelo com arrasto num referencial girado para a linha do alvo (trata o desnível); o próprio personagem achado pela diferença entre duas capturas.",
       "aplicabilidade": "Ideias de desnível e de achar o próprio personagem.",
       "observacoes": "Licença declarada MIT sem texto próprio; coordenadas fixas de 1000×600."
+    },
+    {
+      "id": "emulador_ddt34_formigueiro",
+      "titulo": "Servidor e cliente de um emulador do DDTank 4.1 (yutikeyux/ddt-34-csharp e ddt-34-flash)",
+      "url": "https://github.com/yutikeyux/ddt-34-csharp",
+      "data": "consultado em 2026-10-21",
+      "conteudo": "Formigueiro (AntCave): só Fácil e Normal; etapa 1 com 20 formigas no total (até 10 vivas, com reforços), formigas andam até o jogador e atacam de perto; etapa 2 com a rainha à direita, que chama guardas e atira, e dá ataque em área (dano x10) em quem passa para a direita dela; limite de 200 turnos por etapa. Vida da rainha 8000 (Fácil) e 10500 (Normal). Aviso de sala com 1 jogador (DungeonRoomView.checkCanStartGame) em qualquer dificuldade. Barra de força 0 a 100 que volta a esvaziar depois de cheia (se chegar a 0, perde o turno). Física: Euler dt 0,04 s, g 700 px/s², arrasto 0,2/s, vento 24 px/s² por ponto.",
+      "aplicabilidade": "Adaptável com validação: emulador de outra versão, não é o servidor do DDClássico.",
+      "observacoes": "Licença MIT. Só os fatos acima foram registrados; nenhum código foi copiado. A física não substituiu o modelo do JonFlow (diferença média de 0,4 da régua; nenhum dos dois medido no DDClássico)."
+    },
+    {
+      "id": "ddtank_reborn_textos",
+      "titulo": "thurdev/ddtank-reborn: textos pt-BR do cliente e dados das missões",
+      "url": "https://github.com/thurdev/ddtank-reborn",
+      "data": "consultado em 2026-10-21",
+      "conteudo": "Aviso de sala de instância com um jogador: título 'Lembrete', 'Esta masmorra é muito difícil, recomendada para equipes de 2 ou mais pessoas, deseja participar mesmo assim?', com Confirmar, Cancelar e X. Cartas de recompensa: as duas primeiras grátis, a terceira paga em cupons. 'Ir à última fase' e 'Tentar de novo' custam cupons.",
+      "aplicabilidade": "Adaptável com validação: tradução de terceiros de um cliente 4.1; o texto exato no DDClássico não foi conferido.",
+      "observacoes": "Código MIT; arte e textos do jogo são de terceiros (7Road). As capturas do repositório (Ruffle, 1100x700, vietnamita) não servem como modelos."
+    },
+    {
+      "id": "gustavoif0_ddtank_bot",
+      "titulo": "gustavoif0/ddtank_bot (DDTank Brasil 3.6)",
+      "url": "https://github.com/gustavoif0/ddtank_bot",
+      "data": "2025-06",
+      "conteudo": "Caminho das instâncias: Central -> sala -> configurar o mapa -> instância -> dificuldade -> OK -> Início -> OK do aviso de jogador sozinho; Formigueiro com Fácil e Normal.",
+      "aplicabilidade": "Provável antecessor do DDClássico (mesma empresa), sem prova; confirma o caminho informado pelo usuário em 2026-10-21.",
+      "observacoes": "Sem licença: nenhuma imagem nem código aproveitados; só a ordem das telas."
     }
   ]
 }

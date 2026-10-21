@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .activities import Action, ActivityDef, valid_name
+from .activities import INSTANCE_START_STATES, Action, ActivityDef, valid_name
 from .util import atomic_write_text
 
 log = logging.getLogger(__name__)
@@ -80,11 +80,17 @@ class Catalog:
         return out
 
 
+# lobby -> Cais de Expedição -> Criar sala -> sala sem instância -> escolher a instância -> sala -> Iniciar
+# (activities.instance_room_flow); a escolha é refeita a cada ida
 DEFAULT_FLOW = {
-    "lobby": [{"clicar": "botao_instancias", "espera": 1.5}],
+    "lobby": [{"clicar": "botao_cais", "espera": 1.5}],
+    "cais_expedicao": [{"clicar": "botao_criar_sala", "espera": 1.5}],
+    "sala": [{"clicar": "botao_escolher_instancia", "espera": 1.5, "se": "sem_escolha"},
+             {"clicar": "botao_iniciar", "espera": 2.0, "se": "com_escolha"}],
     "menu_instancias": [{"clicar": "{opcao}", "espera": 1.0}, {"clicar": "{dificuldade}", "espera": 1.0},
                         {"clicar_opcional": "botao_confirmar", "espera": 1.5}],
-    "sala": [{"clicar": "botao_iniciar", "espera": 2.0}],
+    # aviso do jogo ao iniciar sozinho uma instância difícil: só confirma com a permissão do usuário
+    "aviso_sozinho": [{"confirmar_aviso": "botao_confirmar_aviso", "espera": 1.5}],
     "carregando": [{"aguardar": 1.0}],
     "batalha": [{"combate": True}],
     "etapa_concluida": [{"clicar_opcional": "botao_continuar", "espera": 1.5}],
@@ -154,11 +160,11 @@ def build_activity(entry: CatalogEntry, catalog: Catalog) -> ActivityDef:
                 continue  # sem dificuldade (atividade de dificuldade única): o passo não existe
             out.append(Action.parse(a))
         flow[state] = out
-    menu = "menu_instancias" if entry.kind == "instancia" else "menu_partidas"
+    start = INSTANCE_START_STATES if entry.kind == "instancia" else ("lobby", "menu_partidas", "sala")
     level = f", dificuldade {catalog.difficulties[entry.difficulty].name}" if entry.difficulty else ""
     return ActivityDef(key=entry.key, name=entry.name, kind=entry.kind, category=entry.category,
                        description=f"Pré-cadastrada: {entry.instance_name}{level}.", flow=flow,
-                       start_states=("lobby", menu, "sala"), strategy=entry.strategy, builtin=True,
+                       start_states=start, strategy=entry.strategy, builtin=True,
                        instance=entry.instance, difficulty=entry.difficulty, option=entry.option)
 
 

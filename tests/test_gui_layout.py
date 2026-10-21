@@ -110,6 +110,9 @@ def test_interface_fits_1080p_at_each_scale(app_at, scale):
     app.ro_wind.set("-1,6")
     app.lbl_target.configure(text=COMBAT_TEXT)  # duas linhas: o painel Andamento fica mais alto
     audit("Início em combate")
+    app.btn_confirm_warning.grid(row=7, column=0, sticky="w", pady=(app.th.px(8), 0))  # pausa no aviso difícil
+    audit("Início pausado no aviso de instância difícil")
+    app.btn_confirm_warning.grid_remove()
     for tab in (app.tab_diag, app.tab_aim, app.tab_cfg, app.tab_log):
         app.nb.select(tab)
         if tab is app.tab_aim:

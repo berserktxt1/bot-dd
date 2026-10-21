@@ -179,7 +179,11 @@ def test_kill_switch_during_charge_releases_key(tmp_path):
 
 def test_activity_definition_matches_capture_flow(tmp_path):
     d = activity_from_option("instancia_x", "X")
-    assert d.flow["sala"][0].target == "botao_iniciar"
+    # na sala: escolher a instância (se ainda não escolheu nesta ida) e só depois Iniciar
+    assert [(a.target, a.when) for a in d.flow["sala"]] == [("botao_escolher_instancia", "sem_escolha"),
+                                                             ("botao_iniciar", "com_escolha")]
+    assert d.flow["menu_instancias"][0].target == "instancia_x"
+    assert activity_from_option("partida_x", "X", "partida").flow["sala"][0].target == "botao_iniciar"
 
 
 def test_visual_power_unreadable_bar_releases_on_time(tmp_path):
