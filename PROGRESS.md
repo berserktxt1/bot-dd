@@ -50,11 +50,14 @@ de outra versão do jogo. Detalhes da pesquisa em `docs/RESEARCH.md` (seção de
 | pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **319 aprovados, 4 pulados** (só Windows), código final |
 | testes de interface e layout (`test_gui_layout.py`, `test_gui_selecao.py`) | container + Xvfb 1920×1080 | 10 aprovados (com o botão novo visível em 100/125/150%) |
 | `--simulate 25` | Linux (dev) | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.0) |
-| CI (Linux + Windows) | GitHub Actions | ver abaixo |
+| CI (Linux + Windows) | GitHub Actions, execução 39609330850 (`35dc5f2`) | **não rodou**: "The job was not started because recent account payments have failed or your spending limit needs to be increased" (também na nova tentativa da `main`, 39576404643). Sem Windows nem `.exe` novo até a cobrança ser resolvida |
 
 ### Onde parou
 
-- Branch `feature/cais-aviso-diagnostico` a partir de `develop`; CI ainda a conferir.
+- Branch `feature/cais-aviso-diagnostico` (commits `d083614` código e testes, `35dc5f2` documentos) enviada ao
+  GitHub, **sem merge** em `develop`: falta a CI do Windows (suíte em 100% e 125%, janelas reais, `.exe`, layout
+  das capturas com Segoe UI), bloqueada pela cobrança do GitHub Actions. Resolvida a cobrança: rodar de novo
+  (`gh run rerun 39609330850`), conferir, mesclar em `develop` e publicar uma 0.5.1 pelo Git Flow.
 - **Nada disto foi validado no cliente real.** Simulação e imagens sintéticas provam a lógica, não o jogo.
 
 ### O que depende do usuário
