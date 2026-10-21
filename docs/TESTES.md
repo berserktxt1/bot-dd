@@ -23,6 +23,10 @@ Para rodar: `python -m pytest -q tests` (com `PYTHONPATH=src`, ou pelo `build_wi
 | `test_strategy.py` | unitário/cenário/visão | perfis de instância carregados, com fontes registradas; associação pelo nome respeitando a dificuldade; **Formigueiro** (onde há mais formigas; a rainha abre a etapa 2 só após leituras seguidas; na etapa da rainha não atira nas formigas); sem o modelo do alvo, mira qualquer inimigo e avisa uma vez; **Galinheiro** (o mais perto primeiro); **Bugou** (Barão imune de frente; escudo do Midas força ângulo ≥ 60; pavio do Matias pausa só após leituras seguidas); sem progresso pede ajuda; chefe que some espera e depois troca; papéis reconhecidos numa imagem sintética sem duplicar o marcador genérico; as três instâncias completas na simulação, 1 e 3 vezes seguidas, passando por todas as etapas; repetição contínua até parar; nenhum disparo anulado por escudo (sem a estratégia, o mesmo cenário desperdiça disparos); pavio pausa a rotina e, depois do gelo, Retomar termina; serviço: estratégia associada, alvos como recomendação, demonstração com pausa/retomada/parada |
 | `test_audit_regressions.py` | regressão | cada defeito das auditorias. Na 0.4.0: pid do pai reaproveitado por outro launcher; vários launchers sem parentesco não são "chutados"; imagem da janela que mostra a janela da frente é recusada; captura simulada no Windows com cobertura entre os 5 pontos antigos |
 | `test_gui_states.py` | unitário | textos da faixa de estado; demonstração sempre identificada como simulação (executando, pausada, concluída) |
+| `test_catalogo.py` (0.5.0) | unitário/cenário | as **seis atividades pré-cadastradas** na ordem, Castelo do Reino de Bugou fora da lista principal; Olimpíadas Bugou ≠ Castelo (opção, modelos e associação pelo nome); opção e dificuldade clicadas em sequência; as dificuldades compartilham as capturas; etapas de cada perfil conforme as fontes; catálogo com erro mantém as entradas válidas; disponibilidade gravada e tolerante a arquivo ruim; serviço lista as seis sem jogo conectado, protege as pré-cadastradas e aceita a versão do usuário; pendências com instrução; **cada uma das seis completa na simulação** escolhendo só a própria opção e dificuldade, sem balão verde nem juiz atingidos; opção ou dificuldade ausente no menu pausa, não clica em outra e marca "não encontrada" (a demonstração não marca); clique recusado em opção ambígua; balões (melhor valor, nunca verde, pausa sem os modelos), Boxiador longe do juiz, corrida nos rivais agrupados, etapa escolhida pelo que a tela mostra |
+| `test_autodetect.py` (0.5.0) | visão (imagens sintéticas) | sugestões da barra de força, do ângulo, do vento e da área de jogo (faixas dos dois lados); nada numa imagem vazia; ângulo pela diferença ao apertar a tecla (e nada quando a câmera anda) |
+| `test_mira_calibracao.py` (0.5.0) | unitário | correção robusta (dois disparos marcados errado não arrastam o viés); cenários não se misturam (modo da força, cliente); disparo novo com cenário, instância, dificuldade, etapa e alvo; banco antigo atualizado e disparos antigos fora da correção; ângulo estável no turno; espera inicial da barra somada ao tempo |
+| `test_gui_selecao.py` (0.5.0, precisa de tela) | interface | o Início lista as seis antes de conectar, com pendências e Iniciar desativado; página Pendências; fonte própria dos ícones da faixa; **seleção sem camada escura** (aviso pequeno, conta de novo com o mouse sobre ele, escolhe a janela sob o mouse); Apontar com o mouse esconde a janela Detectar jogo e a traz de volta para confirmar |
 | `test_simulation_service.py` | cenário/regressão/interface | a calibração melhora a precisão; o `--simulate` não perde o 1º turno de cada batalha; inimigos invisíveis na simulação; serviço completo em modo simulado (iniciar, pausar, retomar e parar em menos de 3,5 s); recusas sem janela e sem autorização (isoladas da área de trabalho real: antes, num PC com o DDTank aberto, o bot conectava no jogo e a recusa vinha pelas regras); demonstração sem autorização nem janela; emergência e reinício; `--selftest` pela linha de comando; **teste de interface** `--gui-smoke` (precisa de tkinter: roda na CI Windows e na CI Linux com Xvfb) |
 
 ## Teste de interface (`--gui-smoke`)
@@ -32,9 +36,10 @@ Abre a janela de verdade e, em modo de demonstração, aciona os botões: lista 
 *Parar* (o clique precisa retornar em menos de 500 ms), abre *Detectar jogo* (a janela principal precisa ficar
 minimizada) e fecha (precisa voltar ao normal, com o modo demonstração e a atividade preservados), troca entre
 Partidas e Instâncias (a partida de demonstração aparece, o Iniciar fica ativo e a escolha de cada seção é mantida)
-e por fim a parada de emergência com a rotina em andamento. Desde a 0.4.0 também confere que as demonstrações
-das três instâncias com estratégia aparecem, que a demonstração escolhida usa estratégia e que, sem o modo
-demonstração e sem o jogo, o Iniciar fica desativado. Durante o teste mede o atraso do laço de eventos da
+e por fim a parada de emergência com a rotina em andamento. Desde a 0.5.0 confere que as **seis atividades
+pré-cadastradas** aparecem sem o jogo e sem o modo demonstração, que o Castelo do Reino de Bugou não está na
+lista principal, que a seção Partidas automáticas existe, que a escolha é mantida ao trocar o modo demonstração
+e que, sem o modo demonstração e sem o jogo, o Iniciar fica desativado e há pendências listadas. Durante o teste mede o atraso do laço de eventos da
 janela: se passar de 1,5 s, a interface é considerada travada. O resultado vai para `DDBOT_SMOKE_OUT`.
 
 As capturas da CI (`capturas-da-interface`) incluem a janela Detectar jogo nos estados procurando, escolher e
@@ -59,7 +64,13 @@ Limitações: é um alvo único num terreno plano, sem a visão (as leituras che
 inventado. Mede se a mira e a calibração funcionam como programado; **não** mede a precisão no DDClássico.
 
 Resultados de 2026-10-20 (commit `b17d179`): com 50 batalhas, 40,0% de acerto sem calibração e 96,2% com
-calibração, sem turnos perdidos. Antes desse commit, o 1º turno de cada batalha era perdido no `--simulate`
+calibração, sem turnos perdidos.
+
+`--simulate 25` em 2026-10-20 (branch `feature/atividades-prioritarias`, código do commit `8dc8c79`): sem
+calibração 166 disparos, 70 acertos (42,2%), 22 vitórias; com calibração 79 disparos, 75 acertos (94,9%), 25
+vitórias; 0 turnos perdidos. O código da v0.4.4 dá os mesmos disparos, acertos e vitórias com 25 batalhas; só o
+erro médio com calibração na 2ª metade muda (0,135 → 0,140), efeito dos pesos de Huber (sem outliers na
+simulação, o ajuste robusto é um pouco menos eficiente; ele existe para disparos marcados errado no jogo real). Antes desse commit, o 1º turno de cada batalha era perdido no `--simulate`
 (defeito da medição desde a 0.3.0; detalhes e comparação com versões anteriores em `PROGRESS.md`). Regressão:
 `test_simulation_does_not_lose_the_first_turn_of_each_battle`.
 
@@ -120,7 +131,20 @@ primeira validação:
    acompanhe com o dedo no F12.
 5. Registre o resultado dos disparos para a calibração aprender.
 
-### Instâncias com estratégia (pendente no cliente)
+### As seis atividades pré-cadastradas (pendente no cliente, 0.5.0)
+
+1. Com o jogo no menu de instâncias, Calibração > Menu: capture, Detectar opções, escolha a opção e indique se
+   é Formigueiro, Galinheiro ou Olimpíadas Bugou (uma vez por instância). Em Modelos, salve os botões de
+   dificuldade Fácil, Normal e Difícil (uma vez para todas).
+2. Ver opções conhecidas nesta captura: as atividades cuja opção aparece passam a "vista no menu". Confira se
+   Formigueiro Fácil e Galinheiro Fácil existem no seu cliente (não há notícia oficial deles).
+3. Calibração > Pendências: siga a lista da atividade escolhida no Início.
+4. Rode **uma vez** cada uma com o dedo no F12 e anote: as etapas anunciadas no Histórico batem com as do jogo?
+   No Galinheiro, a ordem das etapas; nas Olimpíadas, se o Normal tem a corrida, como aparecem os balões (cores,
+   valores), quem é o "Meka" e onde fica o juiz. Se a atividade não estiver no menu, o bot deve pausar com
+   "não foi encontrada no menu" sem clicar em outra.
+
+### Instâncias com estratégia (pendente no cliente, desde a 0.4.0)
 
 Para Formigueiro, Galinheiro e Castelo do Reino de Bugou (Normal):
 

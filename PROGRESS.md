@@ -1,10 +1,203 @@
 # Andamento
 
-Última atualização: 2026-10-20. Versão 0.4.4 (**JonFlow**, antes *DDClássico Bot*).
+Última atualização: 2026-10-20. Versão publicada: **0.4.4** (**JonFlow**, antes *DDClássico Bot*). Em
+desenvolvimento: **0.5.0** na branch `feature/atividades-prioritarias`, **sem Release** (ver a primeira seção).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## 0.5.0 em desenvolvimento (2026-10-20): seis atividades prioritárias pré-cadastradas
+
+### Onde parou (retomar daqui)
+
+| Item | Estado em 2026-10-20 |
+|---|---|
+| Branch de trabalho | `feature/atividades-prioritarias`, criada de `develop` (`0a6b39b`) e enviada ao GitHub |
+| Commits da branch | `8dc8c79` (código e testes) e, em seguida, o commit desta documentação (`docs:`) |
+| `develop` e `main` | **inalteradas**: `0a6b39b` e `71403ee` (este é só o merge de `develop`, sem diferença de código) |
+| Versão no código | ainda **0.4.4** (`src/ddbot/__init__.py`, `packaging/version_info.txt`); a 0.5.0 **não** foi preparada |
+| Tags e Releases | a última é `v0.4.4` (*Latest*). **Não há tag nem Release da 0.5.0**; nada novo foi publicado |
+| CI do commit `8dc8c79` | execução 39476307312 **aprovada**: Linux 302 aprovados e 4 pulados; Windows 306 de 306 em 100% e em 125%; janelas reais num venv com o Chrome aberto 12 de 12 nas duas escalas; `.exe` da pasta e de arquivo único com autoteste e interface OK (atraso máximo 104 e 41 ms); pasta somente leitura OK. As capturas da interface no Windows mostraram dois defeitos de layout que a auditoria não pegou (seção seguinte) |
+| Documentos de usuário | `README.md` (vira o LEIA-ME do pacote), `docs/ROTEIRO_TESTE_REAL.md` e `docs/RELEASE_NOTES.md` **ainda descrevem a interface da 0.4.4** ("O que jogar", "Criar atividade", "Mostrar onde está o jogo" com a tela escurecendo: README linhas ~110, 142, 164, 247; roteiro linhas ~36 e 55). Atualizar antes da release |
+| Atualizados nesta sessão | `PROGRESS.md`, `AGENTS.md`, `docs/RESEARCH.md` (pesquisa de 2026-10-20) e `docs/TESTES.md` |
+
+### O que foi implementado e corrigido (commit `8dc8c79`)
+
+**Atividades pré-cadastradas** (`src/ddbot/catalog.py`, `data/knowledge/catalogo.json`)
+- As seis atividades aparecem no Início **antes de conectar ao jogo**, na seção **Instâncias**: Formigueiro —
+  Fácil, Formigueiro — Normal, Galinheiro — Fácil, Galinheiro — Normal, Galinheiro — Difícil e Olimpíadas
+  Bugou — Normal. A seção **Partidas automáticas** mostra só as modalidades capturadas do cliente (e a partida
+  de demonstração no modo demonstração).
+- **Castelo do Reino de Bugou — Normal saiu da lista principal** (registrado em `fora_da_lista_principal`); o
+  perfil `bugou_normal` continua para atividades capturadas pelo menu.
+- O fluxo usa modelos compartilhados: a opção da instância (`instancia_<instancia>`, uma captura para todas as
+  dificuldades) e o botão da dificuldade (`dificuldade_facil|normal|dificil`, uma captura para todas as
+  instâncias). Um arquivo do usuário com o mesmo id em `instancias/` substitui a versão do catálogo.
+- **Disponibilidade só por evidência** (`dados/atividades_estado.json`): "vista no menu" (opção reconhecida numa
+  captura ou escolhida pela rotina), "não encontrada no menu" (a rotina procurou e não achou), "indisponível"
+  (marcada pelo usuário). A demonstração não muda nada disso.
+- Opção ou dificuldade ausente no menu: a rotina **pausa** com "… não foi encontrada no menu do jogo …: o bot não
+  escolhe outra atividade no lugar" (sem tentar fechar avisos). O clique numa opção (instância, partida ou
+  dificuldade) é **recusado** quando outra opção do mesmo tipo casa no mesmo lugar quase tão bem (diferença menor
+  que 0,03): evita confundir Olimpíadas Bugou com o Castelo de Bugou.
+
+**Estratégias** (`src/ddbot/strategy.py`, `data/knowledge/instances.json` versão 2)
+- Perfis por dificuldade com herança (`base`, `etapas_ids`, `ajustes_etapas`, `limites_extra`, `fontes_extra`);
+  as dificuldades usam as mesmas capturas de alvos (`modelos`: `alvo_formigueiro_rainha` serve ao Fácil e ao
+  Normal).
+- A etapa é a que a tela mostra (`entra_com`), inclusive voltando para uma etapa anterior quando nada da atual
+  está na tela; nunca larga uma etapa com o chefe dela visível. Motivo: as fontes divergem na ordem das etapas.
+- Tipos de etapa novos: `pontuacao` (alvos com pontos: mira o que mais soma contando o que a explosão pega em
+  volta e nunca um alvo que tira pontos) e `corrida`. Papéis a `evitar` (o juiz): nenhum disparo perto deles.
+  Etapas que não são combate comum exigem os modelos (`requer`): sem eles, **pausa** em vez de atirar. Efeito novo
+  `vulneravel` (prioridade).
+- `match_profile`: com dificuldade no nome, prefere o perfil daquela dificuldade; sem dificuldade, só o perfil
+  geral (nunca chuta uma dificuldade); "Bugou Normal" sozinho não associa nenhuma das duas instâncias.
+
+**Interface** (`gui/main_window.py`, `gui/detect_dialog.py`, `gui/theme.py`, `gui/widgets.py`, `gui/states.py`)
+- Início em três colunas: **Atividades** (seções Instâncias e Partidas automáticas, com o estado de cada uma:
+  pronta, calibrar, não achada, indisponível, demo), **detalhes** (estratégia, conexão, disponibilidade, quantos
+  itens obrigatórios já são reconhecidos, pendências, "Ver pendências", "Não aparece no meu jogo", quantas vezes,
+  Iniciar/Pausar-Retomar/Parar) e **Andamento** (contadores e mira).
+- Calibração: página **Pendências** (primeira) com cada item, o "como fazer" e **Fazer agora** (abre a página
+  certa com o item escolhido e captura a tela se preciso); página Menu associa a opção a uma instância do
+  catálogo; Regiões com **Sugerir regiões** e **Ângulo pelas teclas**; Alvos mostra a estratégia fixa das
+  pré-cadastradas e marca os alvos obrigatórios.
+- Mira e disparos: colunas Previsto, Origem e Instância; estatística só do cenário atual e quantos disparos são
+  de outros cenários.
+
+**Defeitos corrigidos**
+- **Camada escura na seleção da janela** (relatado em versões anteriores): a causa era a `PickOverlay`, uma janela
+  preta semitransparente sobre todos os monitores. Removida. Agora: **Escolher pela imagem** (galeria com a
+  prévia de cada janela candidata) e, como exceção, **Apontar com o mouse** (a janela Detectar jogo sai da
+  frente, a principal continua minimizada, um aviso pequeno no canto conta 3 s e escolhe a janela sob o mouse,
+  sem clique; volta com a prévia para confirmar).
+- **Parada intermitente do `--gui-smoke` no Windows** (1,7 a 5,3 s depois de Pausar, aberta desde a 0.3.0): o
+  ícone "❚❚" da faixa não existe na Bahnschrift e o Tk varria as fontes do sistema (556 ms frio medido na CI de
+  diagnóstico 39440415870). O ícone ganhou fonte própria (`Segoe UI Symbol`, `theme.ICON_FAMILIES`) e os ícones
+  são medidos na abertura. Na CI 39476307312 o teste da interface passou nas 4 execuções no Windows (suíte em
+  100% e em 125%, `.exe` da pasta e de arquivo único; atraso máximo 104 ms). Como a parada era intermitente, uma
+  execução não prova que acabou: continuar observando.
+- Captura da tela na Calibração e "Salvar captura" rodavam na thread do Tk; agora em thread. Se a captura for
+  recusada porque a janela do JonFlow cobre o jogo, ela se minimiza só durante a captura e volta.
+
+**Mira e calibração** (`aiming.py`, `combat.py`, `calibration.py`, `game_io.py`, `vision/autodetect.py`)
+- Sugestão de regiões por conteúdo da imagem (barra de força, ângulo, vento, área de jogo com faixas dos dois
+  lados) e ângulo pela diferença ao apertar ↑/↓ no seu turno (não atira). Sempre confirmadas pelo usuário; regiões
+  já marcadas não são trocadas (só o Ângulo pelas teclas, pedido explícito, troca a do ângulo).
+- Cada disparo registra instância, dificuldade, etapa, alvo e **cenário** (modo de controlar a força + programa do
+  cliente). A correção usa só disparos do mesmo cenário e da mesma arma; bancos antigos ganham as colunas e os
+  disparos antigos (sem cenário) ficam fora da correção. Ajuste com **pesos de Huber** (robusto a disparos
+  marcados errado).
+- Ângulo recomendado **estável no turno** (só troca se outro for 5 pontos de chance melhor). Força recomendada
+  limitada a **98** (perto do fim a barra volta a esvaziar).
+- Padrão da barra para instalações novas: **3,33 s** até 100 e **0,06 s** até começar a encher (medida de
+  terceiros no DDClássico, AINBOT 2026; antes 4,0 s). Quem já tem `config.json` mantém o tempo salvo (4,0 s),
+  mas passa a usar a espera inicial de 0,06 s, que é um campo novo (Configurações > Força do disparo). A
+  confirmar no cliente.
+
+### As seis atividades prioritárias
+
+| Atividade | Perfil e etapas | No DDClássico (fontes lidas) | Simulação | Jogo real |
+|---|---|---|---|---|
+| Formigueiro — Fácil | `formigueiro_facil`: formigas → rainha | **sem notícia oficial**; existia na versão clássica | completa (1 e 3 execuções) | não testado |
+| Formigueiro — Normal | `formigueiro_normal`: formigas → rainha | notícia oficial 37 (16/10/2026) | completa | não testado |
+| Galinheiro — Fácil | `galinheiro_facil`: pintinhos → chefe e gaiola | **sem notícia oficial** | completa | não testado |
+| Galinheiro — Normal | `galinheiro_normal`: pintinhos → construção → chefe e gaiola | vídeo de jogador (07/09/2026) | completa | não testado |
+| Galinheiro — Difícil | `galinheiro_dificil`: pintinhos → galos e galinhas → chefe e gaiola → construção (ordem suposta) | notícia oficial 37 | completa | não testado |
+| Olimpíadas Bugou — Normal | `olimpiadas_bugou_normal`: balões (pontuação) → corrida (rivais) → Boxiador (juiz a evitar) | Difícil na notícia 37; Normal em vídeos e no DDMira | completa, sem balão verde nem juiz atingidos | não testado |
+
+"Simulação" = cenários **fictícios** (vida, posições e quantidades inventadas) que exercitam a lógica; não dizem
+nada sobre o jogo real. Para jogar no cliente, cada atividade ainda depende das capturas listadas em
+Calibração > Pendências (telas, botões, opção da instância, botão da dificuldade, regiões, números, marcadores e,
+nas Olimpíadas, os modelos obrigatórios dos balões verdes, dos rivais e do juiz).
+
+### Testes executados nesta sessão
+
+| Verificação | Onde | Resultado |
+|---|---|---|
+| `python -m pyflakes src tools tests` | Linux (dev) | sem avisos |
+| pytest, suíte completa | Linux (dev, Rocky 10, sem tela) | **296 aprovados, 6 pulados** (2 sem tela, 4 só no Windows), 271 s |
+| pytest, suíte completa | container Ubuntu 24.04 + Xvfb (imagem `jonflow-ci`) | **302 aprovados, 4 pulados** (só Windows), 270 s |
+| `--selftest` | Linux (dev) | OK; as seis atividades e os três perfis gerais completam na simulação (~25 s nessa etapa); também aprovado dentro da suíte (`test_selftest_cli`) no código do `8dc8c79` |
+| `--gui-smoke 8` | container + Xvfb | OK, atraso máximo 100 ms numa execução avulsa; também aprovado dentro da suíte (`test_gui_smoke`) no código do `8dc8c79` |
+| `--screenshots` em 100%, 125% e 150% (1920×1080) | container + Xvfb | nenhum texto cortado nem elemento fora da janela (fontes DejaVu; no Windows a fonte é Segoe UI) |
+| `--simulate 25` | Linux (dev) | ver abaixo |
+| CI GitHub Actions (Linux + Windows, exe, capturas) | execução 39476307312 | aprovada (números na tabela "Onde parou") |
+
+`--simulate 25` (semente fixa 1; "jogo" simulado com velocidade +3%, vento +25%, arrasto −5% em relação ao modelo):
+
+| | Disparos | Acerto | Vitórias | Erro médio 1ª / 2ª metade (régua) | Turnos perdidos |
+|---|---|---|---|---|---|
+| sem calibração, `8dc8c79` | 166 | 42,2% (70) | 22 | 0,671 / 0,593 | 0 |
+| com calibração, `8dc8c79` | 79 | 94,9% (75) | 25 | 0,185 / 0,140 | 0 |
+| sem calibração, v0.4.4 (mesmo comando) | 166 | 42,2% (70) | 22 | 0,672 / 0,593 | 0 |
+| com calibração, v0.4.4 (mesmo comando) | 79 | 94,9% (75) | 25 | 0,184 / 0,135 | 0 |
+
+- Mesmos disparos, acertos e vitórias que a v0.4.4. Isolando cada mudança, só os **pesos de Huber** mudam o
+  resultado: erro da 2ª metade com calibração 0,135 → 0,140 (a simulação não tem disparos marcados errado; o
+  ajuste robusto troca um pouco de eficiência por resistência a eles). O teto de força 98 e o ângulo estável não
+  mudaram nada nestas 25 batalhas.
+- Histórico: 50 batalhas na 0.4.2–0.4.4 deram 40,0% / 96,2%; 15 batalhas, 41,4% / 91,8%. Com 25, 42,2% / 94,9%:
+  as diferenças vêm do número de batalhas (o sorteio é o mesmo, a amostra é outra). `--simulate 50` não foi
+  executado nesta sessão, como pedido.
+- É simulação: um alvo num terreno plano, leituras com ruído e sem a visão. **Não mede a precisão no DDClássico.**
+
+### DDTankBot-Clib: o que foi aproveitado e o que falta avaliar
+
+- Lido: README, `main.py`, `wind_image_ocr.py`, `possible_wind_sets.py` (2023, sem licença: nada copiado).
+- Aproveitado como ideia (já existia no JonFlow de forma equivalente): ler números por moldes de dígitos com
+  limiar de semelhança (no JonFlow, `DigitReader` com glifos aprendidos e confiança mínima) e reescalar moldes
+  quando a janela muda de tamanho (no JonFlow, busca em várias escalas com a escala memorizada).
+- Não aproveitado: ângulo, força e turno por **leitura de memória** (fora do escopo; o JonFlow só usa a tela),
+  compra automática de itens (bloqueada no JonFlow), regiões fixas em frações de uma janela de 942×646, valor do
+  vento sem sinal montado como "d1.d2".
+- A avaliar: se o vento do DDClássico tem o mesmo formato (dígito, ponto, dígito; o AINBOT descreve dígito
+  vermelho, ponto e dígito ciano) e se o leitor de dígitos do JonFlow lê o ponto decimal nesse visor. Precisa de
+  capturas reais.
+
+### Limitações conhecidas
+
+- **Nada foi validado no jogo nem no launcher reais.** Detecção, captura, telas, botões, leitura, disparos,
+  etapas e disponibilidade só foram testados com simulação, imagens sintéticas e janelas de teste.
+- As etapas vêm de guias de 2011–2015, notícias oficiais (sem mecânicas) e vídeos de 2026 (só títulos); o
+  DDClássico diz ter reconstruído os sistemas do zero. A ordem do Galinheiro Difícil e a corrida da OBN são
+  incertas; o "Meka" é desconhecido.
+- Valores dos balões (vermelho +3, verde −2,5, dobro +6) são médias das fontes, não leituras do jogo; a meta de
+  99 pontos não é lida da tela.
+- Sugestões automáticas de regiões só foram testadas em imagens sintéticas; o indicador de turno e os marcadores
+  continuam dependendo de captura manual.
+- Corrida e balões exigem modelos capturados no cliente; sem eles a etapa pausa (seguro, mas não joga).
+- O bot nunca acorda o juiz das Olimpíadas (tática que os guias recomendam até 2 vezes): o usuário faz isso com a
+  rotina pausada.
+- Regras do servidor sobre automação: os termos (`/classic/terms`) ainda não foram lidos.
+
+### Próximos passos (em ordem)
+
+1. **Conferir a CI** desta branch (`gh run list --branch feature/atividades-prioritarias`): no Windows, a suíte
+   em 100% e 125%, os testes de janelas reais, o `.exe` (autoteste, `--gui-smoke`, pasta somente leitura) e as
+   capturas da interface com Segoe UI. Confirmar que a parada do `--gui-smoke` depois de Pausar não volta.
+   Falhas: corrigir na mesma branch.
+2. **Atualizar os documentos de usuário** para a interface nova: `README.md`/LEIA-ME (Início com as seções,
+   Pendências, Detectar jogo sem camada escura, Escolher pela imagem, Apontar com o mouse, Sugerir regiões,
+   Ângulo pelas teclas, novos padrões da barra), `docs/ROTEIRO_TESTE_REAL.md` e `docs/RELEASE_NOTES.md`
+   (novidades da 0.5.0), conferindo os nomes dos botões no código.
+3. **Publicar a 0.5.0 pelo Git Flow**: merge da feature em `develop`; `release/0.5.0` com a versão em
+   `__init__.py`, `version_info.txt`, `RELEASE_NOTES.md` e `PROGRESS.md`; CI verde; merge em `main` e
+   `develop`; tag `v0.5.0`; conferir na Release o `JonFlow.exe`, o `JonFlow.zip`, o `SHA256SUMS.txt`, o
+   `build-info.json` e os relatórios, e os links do README. Não sobrescrever Releases anteriores.
+4. **Primeiro teste no cliente real** (usuário): roteiro em `docs/ROTEIRO_TESTE_REAL.md` e a seção "As seis
+   atividades pré-cadastradas" de `docs/TESTES.md`: Detectar jogo, capturar a opção de cada instância e os
+   botões de dificuldade, seguir a página Pendências, uma execução de cada atividade com o dedo no F12.
+5. **Medir no cliente** o tempo da barra e a espera inicial (padrão 3,33 s + 0,06 s vem de terceiros), a faixa e
+   o formato do vento, e conferir se Formigueiro Fácil e Galinheiro Fácil existem.
+6. **Investigar com capturas reais**: etapas do Galinheiro por dificuldade, se a OBN tem a corrida e o que é o
+   "Meka", como aparecem os balões e o juiz; ajustar `instances.json` (sem mexer no código) e os cenários da
+   simulação.
+7. Ler os termos do DDClássico pelo endereço espelho (`https://ddtclassico.com/classic/terms`).
+8. Ideias da pesquisa ainda não implementadas: posições pelo minimapa (alvos fora da tela), escala pela régua do
+   rodapé, próprio personagem pela pulsação, prévia da trajetória na interface, fixar à mão o alvo invisível.
 
 ## Versão 0.4.4
 
