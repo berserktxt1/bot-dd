@@ -1,7 +1,7 @@
 # Andamento
 
 Última atualização: 2026-10-21. Versão: **0.5.1** (**JonFlow**, antes *DDClássico Bot*), mesclada em `main` e
-`develop` com a tag `v0.5.1`. Repositório: **`berserktxt1/bot-dd`** (público), onde a CI voltou a rodar (seção
+`develop` com a tag `v0.5.1` e **Release publicada pela CI**. Repositório: **`berserktxt1/bot-dd`** (público) (seção
 seguinte).
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
@@ -24,8 +24,9 @@ para o repositório **público `berserktxt1/bot-dd`**, onde os runners padrão n
 
 | Item | Estado |
 |---|---|
-| CI da tag `v0.5.1` | execução 39644308826 (commit `e2d2844` no histórico novo): **iniciou**, os dois jobs rodando (resultado a registrar) |
-| Release v0.5.1 | sai da CI se ela passar |
+| CI da tag `v0.5.1` | execução 39644308826 (commit `e2d2844` no histórico novo): **aprovada**. Linux + Xvfb 319 aprovados e 4 pulados; Windows 319 aprovados e 4 pulados; janelas reais num venv com o navegador aberto, 3 vezes cada: aprovados; escala do Windows em 125%: janelas reais 3 vezes e suíte completa (323 aprovados); `.exe` compilados e testados |
+| Release v0.5.1 | **publicada** pela CI (2026-10-21): `JonFlow.zip`, `JonFlow.exe`, `SHA256SUMS.txt`, `build-info.json` e os relatórios de teste. Os links `releases/latest/download/...` do README respondem sem login |
+| Ainda não validado | **nada no cliente real do DDClássico**: o caminho do Cais, o aviso de jogador sozinho e as explicações do combate só foram testados com simulação e imagens sintéticas |
 
 ## Versão 0.5.1 (2026-10-21): merge sem a CI
 
