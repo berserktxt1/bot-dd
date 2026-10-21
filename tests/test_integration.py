@@ -112,6 +112,10 @@ def build(tmp_path, power_mode="timed"):
 
 def test_vision_to_keyboard_shot(tmp_path, kb, params):
     game, cfg, lib, per, kill, inp, view, store = build(tmp_path)
+    # barra de 2 s, como nos outros testes de força: com 0,5 s, a tolerância de 6 pontos era de só 30 ms e um
+    # runner lento reprovava (CI 39534334539, Windows: soltou 32 ms depois)
+    game.full_time = 2.0
+    cfg.set("automation.power_full_time_s", 2.0)
     cal = Calibrator(store, params)
     eng = CombatEngine(view, KeyboardShooter(inp, view, cfg), Aimer(kb, params, cal), cal, TargetTracker(), kill, cfg)
     assert eng.set_mode(Mode.AUTO)[0]
