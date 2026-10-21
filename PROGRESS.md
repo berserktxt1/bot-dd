@@ -15,12 +15,12 @@ volta para `develop`.
 
 | Item | Estado |
 |---|---|
-| CI | nova tentativa da 39609330850 em 2026-10-21: de novo "The job was not started because recent account payments have failed or your spending limit needs to be increased". **Sem testes no Windows e sem `.exe` da 0.5.1** |
+| CI | nova tentativa da 39609330850 em 2026-10-21: de novo "The job was not started because recent account payments have failed or your spending limit needs to be increased". As execuções do push (tag `v0.5.1` 39634192655, `main` 39634192721 e `develop` 39634192998, commit `272a1e3`) também não iniciaram. **Sem testes no Windows e sem `.exe` da 0.5.1** |
 | Testes locais (`release/0.5.1`) | `pyflakes` sem avisos; Linux sem tela 308 aprovados e 7 pulados; container Ubuntu 24.04 + Xvfb 1920×1080 **319 aprovados e 4 pulados** (só Windows); `--selftest` OK |
 | Release no GitHub | **não criada**: os arquivos só são compilados no Windows da CI. O LEIA-ME e o guia do usuário apontam para a v0.5.0 até lá |
 | Guia do usuário | passo a passo em documento compartilhável (Claude Docs), com o caminho do Cais e o aviso de jogador sozinho |
 
-**Falta (quando a cobrança for resolvida):** `gh run rerun` da execução da tag `v0.5.1` (ou um novo push da tag),
+**Falta (quando a cobrança for resolvida):** `gh run rerun 39634192655` (execução da tag `v0.5.1`),
 conferir Windows em 100% e 125%, janelas reais, layout das capturas com Segoe UI e o `.exe`; publicar a Release
 v0.5.1 com os artefatos da CI. Se o Windows reprovar algo, corrigir num `hotfix/0.5.2`.
 
