@@ -23,6 +23,11 @@
 
 ### Publicação
 
+CI da `release/0.5.0`: a execução 39534334539 (`build: versão 0.5.0`) falhou só na suíte em 125% do Windows, em
+`test_vision_to_keyboard_shot`: a força saiu 6,4 pontos acima (tolerância 6) numa rodada lenta (442 s; o normal é
+240–300 s). O jogo falso desse teste enchia a barra em 0,5 s, então 6 pontos eram só 30 ms; os outros testes de
+força já usavam 2 s. O teste passou a usar 2 s (o programa não mudou; no jogo real, com 3,33 s, 32 ms são ~1 ponto).
+
 A tag `v0.5.0` (no merge da `release/0.5.0` em `main`) dispara a CI que compila, testa e publica a Release com
 `JonFlow.exe`, `JonFlow.zip`, `SHA256SUMS.txt`, `build-info.json` e os relatórios. A conferência da Release
 publicada (assets, somas, `build-info.json`, links do README) é registrada aqui, em `develop`, depois da publicação.
