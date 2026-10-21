@@ -1,14 +1,14 @@
 # Andamento
 
-Última atualização: 2026-10-21 (revisão do combate em `feature/combate-formigueiro`, ainda não mesclada).
-Versão: **0.5.1** (**JonFlow**, antes *DDClássico Bot*), mesclada em `main` e `develop` com a tag `v0.5.1` e
-**Release publicada pela CI**. Repositório: **`berserktxt1/bot-dd`** (público).
+Última atualização: 2026-10-21. Versão: **0.5.2** (**JonFlow**, antes *DDClássico Bot*): revisão do combate
+(seção seguinte), mesclada em `main` e `develop` com a tag `v0.5.2`. Repositório: **`berserktxt1/bot-dd`**
+(público), com a CI de volta.
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
 
-## Revisão do combate automático (2026-10-21, branch `feature/combate-formigueiro`)
+## Versão 0.5.2: revisão do combate automático (2026-10-21)
 
 Relato do usuário: o bot entra no Formigueiro, mas não começa a jogar sozinho. **Não houve acesso a logs nem a
 capturas do usuário.** O caminho do combate foi conferido no código, do reconhecimento da batalha até o fim dela, e
@@ -61,7 +61,9 @@ como referência no perfil, não como parâmetro.
 | pytest, suíte completa | Linux (dev, sem tela) | 325 aprovados, 7 pulados |
 | pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **336 aprovados, 4 pulados** (só Windows) |
 | `--simulate 25` | Linux (dev) | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.1) |
-| CI da 0.5.1 | GitHub Actions 39644308826 (`e2d2844`) | aprovada (seção seguinte). Esta revisão **ainda não passou pela CI** (Windows) |
+| CI da 0.5.1 | GitHub Actions 39644308826 (`e2d2844`) | aprovada (seção "Repositório novo") |
+| CI da branch `feature/combate-formigueiro` | GitHub Actions 39657215655 (`d2d597d`) | **aprovada**: Windows 336 aprovados e 4 pulados; Windows em 125% (janelas reais 3 vezes e suíte completa) 340 aprovados; Linux + Xvfb 336 aprovados e 4 pulados; `.exe` compilados e testados |
+| CI da tag `v0.5.2` | GitHub Actions | a registrar (cria a Release) |
 
 ### Ainda não validado no jogo
 

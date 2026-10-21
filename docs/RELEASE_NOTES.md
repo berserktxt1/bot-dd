@@ -1,5 +1,22 @@
 **JonFlow** (antes *DDClássico Bot*): aplicativo para Windows 10/11 (64 bits) que joga partidas e instâncias PvE do DDTank (servidor DDClássico) sozinho, com mira calculada e calibrada pelos seus disparos e interface em português.
 
+## Novidades da 0.5.2
+
+Revisão do combate automático, para o caso "entra na instância, mas não joga" (ainda não conferida no jogo):
+
+- **O bot não fica mais parado em silêncio na batalha.** Se o seu turno não for reconhecido, ele avisa em 60 s
+  com a semelhança do indicador de turno ("0,55, mínimo 0,80") e pausa em 2 min e meio. Sem nenhum alvo da etapa
+  na tela, pausa depois de 3 turnos seus; com uma leitura ruim ou um disparo cancelado, depois de 2.
+- **Diz qual leitura falhou:** em vez de só "confiança visual baixa", o Histórico diz se foi o vento (não lido ou
+  sem direção), o seu personagem, o alvo ou o indicador de turno.
+- **Confirma o disparo:** depois de cada tiro o turno precisa passar. Se continuar seu, o bot avisa que o jogo pode
+  não ter recebido as teclas e, no segundo disparo assim, pausa. Quando passa, o Histórico mostra "disparo
+  confirmado".
+- **Recuperação mais segura:** na batalha e no aviso de instância difícil o bot nunca clica no X (sairia da
+  batalha ou cancelaria a ida): pausa e explica.
+- **Menos calibração no Formigueiro:** com a formiga e a rainha capturadas em Alvos, o marcador genérico de
+  inimigo deixa de ser obrigatório.
+
 ## Novidades da 0.5.1
 
 Correções do primeiro uso no cliente real (ainda não conferidas no jogo):

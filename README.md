@@ -335,8 +335,8 @@ coisa, o Histórico diz o quê e, se continuar assim, ele pausa em vez de ficar 
 | "há 60 s na batalha sem reconhecer o seu turno (semelhança do indicador de turno 0,55, mínimo 0,80)" | No seu turno, capture de novo o **Indicador de que é o seu turno** em Calibração > Modelos e confira a região do indicador. Pausa em 2 min e meio. |
 | "aguardando: nenhum alvo da etapa Formigas visível" | Capture o **marcador de um inimigo** ou os alvos da instância (formiga, rainha) em Calibração. Pausa depois de 3 turnos seus assim. |
 | "confiança visual baixa (...): vento não reconhecido" (ou "seu personagem 0,55", "alvo 0,60") | Recapture o item citado. No vento, ensine mais números em Calibração > Números e capture as duas setas. Pausa depois de 2 turnos seus sem disparar. |
-| "disparo cancelado: ângulo não confirmado na tela" | Ensine mais números do ângulo e use **Testar teclas do ângulo** em Configurações. Pausa depois de 2 turnos. |
-| "o disparo não foi confirmado: o turno continua seu depois dele" | O jogo pode não ter recebido as teclas: confira as teclas em Configurações, se o jogo está em foco e use **Testar teclas do ângulo**. Pausa depois de 2 disparos assim. |
+| "disparo cancelado: ângulo não confirmado na tela" | Ensine mais números do ângulo e use **Calibração > Testar teclas do ângulo**. Pausa depois de 2 turnos. |
+| "o disparo não foi confirmado: o turno continua seu depois dele" | O jogo pode não ter recebido as teclas: confira as teclas em Configurações, se o jogo está em foco e use **Calibração > Testar teclas do ângulo**. Pausa depois de 2 disparos assim. |
 
 A aba **Diagnóstico** (**Analisar agora**, numa batalha) mostra a mesma leitura que o bot usa.
 </details>

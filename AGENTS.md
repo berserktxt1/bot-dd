@@ -18,8 +18,9 @@ empacotado com PyInstaller.
   todos os testes usam simulação, imagens sintéticas ou janelas de teste. Não afirme que algo "funciona no jogo".
 - Andamento e pendências: [`PROGRESS.md`](PROGRESS.md). Pesquisa e fontes da física/mira:
   [`docs/RESEARCH.md`](docs/RESEARCH.md). O que cada teste cobre: [`docs/TESTES.md`](docs/TESTES.md).
-- **Estado em 2026-10-21:** a 0.5.1 (caminho do Cais de Expedição, aviso de jogador sozinho, reconhecimento e
-  explicações do combate) está em `main` e `develop` com a tag `v0.5.1`. O projeto mudou para o repositório
+- **Estado em 2026-10-21:** a 0.5.2 (revisão do combate: o bot pausa e explica quando o turno, o alvo, a leitura
+  ou o disparo falham, e confirma o disparo pelo turno que passa) está em `main` e `develop` com a tag `v0.5.2`,
+  sobre a 0.5.1 (caminho do Cais de Expedição e aviso de jogador sozinho). O projeto mudou para o repositório
   **público `berserktxt1/bot-dd`**, onde a CI voltou a rodar (no repositório anterior ela parou por cobrança do
   GitHub Actions). Antes de continuar, leia a primeira seção do `PROGRESS.md`.
 - **Repositório público e anônimo:** commits e tags com o autor `berserktxt1` (já configurado no repositório
