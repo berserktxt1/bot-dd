@@ -32,7 +32,7 @@ DEFAULTS: dict = {
         "keys": {"angle_up": "up", "angle_down": "down", "fire": "space", "pass_turn": None,
                  "face_left": "left", "face_right": "right"},
         "power_mode": "timed",
-        # medido por terceiros no DDClássico (AINBOT, 2026: 3,30 a 3,35 s e 44 a 94 ms até a barra começar);
+        # medido por terceiros no servidor do jogo (AINBOT, 2026: 3,30 a 3,35 s e 44 a 94 ms até a barra começar);
         # outros servidores tinham 4 s. Confira no seu cliente (Configurações) ou use a leitura da barra
         "power_full_time_s": 3.33,
         "power_start_delay_s": 0.06,

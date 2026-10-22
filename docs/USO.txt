@@ -1,9 +1,9 @@
-JonFlow - bot para DDTank (DDClassico) - como usar (resumo)
-==========================================================
+JonFlow (bot-dd) - bot para DDTank - como usar (resumo)
+=======================================================
 
 1. Abra a pasta JonFlow e clique duas vezes em JonFlow.exe.
    (Nao precisa instalar Python nem nada.)
-2. Abra o DDClassico pelo launcher e clique em "Detectar jogo", no topo.
+2. Abra o jogo pelo launcher e clique em "Detectar jogo", no topo.
    O JonFlow se minimiza e procura o jogo sozinho. Se so o launcher estiver aberto,
    ele espera: entre no jogo pelo launcher e ele conecta quando o jogo aparecer.
    Confira a previa e clique em Pronto (ou "Sim, e o jogo").

@@ -1,7 +1,7 @@
 """Estratégias por instância (Formigueiro, Galinheiro, Bugou Normal).
 
 Tudo aqui é simulação ou imagem sintética: prova a lógica de etapas, prioridade, imunidade,
-pausa e sem progresso, não o funcionamento no cliente do DDClássico.
+pausa e sem progresso, não o funcionamento no cliente real do jogo.
 """
 import json
 from pathlib import Path

@@ -1,7 +1,7 @@
 # Testes
 
 Todos os testes daqui usam **simulação ou imagens sintéticas**. Nenhum deles foi executado contra o cliente real do
-DDClássico: o ambiente de desenvolvimento é Linux, sem o jogo. A seção "No jogo real", no fim, diz o que ainda
+jogo: o ambiente de desenvolvimento é Linux, sem o jogo. A seção "No jogo real", no fim, diz o que ainda
 precisa ser validado no cliente.
 
 Para rodar: `python -m pytest -q tests` (com `PYTHONPATH=src`, ou pelo `build_windows.bat`). O `pytest.ini` fixa `--capture=sys`: com a captura padrão (`fd`), na suíte completa do Windows, criar um Tk às vezes falhava ("Can't find a usable init.tcl/tk.tcl"; diagnóstico 39530426640 em `PROGRESS.md`).
@@ -74,8 +74,8 @@ garantem proteções que já existiam.
 
 ## Testes de regressão do fluxo das expedições (2026-10-21, log do usuário)
 
-`test_fluxo_expedicao.py`, no cliente simulado com a escolha como no DDClássico (janela que muda depois do clique na
-instância, lida como no log: "Escolha da instância 0,75, Derrota 0,56, Sala/preparação 0,49"; OK obrigatório).
+`test_fluxo_expedicao.py`, no cliente simulado com a escolha como no servidor do jogo (janela que muda depois do
+clique na instância, lida como no log: "Escolha da instância 0,75, Derrota 0,56, Sala/preparação 0,49"; OK obrigatório).
 Contra a 0.5.2 (com o cliente simulado novo), 18 dos 23 primeiros reprovam.
 
 | Teste | O que garante |
@@ -134,7 +134,7 @@ esgotou sem disparo). O "jogo" tem constantes físicas diferentes das do modelo 
 arrasto −5%) e ruído; o sorteio é fixo (semente 1), então a mesma versão dá o mesmo resultado.
 
 Limitações: é um alvo único num terreno plano, sem a visão (as leituras chegam prontas, com ruído) e com um "jogo"
-inventado. Mede se a mira e a calibração funcionam como programado; **não** mede a precisão no DDClássico.
+inventado. Mede se a mira e a calibração funcionam como programado; **não** mede a precisão no jogo real.
 
 Resultados de 2026-10-20 (commit `b17d179`): com 50 batalhas, 40,0% de acerto sem calibração e 96,2% com
 calibração, sem turnos perdidos.
@@ -169,7 +169,7 @@ Os resultados de cada execução estão em [`PROGRESS.md`](../PROGRESS.md).
 ## Launcher (pendente no Windows real)
 
 A detecção foi testada com janelas simuladas (`test_detection.py`) e com janelas e processos reais de teste no
-Windows da CI (`test_windows_real.py`), mas **não** com o launcher e o cliente do DDClássico. Para validar:
+Windows da CI (`test_windows_real.py`), mas **não** com o launcher e o cliente do jogo. Para validar:
 
 1. Abra só o launcher e o JonFlow. Clique em **Detectar jogo**: a janela do JonFlow deve se minimizar. Anote o que
    aparece: "Launcher aberto: aguardando o jogo" ou "É esta a janela do jogo?" com a prévia do launcher (nesse caso

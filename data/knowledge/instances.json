@@ -1,5 +1,5 @@
 {
-  "_doc": "Perfis de estratégia por instância. Vêm de guias e vídeos de jogadores (2011-2026), de notícias oficiais do DDClássico e, só como apoio, de emuladores; nada foi conferido no cliente do DDClássico (ver 'fontes' e sources.json). Os alvos e estados especiais são reconhecidos por modelos de imagem que o usuário captura no próprio cliente (Calibração > Alvos): 'alvo_<modelos>_<papel>' e 'status_<modelos>_<estado>'; 'modelos' é o nome da instância, então as dificuldades usam as mesmas capturas. 'base' herda outro perfil; 'etapas_ids' escolhe etapas da base; 'ajustes_etapas' muda campos de uma etapa; 'limites_extra'/'fontes_extra' somam. 'tipo' da etapa: combate | pontuacao (alvos com 'pontos': somar os bons, evitar os que tiram) | corrida (objetivo que não é derrotar alvos). 'evitar': papéis que o disparo não pode atingir. 'escolha': mais_proximo | agrupado (mais alvos em volta) | ameaca (o mais perto do seu personagem). 'efeito' dos estados: imune | so_por_cima (ângulo >= 60) | pausar | vulneravel (prioridade). 'entra_com': papéis que mostram que a etapa começou (a etapa é a que a tela mostra, inclusive fora da ordem). 'suporte': implementado | pesquisa (só registro).",
+  "_doc": "Perfis de estratégia por instância. Vêm de guias e vídeos de jogadores (2011-2026), de notícias oficiais do servidor e, só como apoio, de emuladores; nada foi conferido no cliente do jogo (ver 'fontes' e sources.json). Os alvos e estados especiais são reconhecidos por modelos de imagem que o usuário captura no próprio cliente (Calibração > Alvos): 'alvo_<modelos>_<papel>' e 'status_<modelos>_<estado>'; 'modelos' é o nome da instância, então as dificuldades usam as mesmas capturas. 'base' herda outro perfil; 'etapas_ids' escolhe etapas da base; 'ajustes_etapas' muda campos de uma etapa; 'limites_extra'/'fontes_extra' somam. 'tipo' da etapa: combate | pontuacao (alvos com 'pontos': somar os bons, evitar os que tiram) | corrida (objetivo que não é derrotar alvos). 'evitar': papéis que o disparo não pode atingir. 'escolha': mais_proximo | agrupado (mais alvos em volta) | ameaca (o mais perto do seu personagem). 'efeito' dos estados: imune | so_por_cima (ângulo >= 60) | pausar | vulneravel (prioridade). 'entra_com': papéis que mostram que a etapa começou (a etapa é a que a tela mostra, inclusive fora da ordem). 'suporte': implementado | pesquisa (só registro).",
   "versao": 2,
   "instancias": [
     {
@@ -62,12 +62,12 @@
       ],
       "referencias_de_mira": [
         "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem posição nem vento)",
-        "rainha: 30 - 70 e 46 - 55 'dependendo do vento' (jogador do DDClássico, 10/10/2026; sem posição nem vento)"
+        "rainha: 30 - 70 e 46 - 55 'dependendo do vento' (jogador do servidor, 10/10/2026; sem posição nem vento)"
       ],
       "limites": [
         "Ângulos e forças dos guias e vídeos não dizem posição nem vento: são só referência; o bot calcula pela distância, vento e altura lidos.",
-        "Sozinho já foi feito em versões antigas (vídeos de 2011 e 2012); no DDClássico não foi conferido.",
-        "Só num emulador do DDTank 4.1: limite de 200 turnos por etapa; a rainha chama guardas e atira; quem passa para a direita dela leva ataque em área (o bot não anda). Não conferido no DDClássico."
+        "Sozinho já foi feito em versões antigas (vídeos de 2011 e 2012); no servidor não foi conferido.",
+        "Só num emulador do DDTank 4.1: limite de 200 turnos por etapa; a rainha chama guardas e atira; quem passa para a direita dela leva ataque em área (o bot não anda). Não conferido no servidor."
       ],
       "fontes": [
         "ddtdjpj_formigueiro",
@@ -91,10 +91,10 @@
       "referencias_de_mira": [
         "rainha: 23 - 100 (vídeo do Fácil, 01/02/2015; sem posição nem vento)",
         "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem dificuldade)",
-        "rainha: 30 - 70 e 46 - 55 'dependendo do vento' (jogador do DDClássico, 10/10/2026; sem dificuldade, posição nem vento)"
+        "rainha: 30 - 70 e 46 - 55 'dependendo do vento' (jogador do servidor, 10/10/2026; sem dificuldade, posição nem vento)"
       ],
       "limites_extra": [
-        "O Fácil não aparece nas notícias oficiais do DDClássico lidas em 20/10/2026 (só o Normal), mas um jogador do DDClássico mostra o Fácil e o Normal num vídeo de 10/10/2026 (só a narração foi lida).",
+        "O Fácil não aparece nas notícias oficiais do servidor lidas em 20/10/2026 (só o Normal), mas um jogador do servidor mostra o Fácil e o Normal num vídeo de 10/10/2026 (só a narração foi lida).",
         "Diferença para o Normal documentada só no nível recomendado (8 a 12 contra 12 a 15).",
         "No emulador 4.1 o Fácil existe, com rainha de 8000 de vida (10500 no Normal)."
       ],
@@ -116,7 +116,7 @@
         "rainha, etapa 2: ângulo 40 força 60 e ângulo 24 força 100 (guia sem dificuldade)"
       ],
       "limites_extra": [
-        "Aparece na notícia oficial 37 do DDClássico (evento de 16 a 22/10/2026).",
+        "Aparece na notícia oficial 37 do servidor (evento de 16 a 22/10/2026).",
         "Diferença para o Fácil documentada só no nível recomendado (12 a 15 contra 8 a 12).",
         "No emulador 4.1 a rainha do Normal tem 10500 de vida (8000 no Fácil)."
       ],
@@ -262,7 +262,7 @@
       ],
       "limites_extra": [
         "Fácil com 2 etapas (guia de 2013 e emulador); dois vídeos de 2011 e 2012 mostram uma 3ª etapa.",
-        "O Fácil não aparece nas notícias oficiais do DDClássico lidas em 20/10/2026: confira se existe no seu cliente."
+        "O Fácil não aparece nas notícias oficiais do servidor lidas em 20/10/2026: confira se existe no seu cliente."
       ]
     },
     {
@@ -279,7 +279,7 @@
       ],
       "limites_extra": [
         "Normal com 3 etapas: pintinhos, construção, chefe e gaiola (guia de 2013 e emulador).",
-        "No DDClássico aparece num vídeo de jogador de 07/09/2026 ('Pintinho Normal'), não em notícia oficial."
+        "No servidor aparece num vídeo de jogador de 07/09/2026 ('Pintinho Normal'), não em notícia oficial."
       ]
     },
     {
@@ -298,7 +298,7 @@
       "confianca": "baixa",
       "limites_extra": [
         "Difícil: o guia de 2013 dá 3 etapas (pintinhos, chefe e gaiola, construção); vídeos de 2011 a 2013 e o emulador mostram 4. A ordem aqui é uma suposição: a etapa real é a que a tela mostra.",
-        "Aparece na notícia oficial 37 do DDClássico (evento de 16 a 22/10/2026); há um vídeo 'Difícil SOLO' de 2013."
+        "Aparece na notícia oficial 37 do servidor (evento de 16 a 22/10/2026); há um vídeo 'Difícil SOLO' de 2013."
       ],
       "fontes_extra": [
         "ddclassico_noticia_37"
@@ -444,7 +444,7 @@
       ],
       "limites": [
         "Olimpíadas Boom, Olimpíadas Bugou e Desafio de Bugous são a mesma instância (nome interno GuluOlympics); o Castelo do Reino de Bugou (GuluKingdom) é outra.",
-        "Não existe Fácil nas fontes. No DDClássico há notícia oficial do Difícil; o Normal aparece em vídeos e num bot de terceiros."
+        "Não existe Fácil nas fontes. No servidor há notícia oficial do Difícil; o Normal aparece em vídeos e num bot de terceiros."
       ],
       "fontes": [
         "ddtdjpj_olimpiadas",
@@ -474,9 +474,9 @@
       "resumo": "Três etapas na versão clássica do Normal: balões (pontuação), corrida de Bugous e Boxiador. Não é o Castelo do Reino de Bugou.",
       "limites_extra": [
         "Balões: o bot mira o balão que mais soma, contando o que a explosão pega em volta, e nunca mira um verde; sem os modelos dos balões verdes e de pelo menos um que soma, a etapa pausa. Os valores (vermelho +3, verde -2,5, dobro +6) são médias das fontes, não leituras do jogo.",
-        "Corrida: o bot fere os Bugous rivais onde há mais deles juntos (a dica dos guias é ferir 3 por rodada); um bot de terceiros cita um alvo prioritário chamado Meka no DDClássico, que nenhuma outra fonte descreve. Sem o modelo dos Bugous rivais (ou do Meka), a etapa pausa.",
+        "Corrida: o bot fere os Bugous rivais onde há mais deles juntos (a dica dos guias é ferir 3 por rodada); um bot de terceiros cita um alvo prioritário chamado Meka no servidor, que nenhuma outra fonte descreve. Sem o modelo dos Bugous rivais (ou do Meka), a etapa pausa.",
         "Boxiador: o bot nunca mira perto do juiz (acordar o juiz anula os efeitos da torcida, mas na 3ª vez o personagem morre); use essa tática você mesmo, com a rotina pausada. Sem o modelo do juiz, a etapa pausa.",
-        "Fontes antigas divergem: 4 etapas na estreia (2011) e 3 por dificuldade em 2015; no DDClássico não foi conferido se o Normal tem a corrida. A etapa é a que a tela mostra.",
+        "Fontes antigas divergem: 4 etapas na estreia (2011) e 3 por dificuldade em 2015; no servidor não foi conferido se o Normal tem a corrida. A etapa é a que a tela mostra.",
         "Nenhuma fonte diz se dá para jogar sozinho; os dados de base sugerem 3 a 4 jogadores."
       ]
     },

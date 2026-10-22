@@ -1,7 +1,7 @@
 """Atividades pré-cadastradas (catálogo), disponibilidade no cliente e as estratégias de cada dificuldade.
 
 Tudo aqui é simulação ou imagem sintética: prova a lógica (escolha da opção e da dificuldade, pausa
-quando a atividade não está no menu, pontuação, papéis a evitar), não o funcionamento no DDClássico.
+quando a atividade não está no menu, pontuação, papéis a evitar), não o funcionamento no jogo real.
 """
 import json
 import re
@@ -193,7 +193,7 @@ def test_catalog_activity_completes_in_simulation_with_its_own_choice(kb, params
 
 
 def test_instance_goes_through_the_dock_and_chooses_inside_the_room_every_run(kb, params, catalog, profiles):
-    """Caminho do DDClássico: lobby -> Cais de Expedição -> Criar sala -> na sala, escolher a instância -> Iniciar.
+    """Caminho no servidor do jogo: lobby -> Cais -> Criar sala -> na sala, escolher a instância -> Iniciar.
     A sala volta com a instância anterior escolhida: mesmo assim cada ida escolhe de novo antes de Iniciar."""
     d = build_activity(catalog.get("formigueiro_normal"), catalog)
     assert d.start_states == ("lobby", "cais_expedicao", "sala", "menu_instancias", "menu_dificuldade")

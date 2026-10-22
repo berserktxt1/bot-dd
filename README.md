@@ -2,8 +2,8 @@
 
 # JonFlow
 
-**JonFlow** (antes chamado *DDClássico Bot*) é um programa para Windows 10/11 (64 bits) que **joga sozinho as
-partidas e instâncias PvE do DDTank no servidor DDClássico**. Você escolhe o que jogar, clica em **Iniciar** e o
+**JonFlow** (repositório `bot-dd`) é um programa para Windows 10/11 (64 bits) que **joga sozinho as
+partidas e instâncias PvE do DDTank**. Você escolhe o que jogar, clica em **Iniciar** e o
 bot entra na atividade, mira, atira, passa as etapas, reconhece vitória e derrota e recomeça quantas vezes você
 pedir.
 
@@ -23,7 +23,7 @@ Todas as versões e notas: [**Releases**](https://github.com/berserktxt1/bot-dd/
 programas prontos ficam **só** lá: na lista de arquivos do código (aba *Code*) não há `.exe`, e o
 `build_windows.bat` que aparece ali serve só para quem quer compilar. Não precisa rodá-lo.
 
-> ⚠️ **Leia antes de usar.** Não foi possível verificar as regras do DDClássico sobre programas de automação (o site
+> ⚠️ **Leia antes de usar.** Não foi possível verificar as regras do servidor sobre programas de automação (o site
 > bloqueou o acesso durante a pesquisa). Muitos servidores punem bots com banimento. Leia os Termos do servidor
 > antes de usar o modo automático. **O uso é por sua conta e risco.**
 
@@ -64,7 +64,7 @@ Se o bot não reconhecer alguma coisa, ele **pausa e explica o que aconteceu** e
 Você vai precisar de:
 
 - ✅ Windows 10 ou 11 de 64 bits;
-- ✅ o DDClássico instalado e a sua conta funcionando;
+- ✅ o jogo instalado e a sua conta funcionando;
 - ✅ uns minutos com o jogo aberto para a calibração (só na primeira vez).
 
 **Não** precisa instalar Python nem nenhum outro programa.
@@ -87,8 +87,8 @@ Baixe pelos [links do topo](#baixar-última-versão) ou na página de
 Se aparecer **"O Windows protegeu o computador"**, clique em *Mais informações* → *Executar assim mesmo*. O aviso
 aparece porque o programa não tem assinatura digital.
 
-> Já usava o *DDClássico Bot*? Substitua os arquivos e **mantenha a pasta `dados`**. Se os seus dados estavam em
-> `%LOCALAPPDATA%\DDClassicoBot`, o JonFlow continua usando essa pasta.
+> Já usava uma versão antiga (até a 0.2.1, com outro nome)? Substitua os arquivos e **mantenha a pasta `dados`**.
+> Se os seus dados estavam na pasta antiga em `%LOCALAPPDATA%`, o JonFlow continua usando essa pasta.
 
 ### Passo 2 — Experimentar sem o jogo (opcional, recomendado)
 
@@ -97,11 +97,11 @@ Quer conhecer o programa antes de configurar? Marque **Modo demonstração**, no
 clique em **Iniciar**.
 
 Nesse modo **nada é enviado ao jogo**: a faixa no alto diz "Demonstração" e os resultados são de um jogo simulado,
-não do DDClássico. Desmarque quando for usar o jogo de verdade.
+não do jogo real. Desmarque quando for usar o jogo de verdade.
 
 ### Passo 3 — Conectar o jogo
 
-1. Abra o DDClássico pelo launcher, como de costume.
+1. Abra o jogo pelo launcher, como de costume.
 2. No JonFlow, clique em **Detectar jogo** (no topo). A janela do JonFlow se minimiza para não atrapalhar.
 3. O bot procura o jogo sozinho e mostra uma **prévia** para você conferir:
 
@@ -123,8 +123,8 @@ Pronto: daqui em diante o bot reencontra o jogo sozinho, mesmo se você fechar e
 <summary>Como ele reconhece o jogo? (curiosidade)</summary>
 
 Ele usa várias pistas: qual programa abriu qual (o launcher abre o jogo), a janela que aparece enquanto ele espera,
-a área interna onde o jogo é desenhado, o programa que você confirmou da última vez e as palavras "DDTank" e
-"DDClássico" no título da janela (editáveis em `window.title_keywords`).
+a área interna onde o jogo é desenhado, o programa que você confirmou da última vez e o nome do jogo no título da janela
+(palavras editáveis em `window.title_keywords`).
 </details>
 
 ### Passo 4 — Ensinar o bot a enxergar (calibração)
@@ -282,7 +282,7 @@ certo:
 - Se a opção da instância ou o botão da dificuldade **não aparecer no menu do seu jogo**, o bot **pausa** e avisa que
   não encontrou: ele **nunca escolhe outra atividade** no lugar. A atividade passa a "✕ não achada".
 - Se disparar várias vezes numa etapa sem diminuir os inimigos, pausa e pede para você conferir.
-- As etapas vêm de guias de jogadores (2011–2017), notícias oficiais do DDClássico e vídeos, e **não foram
+- As etapas vêm de guias de jogadores (2011–2017), notícias oficiais do servidor e vídeos, e **não foram
   conferidas no jogo** (veja [`docs/RESEARCH.md`](docs/RESEARCH.md)). Não há notícia oficial do Formigueiro Fácil
   (um jogador mostra o Fácil num vídeo de outubro de 2026) nem do Galinheiro Fácil: se eles não existirem no seu
   jogo, clique em **Não aparece no meu jogo**.
@@ -308,7 +308,7 @@ A calculadora da mesma aba mostra as opções de tiro (tabelas 20/30/50/65, tiro
 com a chance estimada de acerto de cada uma.
 
 **Força do disparo.** Em Configurações > **Força do disparo**, o padrão para quem instala agora é **3,33 s** até a
-força 100 e **0,06 s** até a barra começar a encher (medidas de outro programa no DDClássico, ainda não conferidas
+força 100 e **0,06 s** até a barra começar a encher (medidas de outro programa no servidor do jogo, ainda não conferidas
 pelo JonFlow). Quem já usava o JonFlow mantém o tempo que estava salvo. Se os tiros saem sempre fortes ou sempre
 fracos, meça no seu jogo e ajuste esses dois valores.
 
@@ -396,7 +396,7 @@ problemático e, para números, ensine mais exemplos em Calibração > Números.
 
 Desde a 0.4.4 a captura acompanha a escala do Windows: a imagem do jogo é ampliada do mesmo jeito que o Windows a
 mostra na tela. Se mesmo assim a imagem vier incompleta, o bot pausa e explica em vez de usar a imagem errada.
-Isso foi testado com janelas de teste em 125%, **ainda não com o cliente do DDClássico**: se tiver problema,
+Isso foi testado com janelas de teste em 125%, **ainda não com o cliente do jogo**: se tiver problema,
 conte e envie o arquivo `dados\logs\ddbot.log`.
 </details>
 
@@ -440,7 +440,7 @@ de disparos e registros (`dados\logs\ddbot.log`). O caminho exato aparece na aba
 | **Região** | Uma área da tela onde o bot deve olhar (por exemplo, onde fica o número do vento). |
 | **Modelo** | Uma imagem pequena que o bot procura na tela (uma tela, um botão, um personagem). |
 | **Confiança** | O quanto o bot tem certeza de uma leitura. Leitura com confiança baixa não faz o bot agir. |
-| **Launcher** | O programa que você usa para entrar no DDClássico. O bot nunca clica nele. |
+| **Launcher** | O programa que você usa para entrar no jogo. O bot nunca clica nele. |
 | **PvE** | Jogar contra o computador (monstros, instâncias). O bot só joga sozinho PvE. |
 | **PvP** | Jogar contra outras pessoas. O bot não joga sozinho; só sugere a mira. |
 | **Modo demonstração** | Jogo simulado para conhecer o programa. Nada é enviado ao jogo. |

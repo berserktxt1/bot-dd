@@ -7,8 +7,8 @@ README nesse mesmo tom e confira os nomes de botões e abas no código da interf
 
 ## O projeto
 
-**JonFlow** (antes *DDClássico Bot*): app para Windows 10/11 64 bits que joga sozinho partidas e instâncias PvE
-do DDTank no servidor DDClássico. Captura a tela do jogo, reconhece estados e turnos por modelos de imagem
+**JonFlow** (repositório `bot-dd`): app para Windows 10/11 64 bits que joga sozinho partidas e instâncias PvE
+do DDTank. Captura a tela do jogo, reconhece estados e turnos por modelos de imagem
 capturados pelo usuário, calcula a mira e envia teclas/cliques com travas de segurança. Interface em Tkinter,
 empacotado com PyInstaller.
 
@@ -18,11 +18,9 @@ empacotado com PyInstaller.
   todos os testes usam simulação, imagens sintéticas ou janelas de teste. Não afirme que algo "funciona no jogo".
 - Andamento e pendências: [`PROGRESS.md`](PROGRESS.md). Pesquisa e fontes da física/mira:
   [`docs/RESEARCH.md`](docs/RESEARCH.md). O que cada teste cobre: [`docs/TESTES.md`](docs/TESTES.md).
-- **Estado em 2026-10-21:** a 0.5.2 (revisão do combate: o bot pausa e explica quando o turno, o alvo, a leitura
-  ou o disparo falham, e confirma o disparo pelo turno que passa) está em `main` com a tag `v0.5.2`. O `develop` tem
-  a correção do fluxo das expedições (janela de escolha que muda depois do clique na instância, OK obrigatório,
-  navegação mais rápida) e a **0.5.3 está preparada na branch `release/0.5.3`, sem tag nem Release** até o usuário
-  confirmar. O projeto mudou para o repositório
+- **Estado em 2026-10-22:** a 0.5.3 (fluxo das expedições pelo Cais: janela de escolha que muda depois do
+  clique na instância, OK obrigatório, navegação mais rápida) está em `main` e `develop` com a tag `v0.5.3` e a
+  Release publicada, sobre a 0.5.2 (revisão do combate). O projeto mudou para o repositório
   **público `berserktxt1/bot-dd`**, onde a CI voltou a rodar (no repositório anterior ela parou por cobrança do
   GitHub Actions). Antes de continuar, leia a primeira seção do `PROGRESS.md`.
 - **Repositório público e anônimo:** commits e tags com o autor `berserktxt1` (já configurado no repositório
@@ -138,7 +136,8 @@ Para acompanhar a CI: `gh run list --limit 5`, `gh run view <id>`, `gh run view 
   eventos atrasar mais de 1,5 s). Quando a interface para mais de 1 s, o relatório do `--gui-smoke`
   (`DDBOT_SMOKE_OUT`) guarda em `pilhas_no_atraso` onde cada thread estava: use isso em vez de repetir a execução.
 - Dados do usuário: use `paths.py` (pasta `dados` portátil ao lado do `.exe` ou `%LOCALAPPDATA%\JonFlow`, com
-  compatibilidade com `DDClassicoBot`). Gravação atômica; não grave caminhos pessoais nos logs.
+  compatibilidade com a pasta do nome antigo, `paths.LEGACY_NAMES`). Gravação atômica; não grave caminhos pessoais
+  nos logs.
 - Dependências com versão fixa em `requirements*.txt`; actions da CI fixadas por SHA. Não adicione dependência sem
   necessidade clara.
 - Todo defeito corrigido ganha teste de regressão (ver `tests/test_audit_regressions.py`). Mudanças de interface

@@ -132,7 +132,7 @@ class CombatEngine:
     LOST_TURNS_PAUSE = 2   # turnos seus seguidos sem disparar (sem mira, leitura ruim, disparo cancelado): pausa
     WAIT_TURNS_PAUSE = 3   # turnos seus seguidos sem nenhum alvo da etapa na tela: pausa
     # depois da espera pós-disparo, o turno precisa ter passado até aqui; curto para o relógio do turno do jogo
-    # não "confirmar" sozinho um disparo que não aconteceu (o tempo do turno no DDClássico não foi medido)
+    # não "confirmar" sozinho um disparo que não aconteceu (o tempo do turno no servidor não foi medido)
     SHOT_CONFIRM_S = 5.0
     UNCONFIRMED_PAUSE = 2  # disparos seguidos sem o turno passar: pausa (as teclas não chegam ao jogo)
 
