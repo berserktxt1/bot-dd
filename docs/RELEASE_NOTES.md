@@ -1,5 +1,27 @@
 **JonFlow** (antes *DDClássico Bot*): aplicativo para Windows 10/11 (64 bits) que joga partidas e instâncias PvE do DDTank (servidor DDClássico) sozinho, com mira calculada e calibrada pelos seus disparos e interface em português.
 
+## Novidades da 0.5.3
+
+Correção do caminho das expedições pelo Cais, a partir do log de um jogador (ainda não conferida no jogo):
+
+- **O bot não para mais depois de clicar na instância.** Depois do clique em Formigueiro, a janela de escolha muda
+  (a instância fica marcada e as dificuldades aparecem) e era lida como tela desconhecida ("Escolha da instância
+  0,75, mínimo 0,80"): o bot nunca clicava na dificuldade e pausava em 20 s. Agora ele segue pela mesma janela
+  quando ela continua a mais parecida e o botão da dificuldade aparece nela. O mínimo de 0,80 não mudou.
+- **Caminho na ordem do jogo:** Central → Jogar → escolher a instância → instância → dificuldade → **OK** →
+  **Início** → OK do lembrete → batalha. O OK passou a ser obrigatório e só é clicado depois da dificuldade:
+  Formigueiro — Normal nunca começa no Fácil.
+- **Nova tela opcional "Escolha da dificuldade"** em Calibração > Modelos (a janela de escolha depois do clique na
+  instância). Os nomes da Calibração usam os do jogo: Central, Jogar, Início e lembrete.
+- **Navegação mais rápida:** a tela é conferida a cada 0,25 s, as esperas depois de cada clique caíram para 0,6-0,8 s
+  e, entre as telas antes da batalha, o bot pausa em 10 s (tela desconhecida) ou 12 s (botão ausente) em vez de 20
+  e 30 s. Depois de Início, enquanto a batalha carrega, continua o limite de 20 s.
+- **Pausas que explicam:** na escolha da instância e na sala que já tem uma instância escolhida o bot pausa dizendo o
+  que foi clicado, o que faltou e o que capturar, sem clicar no X. O Histórico diz qual clique cada tela confirmou
+  e em quanto tempo.
+- **Derrota lida no meio da navegação** (sem batalha) não é mais tratada como resultado: antes o bot podia clicar em
+  Sair no meio da sala.
+
 ## Novidades da 0.5.2
 
 Revisão do combate automático, para o caso "entra na instância, mas não joga" (ainda não conferida no jogo):

@@ -1,14 +1,16 @@
 # Andamento
 
-Última atualização: 2026-10-21. Versão: **0.5.2** (**JonFlow**, antes *DDClássico Bot*): revisão do combate
-(seção seguinte), mesclada em `main` e `develop` com a tag `v0.5.2`. Repositório: **`berserktxt1/bot-dd`**
-(público), com a CI de volta.
+Última atualização: 2026-10-21. Versão: **0.5.3 preparada** na branch `release/0.5.3` (**JonFlow**, antes
+*DDClássico Bot*): correção do fluxo das expedições pelo Cais (seção seguinte), já mesclada no `develop`. **Sem tag e
+sem Release:** falta a confirmação do usuário para publicar (a tag `v0.5.3` dispara a Release na CI). Para publicar:
+mesclar `release/0.5.3` em `main` e `develop` (`--no-ff`), criar a tag anotada `v0.5.3` em `main` e enviar. Em
+produção (`main`) continua a **0.5.2**, com a tag `v0.5.2`. Repositório: **`berserktxt1/bot-dd`** (público), com a CI.
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
 
-## Fluxo das expedições pelo Cais (2026-10-21, `feature/fluxo-expedicao`, depois da 0.5.2)
+## Versão 0.5.3 (preparada): fluxo das expedições pelo Cais (2026-10-21)
 
 Relato do usuário, com o log `ddbot.log.txt` da 0.5.2 (sem capturas: `dados/capturas` e `dados/templates` do
 ambiente de desenvolvimento estão vazios, então **nenhuma tela do jogo foi vista**; tudo abaixo vem do log, do código e
@@ -97,6 +99,7 @@ necessária (sem ela o bot pausa e pergunta), e a opção ou dificuldade ausente
 | CI da branch `feature/fluxo-expedicao` | GitHub Actions 39706827488 (`2bb709d`) | **aprovada**: Windows 363 aprovados e 4 pulados; Windows em 125% (janelas reais 3 vezes e suíte completa) 367 aprovados; Linux + Xvfb 363 aprovados e 4 pulados; `.exe` compilados e testados |
 | Merge no `develop` | `7accfa7` (`--no-ff`, sem PR obrigatório nem proteção de branch) | — |
 | CI do `develop` | GitHub Actions 39709185147 (`7accfa7`) | **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363 aprovados e 4 pulados |
+| CI da `release/0.5.3` | GitHub Actions 39711229626 (`4c064d6`) | **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363 aprovados e 4 pulados; `.exe` compilado e testado informa a versão 0.5.3. Sem tag: nenhuma Release publicada |
 | `--simulate 25` | Linux (dev), `ec8acdf` e `2bb709d` | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.2: o combate não mudou) |
 
 ### Ainda não validado no jogo
