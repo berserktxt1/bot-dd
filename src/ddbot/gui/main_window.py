@@ -618,7 +618,7 @@ class MainWindow:
         self.cfg_vars: dict[str, tk.Variable] = {}
         self.cfg_types: dict[str, object] = {}
         auth = Panel(s, self.th, "Automação",
-                     "As regras do servidor do jogo sobre programas de automação não puderam ser verificadas, e muitos "
+                     "As regras do servidor sobre programas de automação não puderam ser verificadas, e muitos "
                      "servidores punem bots. Leia os Termos do servidor antes de autorizar. O bot só joga sozinho "
                      "atividades PvE ou solo e nunca compra itens nem gasta moeda premium.")
         auth.grid(row=0, column=0, columnspan=2, sticky="we")
@@ -855,7 +855,7 @@ class MainWindow:
         prof = self.svc.profile_for(d)
         if d.key.startswith(DEMO_KEY):
             self.lbl_desc.configure(text="Simulação para testar o programa: lobby, menu, sala, batalha e resultado "
-                                    "acontecem num jogo de mentira. Nada é enviado ao jogo de verdade.")
+                                    "acontecem num jogo de mentira. Nada é enviado ao jogo real.")
         elif not d.auto_allowed:
             self.lbl_desc.configure(text="Envolve outros jogadores: o bot não joga sozinho (use a mira assistida).")
         elif prof is not None:
@@ -873,7 +873,7 @@ class MainWindow:
 
     def _state_text(self, d: ActivityDef) -> str:
         if self.simulated.get() or d.key.startswith(DEMO_KEY):
-            return "Modo demonstração: roda no jogo simulado; nada é enviado ao jogo de verdade."
+            return "Modo demonstração: roda no jogo simulado; nada é enviado ao jogo real."
         w = self.svc.window
         conn = (f"Jogo conectado ({w.width}×{w.height})." if w is not None else
                 "Jogo não conectado (Detectar jogo, no topo).")

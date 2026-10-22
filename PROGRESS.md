@@ -29,6 +29,11 @@ Testes: `pyflakes` sem avisos; pytest no Linux (dev) 352 aprovados e 7 pulados; 
 363 aprovados e 4 pulados (com a auditoria de layout); `--selftest` OK; `--gui-smoke 8` OK. `test_detection.py` passou
 a usar as palavras padrão de `config.DEFAULTS` em vez de uma cópia.
 
+A primeira CI da branch (39798303857, `b953685`) reprovou só na auditoria de layout do Windows em 125%, interface 1,5×:
+"Início pausado no aviso de instância difícil" com o Histórico em 1,78 linhas (mínimo 2). O texto do modo demonstração
+("nada é enviado ao jogo de verdade") ficou 4 caracteres mais longo que o anterior e, em Segoe UI, quebrava mais uma
+linha. Os textos da interface agora têm o mesmo tamanho ou são mais curtos que os da 0.5.3 ("ao jogo real").
+
 ## Versão 0.5.3: fluxo das expedições pelo Cais (2026-10-21)
 
 Relato do usuário, com o log `ddbot.log.txt` da 0.5.2 (sem capturas: `dados/capturas` e `dados/templates` do
