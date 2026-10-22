@@ -1,6 +1,6 @@
 # Roteiro do primeiro teste no jogo real
 
-Para a versão **0.5.2** (seis instâncias cadastradas, caminho pelo Cais de Expedição). Nada daqui foi validado
+Para a versão **0.5.3** (seis instâncias cadastradas, caminho pelo Cais de Expedição). Nada daqui foi validado
 ainda com o launcher e o cliente do DDClássico: este roteiro serve para descobrir **o que funciona e o que não funciona**. Faça na ordem e pare na
 primeira etapa que falhar: as seguintes dependem dela.
 
@@ -10,7 +10,7 @@ disparos no mesmo turno, clique em loja, botão pago ou no launcher.
 
 ## 0. Baixar e conferir (5 min)
 
-1. Baixe `JonFlow.zip` dos *Assets* da [Release v0.5.2](https://github.com/berserktxt1/bot-dd/releases/tag/v0.5.2)
+1. Baixe `JonFlow.zip` dos *Assets* da [Release v0.5.3](https://github.com/berserktxt1/bot-dd/releases/tag/v0.5.3)
    (repositório público, não precisa de login) e extraia numa
    pasta sua, por exemplo `C:\JonFlow` (não use *Arquivos de Programas*). Se já usava uma versão anterior, mantenha
    a pasta `dados`.
