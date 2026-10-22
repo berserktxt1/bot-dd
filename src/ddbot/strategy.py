@@ -4,7 +4,7 @@ O motor de mira e combate é o mesmo para todas as instâncias; o que muda é *q
 e *quando*. Cada perfil (``data/knowledge/instances.json``) descreve as etapas, os papéis
 dos alvos (rainha, Barão, Midas...), os estados especiais (escudo, pavio) e a regra de
 escolha de cada etapa. Os perfis vêm de guias de jogadores com fonte registrada; nada é
-tratado como confirmado no DDClássico.
+tratado como confirmado no servidor do jogo.
 
 Reconhecimento: cada papel e estado é um modelo de imagem capturado pelo usuário no
 próprio cliente (``alvo_<instancia>_<papel>``, ``status_<instancia>_<estado>``). Nada de

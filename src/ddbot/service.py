@@ -418,7 +418,7 @@ class BotService:
                 world = SimulatedWorld(self.params)
             client = SimulatedClient(world, option=demo_option(d), faults=faults, difficulty=demo_difficulty(d))
             if d.kind == "instancia" and "botao_confirmar" in d.templates_needed():
-                # como no DDClássico: a janela muda depois do clique na instância e só fecha no OK
+                # como no servidor do jogo: a janela muda depois do clique na instância e só fecha no OK
                 client.confirm_choice = client.dialog_changes = True
             if self._sim_store is None:
                 self._sim_store = ShotStore(self.paths.root / "simulacao.sqlite3")
@@ -530,7 +530,7 @@ class BotService:
                                    "launcher e clique em Iniciar")
                 if found.state == GAME:
                     return False, "confirme a janela do jogo: clique em Detectar jogo"
-                return False, ("a janela do jogo não foi encontrada: abra o DDClássico pelo launcher e clique em "
+                return False, ("a janela do jogo não foi encontrada: abra o jogo pelo launcher e clique em "
                                "Detectar jogo")
         if not simulated and self.hotkey is not None and not self.hotkey_ok:
             return False, ("a tecla de emergência não está funcionando; sem ela o modo automático no jogo fica "

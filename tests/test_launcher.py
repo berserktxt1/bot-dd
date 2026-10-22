@@ -39,7 +39,7 @@ def test_wizard_choice_validation():
 
 def test_candidates_ranked_by_keyword_then_size():
     ranked = rank_candidates([win(1, "editor.exe", title="Notas", w=1900, h=1000), SEPARATE_GAME,
-                              win(2, "x.exe", title="DDTank DDClássico", w=800, h=600)], ["DDTank"])
+                              win(2, "x.exe", title="DDTank - cliente", w=800, h=600)], ["DDTank"])
     assert ranked[0].hwnd == 2
 
 

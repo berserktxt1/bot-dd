@@ -1,12 +1,40 @@
 # Andamento
 
-Última atualização: 2026-10-22. Versão: **0.5.3** (**JonFlow**, antes *DDClássico Bot*): correção do fluxo das
+Última atualização: 2026-10-22. Versão: **0.5.3** (**JonFlow**, repositório `bot-dd`): correção do fluxo das
 expedições pelo Cais (seção seguinte), mesclada em `main` e `develop` com a tag `v0.5.3` e Release publicada pela CI.
 Repositório: **`berserktxt1/bot-dd`** (público), com a CI.
 
-> **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
+> **Nada foi testado no cliente real do jogo nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Nome antigo fora das referências do projeto (2026-10-22, `feature/nome-bot-dd`, depois da 0.5.3)
+
+Pedido do usuário: o repositório é público e não deve ser fácil de achar pelas buscas do GitHub pelo nome do
+servidor. O projeto passa a ser identificado como **`bot-dd`** (repositório) e **JonFlow** (aplicativo); as menções ao
+servidor no código, na interface, nos testes, nos dados de estratégia, no README e nos documentos de uso viraram
+"o jogo" / "o servidor do jogo". Nenhum comportamento mudou.
+
+Ficaram, por necessidade:
+
+| Onde | Por quê |
+|---|---|
+| `config.py` e `config/default_config.json` (`window.title_keywords`) | palavras procuradas no título da janela pelo Detectar jogo; tirá-las pode impedir de achar o launcher ou o jogo |
+| `paths.LEGACY_NAMES` e `test_legacy_localappdata_folder_kept` | nome da pasta de dados em `%LOCALAPPDATA%` até a 0.2.1; sem ele, quem atualiza perde os dados |
+| `data/knowledge/sources.json` e `docs/RESEARCH.md` | citações das fontes (títulos, URLs, buscas feitas); trocar o nome falsearia a fonte |
+| ids das fontes em `instances.json` (`videos_ddclassico_2026`, `ddclassico_noticia_37`...) | ligam cada estratégia à fonte em `sources.json` e são citados no histórico |
+| histórico abaixo neste arquivo, `docs/RELEASE_NOTES.md` das versões antigas no GitHub e o histórico do Git | registro do que foi feito; não reescrito |
+
+Testes: `pyflakes` sem avisos; pytest no Linux (dev) 352 aprovados e 7 pulados; no container Ubuntu 24.04 + Xvfb
+363 aprovados e 4 pulados (com a auditoria de layout); `--selftest` OK; `--gui-smoke 8` OK. `test_detection.py` passou
+a usar as palavras padrão de `config.DEFAULTS` em vez de uma cópia.
+
+A primeira CI da branch (39798303857, `b953685`) reprovou só na auditoria de layout do Windows em 125%, interface 1,5×:
+"Início pausado no aviso de instância difícil" com o Histórico em 1,78 linhas (mínimo 2). O texto do modo demonstração
+("nada é enviado ao jogo de verdade") ficou 4 caracteres mais longo que o anterior e, em Segoe UI, quebrava mais uma
+linha. Os textos da interface agora têm o mesmo tamanho ou são mais curtos que os da 0.5.3 ("ao jogo real").
+A segunda CI (39801131259, `4e7f43b`) foi **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363
+aprovados e 4 pulados. Mesclada em `develop` e em `main` sem tag (nenhuma Release nova; a última continua a v0.5.3).
 
 ## Versão 0.5.3: fluxo das expedições pelo Cais (2026-10-21)
 

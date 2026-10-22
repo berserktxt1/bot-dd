@@ -7,8 +7,8 @@ README nesse mesmo tom e confira os nomes de botões e abas no código da interf
 
 ## O projeto
 
-**JonFlow** (antes *DDClássico Bot*): app para Windows 10/11 64 bits que joga sozinho partidas e instâncias PvE
-do DDTank no servidor DDClássico. Captura a tela do jogo, reconhece estados e turnos por modelos de imagem
+**JonFlow** (repositório `bot-dd`): app para Windows 10/11 64 bits que joga sozinho partidas e instâncias PvE
+do DDTank. Captura a tela do jogo, reconhece estados e turnos por modelos de imagem
 capturados pelo usuário, calcula a mira e envia teclas/cliques com travas de segurança. Interface em Tkinter,
 empacotado com PyInstaller.
 
@@ -136,7 +136,8 @@ Para acompanhar a CI: `gh run list --limit 5`, `gh run view <id>`, `gh run view 
   eventos atrasar mais de 1,5 s). Quando a interface para mais de 1 s, o relatório do `--gui-smoke`
   (`DDBOT_SMOKE_OUT`) guarda em `pilhas_no_atraso` onde cada thread estava: use isso em vez de repetir a execução.
 - Dados do usuário: use `paths.py` (pasta `dados` portátil ao lado do `.exe` ou `%LOCALAPPDATA%\JonFlow`, com
-  compatibilidade com `DDClassicoBot`). Gravação atômica; não grave caminhos pessoais nos logs.
+  compatibilidade com a pasta do nome antigo, `paths.LEGACY_NAMES`). Gravação atômica; não grave caminhos pessoais
+  nos logs.
 - Dependências com versão fixa em `requirements*.txt`; actions da CI fixadas por SHA. Não adicione dependência sem
   necessidade clara.
 - Todo defeito corrigido ganha teste de regressão (ver `tests/test_audit_regressions.py`). Mudanças de interface

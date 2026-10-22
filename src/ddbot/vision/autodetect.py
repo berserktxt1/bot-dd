@@ -6,7 +6,7 @@ só como lugar onde procurar primeiro (ex.: o ângulo fica no canto de baixo à 
 estudados em docs/RESEARCH.md). Toda sugestão vem com a confiança e o motivo, aparece desenhada na
 captura e só é salva quando o usuário confirma; regiões já marcadas pelo usuário não são trocadas.
 
-Limite honesto: testado com imagens sintéticas, não com capturas do DDClássico.
+Limite honesto: testado com imagens sintéticas, não com capturas do jogo real.
 """
 from __future__ import annotations
 

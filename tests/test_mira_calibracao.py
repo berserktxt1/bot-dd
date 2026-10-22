@@ -1,6 +1,6 @@
 """Calibração por resultados (cenários separados, ajuste robusto, banco antigo) e estabilidade da mira.
 
-Disparos e impactos são sintéticos: provam a matemática e o registro, não a precisão no DDClássico.
+Disparos e impactos são sintéticos: provam a matemática e o registro, não a precisão no jogo real.
 """
 import sqlite3
 
@@ -134,12 +134,12 @@ def test_timed_release_adds_the_bar_start_delay():
                                       "power_mode": "timed"}})
     KeyboardShooter(inp, None, cfg).charge_and_fire(50.0)
     assert abs(held["s"] - (0.06 + 3.33 * 0.5)) < 1e-6
-    # o padrão para quem instala agora vem da medida no DDClássico (a conferir no cliente)
+    # o padrão para quem instala agora vem da medida no servidor do jogo (a conferir no cliente)
     assert Config(data={}).get("automation.power_full_time_s") == 3.33
 
 
 def test_recommended_force_can_reach_100(kb, params):
-    """A força vai de 0 a 100 no DDClássico: um alvo que pede 99,5 no melhor ângulo ainda tem recomendação
+    """A força vai de 0 a 100 no servidor do jogo: um alvo que pede 99,5 no melhor ângulo ainda tem recomendação
     (com o teto antigo de 98 não havia nenhuma opção pela busca física)."""
     far = float(landing_x(45, 99.5, 0.0, 0.0, params))
     cands = Aimer(kb, params).candidates(ShotContext(distance=far, allowed_methods=("fisica",)))

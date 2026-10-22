@@ -56,13 +56,13 @@
     {
       "id": "invisibility",
       "status": "hipotese",
-      "texto": "Itens de invisibilidade escondem o personagem por tempo limitado. Nenhuma fonte pública específica do DDClássico foi encontrada. O bot só usa informações visíveis na interface (última posição observada) e nunca tenta revelar o alvo.",
+      "texto": "Itens de invisibilidade escondem o personagem por tempo limitado. Nenhuma fonte pública específica do servidor foi encontrada. O bot só usa informações visíveis na interface (última posição observada) e nunca tenta revelar o alvo.",
       "fontes": []
     },
     {
       "id": "server_rules",
       "status": "hipotese",
-      "texto": "Regras do DDClássico sobre automação não puderam ser verificadas (site retornou 403). Outros servidores proíbem software de terceiros. Modo automático vem desabilitado.",
+      "texto": "Regras do servidor sobre automação não puderam ser verificadas (site retornou 403). Outros servidores proíbem software de terceiros. Modo automático vem desabilitado.",
       "fontes": [
         "ddtank5_rules"
       ]

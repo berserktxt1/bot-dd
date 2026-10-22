@@ -1,7 +1,7 @@
 # Roteiro do primeiro teste no jogo real
 
 Para a versão **0.5.3** (seis instâncias cadastradas, caminho pelo Cais de Expedição). Nada daqui foi validado
-ainda com o launcher e o cliente do DDClássico: este roteiro serve para descobrir **o que funciona e o que não funciona**. Faça na ordem e pare na
+ainda com o launcher e o cliente do jogo: este roteiro serve para descobrir **o que funciona e o que não funciona**. Faça na ordem e pare na
 primeira etapa que falhar: as seguintes dependem dela.
 
 **Regra geral:** se o bot fizer qualquer coisa que você não esperava, aperte **F12** (parada de emergência) e
@@ -83,7 +83,7 @@ decimal; quais dificuldades aparecem para o Formigueiro e o Galinheiro (não há
 ## 6. Uma única instância, controlada (15 min)
 
 Escolha a instância **mais fácil** que você vence sozinho com folga (o **Formigueiro — Normal**, que tem notícia
-oficial no DDClássico, se for o caso). Use uma conta e um horário em que perder não importa.
+oficial no servidor, se for o caso). Use uma conta e um horário em que perder não importa.
 
 1. No **Início**, na lista **Atividades**, escolha a instância e **Uma vez**. Ela deve estar "✓ pronta" e o painel
    deve dizer "✓ Calibração completa para esta atividade". Se faltar algo, **Ver pendências** diz o quê.

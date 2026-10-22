@@ -264,7 +264,7 @@ def unique_slug(base: str, taken) -> str:
 
 
 def instance_room_flow(selection: list[Action]) -> dict[str, list[Action]]:
-    """Caminho das instâncias no DDClássico (informado pelo usuário em 2026-10-21): lobby -> Central (Cais de
+    """Caminho das instâncias no servidor do jogo (informado pelo usuário em 2026-10-21): lobby -> Central (Cais de
     Expedição) -> Jogar (``botao_criar_sala``) -> sala sem instância -> escolher a instância -> instância ->
     dificuldade -> OK -> sala -> Início (``botao_iniciar``) -> lembrete (OK, com a permissão) -> batalha.
 

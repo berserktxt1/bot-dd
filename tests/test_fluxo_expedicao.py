@@ -5,7 +5,7 @@ Formigueiro > dificuldade Normal > OK > Início > OK no lembrete > a batalha com
 Formigueiro a janela de escolha passou a ser lida como "Escolha da instância 0,75, Derrota 0,56, Sala/preparação
 0,49 (mínimo 0,80)": o bot tratava a janela como tela desconhecida, nunca clicava na dificuldade e pausava em 20 s.
 
-Tudo aqui é simulação (``SimulatedClient``): prova a lógica do fluxo, não o funcionamento no DDClássico.
+Tudo aqui é simulação (``SimulatedClient``): prova a lógica do fluxo, não o funcionamento no jogo real.
 """
 from pathlib import Path
 
@@ -26,7 +26,7 @@ NAV = ("lobby", "cais_expedicao", "sala", "menu_instancias", "aviso_sozinho")
 
 
 class Run:
-    """Atividade do catálogo no cliente simulado, com a escolha como no DDClássico (janela que muda e OK)."""
+    """Atividade do catálogo no cliente simulado, com a escolha como no servidor do jogo (janela que muda e OK)."""
 
     def __init__(self, kb, params, key="formigueiro_normal", runs=1, faults=None, solo_ok=True, real=True):
         e = CATALOG.get(key)

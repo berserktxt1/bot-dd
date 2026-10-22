@@ -1,6 +1,6 @@
 """Qual janela é o jogo, qual é o launcher, e para onde os comandos podem ir.
 
-O DDClássico é aberto por um launcher. Dependendo do launcher, o jogo aparece:
+O jogo é aberto por um launcher. Dependendo do launcher, o jogo aparece:
 - numa janela própria de outro processo (título e classe diferentes do launcher); ou
 - numa área interna (janela filha) do próprio launcher.
 

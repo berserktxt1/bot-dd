@@ -251,7 +251,7 @@ def run_simulation(kb: KnowledgeBase, params: PhysicsParams, battles: int = 20,
 class SimulatedClient:
     """Cliente falso com telas e botões para testar ``ActivityRunner`` de ponta a ponta.
 
-    Instâncias, como no DDClássico: lobby -[botao_cais]-> cais_expedicao -[botao_criar_sala]-> sala (sem
+    Instâncias, como no servidor do jogo: lobby -[botao_cais]-> cais_expedicao -[botao_criar_sala]-> sala (sem
     instância) -[botao_escolher_instancia]-> menu_instancias -[opção, dificuldade]-> sala (com instância)
     -[botao_iniciar]-> carregando -> batalha -> vitoria/derrota -[botao_sair]-> lobby (ou a sala, com
     ``back_to_room``: ela volta com a instância anterior escolhida). Partidas: lobby -[botao_partidas]->
@@ -264,7 +264,7 @@ class SimulatedClient:
     abaixo do mínimo por algumas leituras (transição demorada); ``choice_button_changes`` esconde o botão de
     escolher a instância numa sala que já tem uma.
 
-    Escolha como no DDClássico (2026-10-21), ligada pelos atributos: ``confirm_choice`` exige o OK
+    Escolha como no servidor do jogo (2026-10-21), ligada pelos atributos: ``confirm_choice`` exige o OK
     (``botao_confirmar``) depois da dificuldade, e OK sem dificuldade escolhida deixa a sala na dificuldade padrão
     (``DEFAULT_DIFFICULTY``); ``dialog_changes`` faz a janela de escolha, depois do clique na instância, ser lida como
     no log do usuário ("Escolha da instância 0,75, Derrota 0,56, Sala/preparação 0,49"); ``difficulty_screen``, como
