@@ -260,8 +260,19 @@ class SimulatedClient:
     ``faults`` injeta problemas: {"popup_at": n, "unknown_for": leituras,
     "disconnect_at": n, "missing_button": nome, "stage_battles": k, "solo_warning": True}. Com
     ``solo_warning``, Iniciar abre o aviso de instância difícil (um jogador): botao_confirmar_aviso segue,
-    botao_fechar volta à sala.
+    botao_fechar volta à sala. ``transition`` ({modelo: (leituras, semelhança)}) deixa a tela seguinte a um clique
+    abaixo do mínimo por algumas leituras (transição demorada); ``choice_button_changes`` esconde o botão de
+    escolher a instância numa sala que já tem uma.
+
+    Escolha como no DDClássico (2026-10-21), ligada pelos atributos: ``confirm_choice`` exige o OK
+    (``botao_confirmar``) depois da dificuldade, e OK sem dificuldade escolhida deixa a sala na dificuldade padrão
+    (``DEFAULT_DIFFICULTY``); ``dialog_changes`` faz a janela de escolha, depois do clique na instância, ser lida como
+    no log do usuário ("Escolha da instância 0,75, Derrota 0,56, Sala/preparação 0,49"); ``difficulty_screen``, como
+    a tela "menu_dificuldade" capturada. As dificuldades só aparecem depois do clique na instância.
     """
+
+    DEFAULT_DIFFICULTY = "dificuldade_facil"
+    CHANGED_DIALOG = {"menu_instancias": 0.75, "derrota": 0.56, "sala": 0.49}
 
     def __init__(self, world: SimulatedWorld, option="instancia_teste", faults: dict | None = None,
                  loading_reads: int = 2, difficulty: str | None = None, back_to_room: bool = False):
@@ -273,6 +284,11 @@ class SimulatedClient:
         self.back_to_room = back_to_room
         self.faults = dict(faults or {})
         self.loading_reads = loading_reads
+        self.confirm_choice = False
+        self.dialog_changes = False
+        self.difficulty_screen = False
+        self.started_with: list[list[str] | None] = []  # o que a sala tinha escolhido a cada Iniciar aceito
+        self._slow: tuple[int, float] | None = None  # (leituras restantes, semelhança) da transição demorada
         self.screen = "lobby"
         self.reads = 0
         self.clicks: list[tuple[str, str]] = []
@@ -308,6 +324,15 @@ class SimulatedClient:
             return ScreenState("lobby", 0.3)  # leitura fraca = desconhecido
         if self._popup:
             return ScreenState("desconhecido", 0.2)
+        if self._slow is not None:
+            left, conf = self._slow
+            self._slow = (left - 1, conf) if left > 1 else None
+            return ScreenState(self.screen, conf, scores={self.screen: conf, "derrota": 0.5})
+        if self.screen == "menu_instancias" and self.selected and (self.dialog_changes or self.difficulty_screen):
+            if self.difficulty_screen:
+                return ScreenState("menu_dificuldade", 0.95, scores={"menu_dificuldade": 0.95, "menu_instancias": 0.7})
+            best = max(self.CHANGED_DIALOG.values())
+            return ScreenState("desconhecido", best, scores=dict(self.CHANGED_DIALOG))
         if self.screen == "carregando":
             self._loading_left -= 1
             if self._loading_left <= 0:
@@ -330,6 +355,26 @@ class SimulatedClient:
         self.screen = "batalha"
 
     # Actor
+    def visible(self, template, frame=None) -> bool:
+        """Botões que esta tela mostra (o mesmo critério do clique)."""
+        if self._popup:
+            return template == "botao_fechar"
+        if template == self.faults.get("missing_button"):
+            return False
+        menu = "menu_partidas" if self.option.startswith("partida_") else "menu_instancias"
+        shown = {"lobby": {"botao_cais", "botao_partidas"}, "cais_expedicao": {"botao_criar_sala"},
+                 "sala": {"botao_iniciar", "botao_escolher_instancia"}, "aviso_sozinho": {"botao_confirmar_aviso"},
+                 "etapa_concluida": {"botao_continuar"}, "vitoria": {"botao_sair"}, "derrota": {"botao_sair"},
+                 "recompensa": {"botao_sair"}}.get(self.screen, set())
+        if self.screen == "sala" and self.room_choice is not None and self.faults.get("choice_button_changes"):
+            shown = shown - {"botao_escolher_instancia"}
+        if self.screen == menu:
+            shown = {self.option} | ({"botao_confirmar"} if self.confirm_choice else set())
+            if self.difficulty and self.selected:
+                shown.add(self.difficulty)
+            shown -= set(self.faults.get("menu_hides", ()))
+        return template in shown
+
     def click(self, template, frame=None) -> bool:
         if template == self.faults.get("missing_button"):
             return False
@@ -350,22 +395,38 @@ class SimulatedClient:
         hidden = set(self.faults.get("menu_hides", ()))  # opções/dificuldades que este "cliente" não tem
         if self.screen == menu and template in hidden:
             return False
-        if self.screen == menu and template == self.option and self.difficulty:
-            self.selected = [template]  # escolhe a instância; a sala só abre depois da dificuldade
+        if self.screen == menu and template == self.option and (self.difficulty or self.confirm_choice):
+            self.selected = [template]  # escolhe a instância; a sala só abre depois da dificuldade (e do OK)
             self.clicks.append((self.screen, template))
             return True
         if self.screen == menu and self.difficulty and template == self.difficulty:
-            if self.selected != [self.option]:
+            if self.selected[:1] != [self.option]:
                 return False
-            self.selected.append(template)
+            self.selected = [self.option, template]
             self.clicks.append((self.screen, template))
-            self.room_choice = list(self.selected)
+            if not self.confirm_choice:
+                self.room_choice = list(self.selected)
+                self.screen = "sala"
+            return True
+        if self.screen == menu and self.confirm_choice and template == "botao_confirmar":
+            if not self.selected:
+                return False  # nenhuma instância marcada: o OK não faz nada
+            if self.difficulty and len(self.selected) < 2:
+                self.selected.append(self.DEFAULT_DIFFICULTY)  # o jogo usa a dificuldade que estiver marcada
+            self.clicks.append((self.screen, template))
+            self.room_choice, self.selected = list(self.selected), []
+            self._transition(template)
             self.screen = "sala"
             return True
         if self.screen == menu and template.startswith("dificuldade_"):
             return False  # outra dificuldade não é a que esta atividade pede
         if self.screen == "sala" and template == "botao_iniciar" and self.room_choice is None:
             return False  # sala sem instância escolhida: o jogo não inicia
+        if (self.screen == "sala" and template == "botao_escolher_instancia" and self.room_choice is not None
+                and self.faults.get("choice_button_changes")):
+            return False  # o botão mudou de aparência depois da escolha: o modelo não casa
+        if self.screen == "sala" and template == "botao_iniciar":
+            self.started_with.append(list(self.room_choice))
         if self.screen == "sala" and template == "botao_iniciar" and self.faults.get("solo_warning"):
             self.clicks.append((self.screen, template))
             self.screen = "aviso_sozinho"
@@ -398,8 +459,16 @@ class SimulatedClient:
             self._loading_left = self.loading_reads
             if self.screen == "sala":
                 self.stage = 0
+        if nxt == "menu_instancias":
+            self.selected = []  # a janela abre sem nada marcado
+        self._transition(template)
         self.screen = nxt
         return True
+
+    def _transition(self, template):
+        """Tela nova depois do clique: lenta (abaixo do mínimo) até a próxima troca, se ``transition`` pedir."""
+        slow = (self.faults.get("transition") or {}).get(template)
+        self._slow = (int(slow[0]), float(slow[1])) if slow else None
 
     def press(self, key):
         self.keys.append(key)
@@ -711,7 +780,6 @@ def simulated_activity(kb: KnowledgeBase, params: PhysicsParams, definition, run
                             on_activity_start=planner.reset_run if planner is not None else None)
     # sem esperas reais: o relógio falso avança a cada pausa
     runner._sleep = lambda s: clock.advance(max(s, 0.05))  # type: ignore[method-assign]
-    runner.POLL_S = 0.4
 
     def cleanup():
         store.close()

@@ -80,15 +80,18 @@ class Catalog:
         return out
 
 
-# lobby -> Cais de Expedição -> Criar sala -> sala sem instância -> escolher a instância -> sala -> Iniciar
-# (activities.instance_room_flow); a escolha é refeita a cada ida
+# lobby -> Cais de Expedição -> Jogar (botao_criar_sala) -> sala sem instância -> escolher a instância (opção,
+# dificuldade, OK) -> sala -> Início (activities.instance_room_flow); a escolha é refeita a cada ida
+_CHOICE = [{"clicar": "{opcao}", "espera": 0.6}, {"clicar": "{dificuldade}", "espera": 0.6},
+           {"clicar": "botao_confirmar", "espera": 0.8}]
 DEFAULT_FLOW = {
-    "lobby": [{"clicar": "botao_cais", "espera": 1.5}],
-    "cais_expedicao": [{"clicar": "botao_criar_sala", "espera": 1.5}],
-    "sala": [{"clicar": "botao_escolher_instancia", "espera": 1.5, "se": "sem_escolha"},
-             {"clicar": "botao_iniciar", "espera": 2.0, "se": "com_escolha"}],
-    "menu_instancias": [{"clicar": "{opcao}", "espera": 1.0}, {"clicar": "{dificuldade}", "espera": 1.0},
-                        {"clicar_opcional": "botao_confirmar", "espera": 1.5}],
+    "lobby": [{"clicar": "botao_cais", "espera": 0.8}],
+    "cais_expedicao": [{"clicar": "botao_criar_sala", "espera": 0.8}],
+    "sala": [{"clicar": "botao_escolher_instancia", "espera": 0.8, "se": "sem_escolha"},
+             {"clicar": "botao_iniciar", "espera": 1.5, "se": "com_escolha"}],
+    # a mesma janela antes e depois do clique na instância (activities.CHOICE_SCREENS)
+    "menu_instancias": _CHOICE,
+    "menu_dificuldade": _CHOICE,
     # aviso do jogo ao iniciar sozinho uma instância difícil: só confirma com a permissão do usuário
     "aviso_sozinho": [{"confirmar_aviso": "botao_confirmar_aviso", "espera": 1.5}],
     "carregando": [{"aguardar": 1.0}],

@@ -1,12 +1,120 @@
 # Andamento
 
-Última atualização: 2026-10-21. Versão: **0.5.2** (**JonFlow**, antes *DDClássico Bot*): revisão do combate
-(seção seguinte), mesclada em `main` e `develop` com a tag `v0.5.2`. Repositório: **`berserktxt1/bot-dd`**
-(público), com a CI de volta.
+Última atualização: 2026-10-21. Versão: **0.5.3 preparada** na branch `release/0.5.3` (**JonFlow**, antes
+*DDClássico Bot*): correção do fluxo das expedições pelo Cais (seção seguinte), já mesclada no `develop`. **Sem tag e
+sem Release:** falta a confirmação do usuário para publicar (a tag `v0.5.3` dispara a Release na CI). Para publicar:
+mesclar `release/0.5.3` em `main` e `develop` (`--no-ff`), criar a tag anotada `v0.5.3` em `main` e enviar. Em
+produção (`main`) continua a **0.5.2**, com a tag `v0.5.2`. Repositório: **`berserktxt1/bot-dd`** (público), com a CI.
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
+
+## Versão 0.5.3 (preparada): fluxo das expedições pelo Cais (2026-10-21)
+
+Relato do usuário, com o log `ddbot.log.txt` da 0.5.2 (sem capturas: `dados/capturas` e `dados/templates` do
+ambiente de desenvolvimento estão vazios, então **nenhuma tela do jogo foi vista**; tudo abaixo vem do log, do código e
+do passo a passo do usuário: Lobby > Central > Jogar > selecionar a instância > Formigueiro > Normal > OK > Início >
+OK no lembrete > o jogo inicia).
+
+### Causas (pelo log e pelo código)
+
+1. **A janela de escolha muda depois do clique na instância.** Nas 5 tentativas do log, o bot chegou à escolha
+   (`menu_instancias` reconhecida), clicou em `instancia_formigueiro (0.86) em 684,601`, e 2 s depois a tela passou a
+   ser lida como "Escolha da instância 0,75, Derrota 0,56, Sala/preparação 0,49 (mínimo 0,80)". Como a dificuldade e o
+   OK eram ações da mesma tela `menu_instancias`, a rotina tratou a janela como **tela desconhecida**, nunca procurou o
+   botão da dificuldade e pausou 20 s depois. Reproduzido com a 0.5.2 no cliente simulado: pausa em 21,6 s depois do
+   clique, igual ao log. A tela real depois do clique **não foi vista**: a nota 0,75 com "Escolha da instância" em
+   primeiro e folga de 0,19 sobre a segunda indica a mesma janela com conteúdo diferente (instância marcada, as
+   dificuldades ou o cursor sobre o cartão), não uma tela nova.
+2. **O OK era opcional** (`clicar_opcional`): sem o modelo, o bot pulava o OK e esperava a janela fechar sozinha.
+3. **Ciclo ao retomar na sala.** Depois da pausa, a sala voltava com a instância escolhida (lida a 0,78-0,80, oscilando)
+   e a rotina, sem ter escolhido nesta ida (`_chosen` falso), procurava `botao_escolher_instancia`, que não casava mais
+   (o botão muda depois da escolha), e pausava 24 s depois com "botão não encontrado". O contexto não se perdia: a
+   escolha nunca tinha terminado. Iniciar sem escolher continua proibido (poderia ser outra instância).
+4. **Lentidão**: esperas fixas de 1,5-2 s depois de cada clique, leituras a cada 0,4 s, 20 s de tela desconhecida e
+   30 s de botão ausente antes de pausar, inclusive entre telas que mudam em 1-2 s. O Cais e a sala ficaram de 12 a
+   16 s lidos a 0,75-0,78 antes de passar do mínimo, sem que o bot pudesse usar o botão que já estava na tela.
+5. **Dificuldade**: o fluxo do catálogo já usava a dificuldade da atividade (Fácil e Normal no log, corretamente). O
+   risco real era o OK sem a dificuldade: agora o OK só é clicado depois dela.
+
+Botões conferidos pelo log: `botao_cais` (Central) leva ao Cais; `botao_criar_sala` (o "Jogar" do usuário) leva à
+sala; `botao_escolher_instancia` (1076,436) abre a escolha. Os textos da Calibração passaram a usar esses nomes.
+
+### O que mudou
+
+| Etapa | Entrada | Ação | Confirmação |
+|---|---|---|---|
+| Lobby | `estado_lobby` | Central | Cais reconhecido |
+| Cais | `estado_cais_expedicao` | Jogar | sala reconhecida |
+| Sala sem escolha | `estado_sala` | escolher a instância | escolha reconhecida |
+| Escolha | `estado_menu_instancias` | instância | a mesma janela com a dificuldade visível (contexto) ou `menu_dificuldade` |
+| Dificuldade | contexto ou `estado_menu_dificuldade` (novo, opcional) | dificuldade da atividade, depois OK (obrigatório) | sala reconhecida |
+| Sala com escolha | `estado_sala` | Início | lembrete, carregando ou batalha |
+| Lembrete | `estado_aviso_sozinho` | OK, só com a permissão | batalha |
+
+- **Reconhecimento pelo contexto** (`ActivityRunner._by_context`): uma tela abaixo do mínimo só é aceita se for a
+  atual ou a esperada depois dela (`NEXT_SCREENS`), for a mais parecida com nota >= 0,65 e folga >= 0,10 sobre a
+  segunda, e o botão que o fluxo clica nela estiver na tela (acima do mínimo e sem ambiguidade, `GameActor.visible`).
+  Vale só entre as telas de navegação; derrota, vitória e batalha nunca. O mínimo geral (0,80) não mudou e a tela
+  continua precisando de 2 leituras iguais. O Histórico diz quando isso aconteceu ("a mesma tela reconhecida pelo
+  contexto: semelhança 0,75 (mínimo 0,80) depois da tela menu_instancias, com dificuldade_normal visível").
+- **Tela `menu_dificuldade`** ("Escolha da dificuldade", opcional na Calibração): mesmas ações da escolha; as duas
+  guardam o que já foi clicado na janela (`_choice_done`), então a instância não é clicada de novo. Definições
+  antigas sem essa tela usam as ações de `menu_instancias`.
+- **OK obrigatório** no fluxo do catálogo e das instâncias capturadas (a Calibração passa a pedir o botão OK).
+- **Tempos**: leitura a cada 0,25 s; espera mínima de 0,6-0,8 s depois de cada clique (1,5 s em Início); tela
+  desconhecida entre as telas antes da batalha pausa em **10 s** (`instances.nav_unknown_timeout_s`) e botão ausente
+  em **12 s** (`instances.nav_button_timeout_s`); depois de Início (carregando a batalha) e na batalha continuam os 20 s
+  configurados. No mesmo cliente simulado, do lobby à batalha: **9,9 s na 0.5.2, 6,5 s agora**.
+- **Recuperação**: na escolha da instância a recuperação não clica no X (fecharia a janela e a sala a abriria de novo,
+  em ciclo): pausa explicando o que foi clicado, o que faltou e o que capturar. Na sala com instância já escolhida e o
+  botão de escolher irreconhecível, pausa explicando (em vez de "botão não encontrado") e sem clicar em Início.
+- **Logs**: cada troca de tela diz qual clique ela confirmou e em quanto tempo ("tela: sala: confirmado o clique em
+  botao_confirmar em 0,8 s"); o Histórico mostra os nomes da Calibração.
+- Simulação: `SimulatedClient` ganhou a escolha como no DDClássico (`confirm_choice`, `dialog_changes` com as notas
+  do log, `difficulty_screen`), transições demoradas (`transition`) e a sala com o botão de escolher mudado
+  (`choice_button_changes`). A demonstração da interface usa esse fluxo.
+
+- **Derrota lida na navegação** (revisão antes do merge): uma vitória/derrota lida entre as telas antes da batalha,
+  sem batalha nesta ida, não pode ser um resultado. Antes, se a derrota passasse do mínimo no Cais ou na sala, o
+  bot entrava na tela de resultado e clicava em **Sair** se o botão casasse (`test_result_screen_between_navigation_
+  screens_is_ignored` reprova o `ec8acdf` exatamente assim). Agora vale a tela de baixo, se reconhecida, ou a leitura
+  conta como desconhecida, com um aviso no Histórico. No começo da rotina e depois da batalha nada muda.
+
+Nada foi afrouxado: um clique por botão, nada às cegas, botões proibidos bloqueados, a permissão do lembrete continua
+necessária (sem ela o bot pausa e pergunta), e a opção ou dificuldade ausente pausa sem escolher outra.
+
+### Testes executados (2026-10-21)
+
+| Verificação | Onde | Resultado |
+|---|---|---|
+| `pyflakes src tools tests` | Linux (dev) | sem avisos |
+| `tests/test_fluxo_expedicao.py` (25 testes novos) | Linux (dev) | 25 aprovados. Contra a 0.5.2 (com o cliente simulado novo): 18 reprovam, entre eles o cenário do log (pausa "tela desconhecida por tempo demais" depois do clique em Formigueiro) |
+| pytest, suíte completa | Linux (dev, sem tela) | 352 aprovados, 7 pulados (interface e Windows), com o `2bb709d` |
+| `--selftest` | Linux (dev) | OK |
+| pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **363 aprovados, 4 pulados** (só Windows), com a auditoria de layout em 100/125/150% (`2bb709d`) |
+| `--gui-smoke 8` | container + Xvfb | OK (demonstração com o fluxo novo: janela que muda, OK, lembrete) |
+| `test_activities.py::test_recurring_popup_recovered_each_time` | Linux e container | reprovou com as leituras mais frequentes: o 2º aviso, preso à 60ª leitura, caía na batalha (onde o X não é clicado desde a 0.5.2). O teste passou a abrir os avisos no Cais e na sala |
+| CI da branch `feature/fluxo-expedicao` | GitHub Actions 39706827488 (`2bb709d`) | **aprovada**: Windows 363 aprovados e 4 pulados; Windows em 125% (janelas reais 3 vezes e suíte completa) 367 aprovados; Linux + Xvfb 363 aprovados e 4 pulados; `.exe` compilados e testados |
+| Merge no `develop` | `7accfa7` (`--no-ff`, sem PR obrigatório nem proteção de branch) | — |
+| CI do `develop` | GitHub Actions 39709185147 (`7accfa7`) | **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363 aprovados e 4 pulados |
+| CI da `release/0.5.3` | GitHub Actions 39711229626 (`4c064d6`) | **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363 aprovados e 4 pulados; `.exe` compilado e testado informa a versão 0.5.3. Sem tag: nenhuma Release publicada |
+| `--simulate 25` | Linux (dev), `ec8acdf` e `2bb709d` | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.2: o combate não mudou) |
+
+### Ainda não validado no jogo
+
+- **A tela depois do clique na instância não foi vista.** Se a dificuldade estiver numa janela separada que não se
+  pareça com a escolha, o contexto não vale e o bot pausa em 10 s pedindo a "Tela: Escolha da dificuldade".
+- Se o botão da dificuldade já casa antes do clique na instância (desbotado), a ordem continua certa (instância,
+  0,6 s, dificuldade), mas não há como conferir na tela se a dificuldade ficou marcada: a confirmação é o OK fechar a
+  janela. Conferir no jogo se a sala mostra a dificuldade certa.
+- Esperas de 0,6-0,8 s depois de cada clique: escolhidas sem medir o cliente. Se o jogo ignorar cliques rápidos demais,
+  aumente as esperas no fluxo (`instancias/<id>.json`) ou avise.
+- O lembrete foi tratado como o aviso de um jogador da 0.5.1 (`aviso_sozinho`): confirmar que é a mesma janela.
+- Leituras de "Derrota" (0,53-0,56 em quase toda tela do log, e uma "tela: derrota" ao iniciar às 21:25:45, um
+  segundo antes de "tela: sala") sugerem que o modelo de derrota é genérico demais. Sem a imagem não dá para dizer se
+  aquela leitura era falsa (às 21:25:45 o bot não clicou em nada). Ver "Derrota lida na navegação" abaixo.
 
 ## Versão 0.5.2: revisão do combate automático (2026-10-21)
 
@@ -63,7 +171,9 @@ como referência no perfil, não como parâmetro.
 | `--simulate 25` | Linux (dev) | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.1) |
 | CI da 0.5.1 | GitHub Actions 39644308826 (`e2d2844`) | aprovada (seção "Repositório novo") |
 | CI da branch `feature/combate-formigueiro` | GitHub Actions 39657215655 (`d2d597d`) | **aprovada**: Windows 336 aprovados e 4 pulados; Windows em 125% (janelas reais 3 vezes e suíte completa) 340 aprovados; Linux + Xvfb 336 aprovados e 4 pulados; `.exe` compilados e testados |
-| CI da tag `v0.5.2` | GitHub Actions | a registrar (cria a Release) |
+| CI da tag `v0.5.2` | GitHub Actions 39662252613 (`deeaf5d`) | 1ª tentativa: **1 falha** no Windows, o `--gui-smoke` (`test_gui_smoke`), com a interface parada 1,7 s depois da emergência simulada (limite 1,5 s; a pilha mostrava o Tk no `mainloop`, não código do JonFlow); o mesmo commit passou nesse passo nas execuções da `main` (39662246780) e do `develop` (39662247513). 2ª tentativa dos jobs que falharam: **aprovada**, Windows 336 aprovados e 4 pulados, 125% 340 aprovados, Linux 336 aprovados e 4 pulados |
+| Release v0.5.2 | **publicada** pela CI (2026-10-21): `JonFlow.zip`, `JonFlow.exe`, `SHA256SUMS.txt`, `build-info.json` e relatórios; `releases/latest/download/...` responde sem login |
+| `main` e `develop` | 39662246780 e 39662247513: aprovadas |
 
 ### Ainda não validado no jogo
 
@@ -77,6 +187,8 @@ como referência no perfil, não como parâmetro.
 - Se o aviso de um jogador não for capturado, ele é lido como "sala" e a recuperação na sala ainda pode fechar o
   aviso pelo X (uma vez, depois pausa). Capturar o aviso é recomendado na Calibração.
 - Os tempos de aviso e pausa (60/150 s sem turno, 3 turnos sem alvo, 2 turnos sem disparo) são escolhas, não medidas.
+- O `--gui-smoke` passou do limite de 1,5 s uma vez na CI do Windows (tag `v0.5.2`, 1ª tentativa). Se voltar a
+  acontecer, ver em `pilhas_no_atraso` se há código do JonFlow na thread do Tk antes de mexer no limite.
 
 ## Repositório novo e CI de volta (2026-10-21)
 

@@ -73,7 +73,10 @@ def test_contrast_of_palette():
 
 @pytest.mark.parametrize("raw,expected", [
     ("tela: batalha", "Tela: Batalha"),
-    ("clicou em botao_iniciar", "Clicou em Botão Iniciar na sala de preparação"),
+    ("clicou em botao_iniciar", "Clicou em Botão Início"),
+    ("tela: sala (pelo contexto): confirmado o clique em botao_criar_sala em 1,2 s",
+     "Tela: Sala/preparação (pelo contexto): confirmado o clique em Botão Jogar / Criar sala em 1,2 s"),
+    ("procurando botao_iniciar na tela sala", "Procurando Botão Início na tela Sala/preparação"),
     ("clicou em instancia_labirinto_azul", "Clicou em labirinto azul"),
     ("disparo #1: 68°/76.3 (fisica) -> acerto", "Disparo #1: 68°/76.3 (fisica): acerto"),
 ])

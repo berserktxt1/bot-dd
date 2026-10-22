@@ -9,7 +9,7 @@ FULL = {f"estado_{s}" for s in ("lobby", "cais_expedicao", "menu_partidas", "men
                                  "vitoria", "derrota")} | {"botao_partidas", "botao_cais", "botao_criar_sala",
                                                            "botao_escolher_instancia", "botao_iniciar", "turno",
                                                            "marcador_eu", "marcador_inimigo", "vento_esquerda",
-                                                           "vento_direita", "partida_x", "instancia_x"}
+                                                           "vento_direita", "partida_x", "instancia_x", "botao_confirmar"}
 
 
 def cfg(regions=True):
@@ -70,9 +70,9 @@ def test_instance_lists_the_expedition_dock_path_in_order():
     d = activity_from_option("instancia_x", "X")
     missing = check(d, lambda name: False, cfg(), True, True)
     labels = [m.label for m in missing if m.required]
-    path = ["tela Lobby", "Botão do Cais de Expedição", "tela Cais de Expedição", "Botão Criar sala",
-            "tela Sala/preparação", "Botão da sala que abre a escolha da instância", "Botão Iniciar na sala de preparação",
-            "tela Escolha da instância", "opção X no menu"]
+    path = ["tela Lobby", "Botão Central / Cais de Expedição", "tela Cais de Expedição", "Botão Jogar / Criar sala",
+            "tela Sala/preparação", "Botão da sala que abre a escolha da instância", "Botão Início",
+            "tela Escolha da instância", "opção X no menu", "Botão OK depois de escolher a instância e a dificuldade"]
     assert [lab for lab in labels if lab in path] == path
     how = {m.label: m.how for m in missing}
     assert "Cais de Expedição" in how["tela Cais de Expedição"] and "dentro da sala" in how["tela Escolha da instância"]
