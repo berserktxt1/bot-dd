@@ -1,14 +1,16 @@
 # Andamento
 
-Última atualização: 2026-10-21. Versão: **0.5.2** (**JonFlow**, antes *DDClássico Bot*): revisão do combate
-(seção seguinte), mesclada em `main` e `develop` com a tag `v0.5.2`. Repositório: **`berserktxt1/bot-dd`**
-(público), com a CI de volta.
+Última atualização: 2026-10-21. Versão: **0.5.3 preparada** na branch `release/0.5.3` (**JonFlow**, antes
+*DDClássico Bot*): correção do fluxo das expedições pelo Cais (seção seguinte), já mesclada no `develop`. **Sem tag e
+sem Release:** falta a confirmação do usuário para publicar (a tag `v0.5.3` dispara a Release na CI). Para publicar:
+mesclar `release/0.5.3` em `main` e `develop` (`--no-ff`), criar a tag anotada `v0.5.3` em `main` e enviar. Em
+produção (`main`) continua a **0.5.2**, com a tag `v0.5.2`. Repositório: **`berserktxt1/bot-dd`** (público), com a CI.
 
 > **Nada foi testado no cliente real do DDClássico nem com o launcher real.** Os resultados abaixo vêm de
 > testes unitários, simulações, imagens sintéticas, janelas e processos de teste no Windows da CI e da
 > execução do `.exe` no Windows da CI (sem o jogo). O ambiente de desenvolvimento é Linux, sem o jogo.
 
-## Fluxo das expedições pelo Cais (2026-10-21, `feature/fluxo-expedicao`, depois da 0.5.2)
+## Versão 0.5.3 (preparada): fluxo das expedições pelo Cais (2026-10-21)
 
 Relato do usuário, com o log `ddbot.log.txt` da 0.5.2 (sem capturas: `dados/capturas` e `dados/templates` do
 ambiente de desenvolvimento estão vazios, então **nenhuma tela do jogo foi vista**; tudo abaixo vem do log, do código e
