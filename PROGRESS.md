@@ -33,6 +33,8 @@ A primeira CI da branch (39798303857, `b953685`) reprovou só na auditoria de la
 "Início pausado no aviso de instância difícil" com o Histórico em 1,78 linhas (mínimo 2). O texto do modo demonstração
 ("nada é enviado ao jogo de verdade") ficou 4 caracteres mais longo que o anterior e, em Segoe UI, quebrava mais uma
 linha. Os textos da interface agora têm o mesmo tamanho ou são mais curtos que os da 0.5.3 ("ao jogo real").
+A segunda CI (39801131259, `4e7f43b`) foi **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363
+aprovados e 4 pulados. Mesclada em `develop` e em `main` sem tag (nenhuma Release nova; a última continua a v0.5.3).
 
 ## Versão 0.5.3: fluxo das expedições pelo Cais (2026-10-21)
 
