@@ -89,13 +89,15 @@ necessária (sem ela o bot pausa e pergunta), e a opção ou dificuldade ausente
 |---|---|---|
 | `pyflakes src tools tests` | Linux (dev) | sem avisos |
 | `tests/test_fluxo_expedicao.py` (25 testes novos) | Linux (dev) | 25 aprovados. Contra a 0.5.2 (com o cliente simulado novo): 18 reprovam, entre eles o cenário do log (pausa "tela desconhecida por tempo demais" depois do clique em Formigueiro) |
-| pytest, suíte completa | Linux (dev, sem tela) | 350 aprovados, 7 pulados (interface e Windows) |
+| pytest, suíte completa | Linux (dev, sem tela) | 352 aprovados, 7 pulados (interface e Windows), com o `2bb709d` |
 | `--selftest` | Linux (dev) | OK |
-| pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **361 aprovados, 4 pulados** (só Windows), com a auditoria de layout em 100/125/150% |
+| pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **363 aprovados, 4 pulados** (só Windows), com a auditoria de layout em 100/125/150% (`2bb709d`) |
 | `--gui-smoke 8` | container + Xvfb | OK (demonstração com o fluxo novo: janela que muda, OK, lembrete) |
 | `test_activities.py::test_recurring_popup_recovered_each_time` | Linux e container | reprovou com as leituras mais frequentes: o 2º aviso, preso à 60ª leitura, caía na batalha (onde o X não é clicado desde a 0.5.2). O teste passou a abrir os avisos no Cais e na sala |
-| CI | — | ainda não rodou nesta branch (sem push) |
-| `--simulate 25` | Linux (dev) | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.2: o combate não mudou) |
+| CI da branch `feature/fluxo-expedicao` | GitHub Actions 39706827488 (`2bb709d`) | **aprovada**: Windows 363 aprovados e 4 pulados; Windows em 125% (janelas reais 3 vezes e suíte completa) 367 aprovados; Linux + Xvfb 363 aprovados e 4 pulados; `.exe` compilados e testados |
+| Merge no `develop` | `7accfa7` (`--no-ff`, sem PR obrigatório nem proteção de branch) | — |
+| CI do `develop` | GitHub Actions 39709185147 (`7accfa7`) | **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363 aprovados e 4 pulados |
+| `--simulate 25` | Linux (dev), `ec8acdf` e `2bb709d` | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.2: o combate não mudou) |
 
 ### Ainda não validado no jogo
 
