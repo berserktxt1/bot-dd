@@ -34,7 +34,8 @@ A primeira CI da branch (39798303857, `b953685`) reprovou só na auditoria de la
 ("nada é enviado ao jogo de verdade") ficou 4 caracteres mais longo que o anterior e, em Segoe UI, quebrava mais uma
 linha. Os textos da interface agora têm o mesmo tamanho ou são mais curtos que os da 0.5.3 ("ao jogo real").
 A segunda CI (39801131259, `4e7f43b`) foi **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363
-aprovados e 4 pulados. Mesclada em `develop` e em `main` sem tag (nenhuma Release nova; a última continua a v0.5.3).
+aprovados e 4 pulados. Mesclada em `develop` e em `main` sem tag (nenhuma Release nova; a última continua a v0.5.3). CI do `develop` (39804626850,
+`2b9acf2`) e do `main` (39804626862, `edf70f3`) aprovadas.
 
 ## Versão 0.5.3: fluxo das expedições pelo Cais (2026-10-21)
 
