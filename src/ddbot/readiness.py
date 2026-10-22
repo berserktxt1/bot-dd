@@ -7,7 +7,7 @@ de começar exatamente o que falta, onde capturar e como fazer (uma frase objeti
 Obrigatório: as telas em que o fluxo age (lobby, Cais de Expedição, sala, escolha, batalha, vitória, derrota),
 os botões que o fluxo precisa clicar (inclusive a opção da instância e o botão da dificuldade),
 e no combate o ângulo, o vento, o indicador de turno, as setas do vento e os marcadores dos
-personagens (o de inimigo só é recomendado quando os alvos da instância cobrem todas as etapas). Telas e botões opcionais (carregando, etapa concluída, recompensa, confirmar) só
+personagens (o de inimigo só é recomendado quando os alvos da instância cobrem todas as etapas). Telas e botões opcionais (carregando, etapa concluída, recompensa, escolha da dificuldade) só
 entram como recomendação.
 
 Com uma estratégia de instância, os alvos (rainha, Barão...) e os estados (escudo, pavio)
@@ -22,7 +22,9 @@ from dataclasses import dataclass
 from .activities import CLICKS, COMMON_TEMPLATES, ActivityDef
 from .vision.perception import REGION_KEYS, STATE_LABELS
 
-OPTIONAL_STATES = ("carregando", "etapa_concluida", "recompensa", "aviso_sozinho")
+# a escolha da dificuldade é a mesma janela da escolha da instância depois do clique na instância: sem o modelo
+# dela, o bot a reconhece pelo contexto (a janela anterior e o botão da dificuldade)
+OPTIONAL_STATES = ("carregando", "etapa_concluida", "recompensa", "aviso_sozinho", "menu_dificuldade")
 
 # onde cada tela costuma ser vista (para dizer ao usuário quando capturar), já com a preposição:
 # "Deixe o jogo na tela principal" (e não "em a tela principal")
@@ -30,7 +32,8 @@ STATE_HINTS = {
     "lobby": "na tela principal, depois de entrar no jogo",
     "cais_expedicao": "no Cais de Expedição (a lista de salas, aberta pelo botão do lobby)",
     "menu_instancias": "na janela de escolher a instância, aberta dentro da sala",
-    "aviso_sozinho": "no aviso que aparece ao clicar em Iniciar sozinho numa instância difícil",
+    "menu_dificuldade": "na janela de escolher a instância, depois de clicar na instância (com as dificuldades)",
+    "aviso_sozinho": "no lembrete que aparece depois de clicar em Início (instância difícil para um jogador)",
     "menu_partidas": "no menu em que se escolhe a modalidade de partida",
     "sala": "na sala, antes de iniciar (com ou sem instância escolhida)",
     "carregando": "na tela de carregamento da batalha",

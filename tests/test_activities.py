@@ -244,8 +244,13 @@ def test_recurring_popup_recovered_each_time(kb, params, inst):
     runner, client, engine, clock, cleanup = simulated_activity(kb, params, inst, runs=2)
     orig_read = client.read
 
+    seen = set()
+
     def read_with_popups():
-        if client.reads in (3, 60):
+        # um aviso no Cais e outro na sala (antes: na 3ª e na 60ª leitura; com leituras mais frequentes a 60ª cai
+        # na batalha, onde o X não é clicado de propósito)
+        if client.screen in ("cais_expedicao", "sala") and client.screen not in seen and not client._popup:
+            seen.add(client.screen)
             client._popup = True
         return orig_read()
     client.read = read_with_popups

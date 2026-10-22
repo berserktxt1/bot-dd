@@ -417,6 +417,9 @@ class BotService:
             else:
                 world = SimulatedWorld(self.params)
             client = SimulatedClient(world, option=demo_option(d), faults=faults, difficulty=demo_difficulty(d))
+            if d.kind == "instancia" and "botao_confirmar" in d.templates_needed():
+                # como no DDClássico: a janela muda depois do clique na instância e só fecha no OK
+                client.confirm_choice = client.dialog_changes = True
             if self._sim_store is None:
                 self._sim_store = ShotStore(self.paths.root / "simulacao.sqlite3")
             sim_cal = Calibrator(self._sim_store, self.params, sources=("simulado",))

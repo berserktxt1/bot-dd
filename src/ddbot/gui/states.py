@@ -161,7 +161,9 @@ def humanize(message: str) -> str:
 
     def tela(m):
         return f"Tela: {STATE_LABELS.get(m.group(1), m.group(1))}"
-    message = re.sub(r"^tela: (\w+)$", tela, message)
+    message = re.sub(r"^tela: (\w+)\b", tela, message)
+    message = re.sub(r"\btela (\w+)", lambda m: f"tela {STATE_LABELS[m.group(1)]}" if m.group(1) in STATE_LABELS
+                     else m.group(0), message)
     message = re.sub(r"\b(botao_\w+|carta_recompensa|estado_\w+)\b", lambda m: names.get(m.group(1), m.group(1)),
                      message)
     message = re.sub(r"\bdificuldade_(\w+)", lambda m: f"botão da dificuldade "

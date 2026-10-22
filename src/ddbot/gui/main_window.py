@@ -626,7 +626,7 @@ class MainWindow:
                         "Li as regras do servidor e autorizo o modo automático por minha conta e risco")
         self._cfg_check(auth.body, "safety.require_foreground", "Só enviar comandos com a janela do jogo na frente")
         self._cfg_check(auth.body, "instances.confirm_solo_warning",
-                        "Confirmar o aviso de instância difícil para um jogador e continuar sozinho")
+                        "Clicar em OK no lembrete antes da partida (instância difícil para um jogador)")
         for i, (title, fields) in enumerate(self.CFG_GROUPS):
             p = Panel(s, self.th, title)
             p.grid(row=1 + i // 2, column=i % 2, sticky="nsew", pady=(px(12), 0),
@@ -1074,7 +1074,7 @@ class MainWindow:
         if "instances.confirm_solo_warning" in getattr(self, "cfg_vars", {}):
             self.cfg_vars["instances.confirm_solo_warning"].set(True)
         if self._save_config_file():
-            self.notice("Aviso de instância difícil: o bot confirma e continua (Configurações > Automação).")
+            self.notice("Lembrete antes da partida: o bot clica em OK e continua (Configurações > Automação).")
         self.svc.resume()
         self._update_buttons()
 
