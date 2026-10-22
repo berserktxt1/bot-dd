@@ -99,6 +99,7 @@ necessária (sem ela o bot pausa e pergunta), e a opção ou dificuldade ausente
 | CI da branch `feature/fluxo-expedicao` | GitHub Actions 39706827488 (`2bb709d`) | **aprovada**: Windows 363 aprovados e 4 pulados; Windows em 125% (janelas reais 3 vezes e suíte completa) 367 aprovados; Linux + Xvfb 363 aprovados e 4 pulados; `.exe` compilados e testados |
 | Merge no `develop` | `7accfa7` (`--no-ff`, sem PR obrigatório nem proteção de branch) | — |
 | CI do `develop` | GitHub Actions 39709185147 (`7accfa7`) | **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363 aprovados e 4 pulados |
+| CI da `release/0.5.3` | GitHub Actions 39711229626 (`4c064d6`) | **aprovada**: Windows 363 aprovados e 4 pulados; 125% 367 aprovados; Linux 363 aprovados e 4 pulados; `.exe` compilado e testado informa a versão 0.5.3. Sem tag: nenhuma Release publicada |
 | `--simulate 25` | Linux (dev), `ec8acdf` e `2bb709d` | sem calibração 166 disparos, 42,2%, 22 vitórias; com calibração 79 disparos, 94,9%, 25 vitórias; 0 turnos perdidos (igual à 0.5.2: o combate não mudou) |
 
 ### Ainda não validado no jogo
