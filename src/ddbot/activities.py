@@ -506,6 +506,7 @@ class ActivityRunner:
         self._last_clicked: tuple[str, str, float] | None = None  # (tela, modelo, quando): confirmação e limites
         self._context_seen: tuple | None = None  # último reconhecimento pelo contexto avisado (sem repetir)
         self._by_context_now: str | None = None
+        self._result_ignored: tuple | None = None  # último resultado sem batalha avisado (sem repetir)
         self.blocked: str | None = None  # pausa que pede uma decisão do usuário (ex.: SOLO_WARNING)
 
     # ------------------------------------------------------------------ util
@@ -634,6 +635,8 @@ class ActivityRunner:
         raw = screen.state if (screen.confidence >= self.state_threshold or screen.state in (WINDOW_GONE, NO_FOCUS)) \
             else "desconhecido"
         self._by_context_now = None
+        if raw in TERMINAL_RESULTS:
+            raw = self._result_without_battle(raw, screen)
         if raw == "desconhecido":
             raw = self._by_context(screen) or raw
 
@@ -734,6 +737,25 @@ class ActivityRunner:
                        .replace(".", ","),
                        state=best, contexto=True, semelhanca=round(score, 2))
         return best
+
+    def _result_without_battle(self, raw: str, screen: ScreenState) -> str:
+        """Vitória/derrota lida entre as telas antes da batalha, sem batalha nesta ida: não pode ser um resultado.
+
+        No log de 2026-10-21 a "Derrota" teve 0,52-0,56 em quase todas as telas e uma vez passou do mínimo ao
+        iniciar. Na navegação, uma leitura assim faria o bot agir numa tela de resultado (clicar em Sair) no meio
+        da sala. Vale a tela de baixo, se reconhecida; senão a leitura conta como desconhecida. No começo da
+        rotina (o jogo pode estar mesmo num resultado) e depois de uma batalha, nada muda.
+        """
+        if self._in_activity or self.current_state not in NAV_SCREENS:
+            return raw
+        below = {k: v for k, v in (screen.scores or {}).items() if k not in TERMINAL_RESULTS}
+        alt = max(below, key=below.get) if below else None
+        if self._result_ignored != (self.current_state, raw):
+            self._result_ignored = (self.current_state, raw)
+            self._emit("aviso", f"tela {raw} lida ({screen.confidence:.2f}) na tela {self.current_state} sem batalha "
+                       "nesta ida: ignorada. Se acontecer sempre, capture de novo a tela de resultado em Calibração "
+                       "> Modelos, num pedaço que só aparece nela".replace("(0.", "(0,"), resultado_ignorado=raw)
+        return alt if alt is not None and below[alt] >= self.state_threshold else "desconhecido"
 
     def _visible(self, template: str, frame) -> bool:
         visible = getattr(self.actor, "visible", None)  # atores sem a consulta: nunca há contexto

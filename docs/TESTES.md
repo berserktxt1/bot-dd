@@ -76,7 +76,7 @@ garantem proteções que já existiam.
 
 `test_fluxo_expedicao.py`, no cliente simulado com a escolha como no DDClássico (janela que muda depois do clique na
 instância, lida como no log: "Escolha da instância 0,75, Derrota 0,56, Sala/preparação 0,49"; OK obrigatório).
-Contra a 0.5.2 (com o cliente simulado novo), 18 dos 23 reprovam.
+Contra a 0.5.2 (com o cliente simulado novo), 18 dos 23 primeiros reprovam.
 
 | Teste | O que garante |
 |---|---|
@@ -96,6 +96,8 @@ Contra a 0.5.2 (com o cliente simulado novo), 18 dos 23 reprovam.
 | `test_context_needs_the_button_on_screen`, `test_global_threshold_is_unchanged` | sem o botão não há contexto; fora dele, 0,79 continua desconhecida |
 | `test_difficulty_screen_is_optional_and_ok_is_required`, `test_old_user_flow_without_difficulty_screen_uses_the_choice_actions` | Calibração: tela da dificuldade opcional, OK obrigatório; definições antigas funcionam |
 | `test_vision_reader_passes_the_scores_and_actor_checks_visibility` | o leitor real passa as notas de cada tela; `GameActor.visible` recusa botão ambíguo |
+| `test_result_screen_between_navigation_screens_is_ignored` | derrota lida entre as telas de navegação, sem batalha nesta ida (como no log), não vira resultado nem clica em Sair; vale a tela de baixo |
+| `test_result_screen_at_start_or_after_battle_still_counts` | no começo da rotina e depois da batalha o resultado continua valendo |
 
 ## Teste de interface (`--gui-smoke`)
 
@@ -203,6 +205,28 @@ primeira validação:
 4. Marque a autorização e use Calibração > *Teste de controles* no seu turno. Depois rode uma instância **uma vez** e
    acompanhe com o dedo no F12.
 5. Registre o resultado dos disparos para a calibração aprender.
+
+### Roteiro manual: Formigueiro — Normal pelo Cais (pendente no cliente, 0.5.3)
+
+Nada deste fluxo foi visto no jogo: os testes usam o cliente simulado. Faça uma ida, com o dedo no **F12**:
+
+1. **Preparar.** Calibração > Modelos: confira (ou capture) as telas Lobby, Cais de Expedição, Sala/preparação,
+   Escolha da instância e Lembrete antes da partida, e os botões Central, Jogar, o que abre a escolha da instância,
+   **OK** (depois da dificuldade), **Início**, **OK do lembrete** e **Normal**. Recomendado: abra a escolha, clique
+   em Formigueiro e capture a **Tela: Escolha da dificuldade**. Em Configurações > Automação, marque **Clicar em OK
+   no lembrete antes da partida** (ou deixe desmarcado para o bot pausar e perguntar).
+2. **Começar no lobby.** No Início, escolha **Formigueiro — Normal**, **Uma vez**, e clique em Iniciar.
+3. **Acompanhar o Histórico** e anotar o tempo de cada passo. Deve aparecer, nesta ordem: tela Lobby → clicou em
+   Central → tela Cais (confirmado o clique em Central) → clicou em Jogar → tela Sala → clicou no botão de escolher
+   a instância → tela Escolha da instância → clicou em Formigueiro → "a mesma tela reconhecida pelo contexto" (ou
+   tela Escolha da dificuldade) → clicou no botão da dificuldade **Normal** → clicou em OK → tela Sala → clicou em
+   Início → tela Lembrete → clicou em OK do lembrete → tela Batalha.
+4. **Conferir no jogo:** a sala mostra **Formigueiro Normal** (não Fácil) antes do Início; nenhum botão foi clicado
+   duas vezes; não houve clique fora da janela de escolha.
+5. **Se pausar:** anote a mensagem do Histórico e guarde a imagem salva em `dados\capturas` e o `dados\logs`. As
+   mensagens dizem o que faltou (por exemplo, "dificuldade_normal não foi encontrado nela").
+6. **Anotar também:** se o jogo ignorou algum clique rápido (as esperas são de 0,6 a 0,8 s), se o lembrete é mesmo o
+   aviso de um jogador e se apareceu "tela derrota lida ... sem batalha nesta ida: ignorada".
 
 ### As seis atividades pré-cadastradas (pendente no cliente, 0.5.0)
 

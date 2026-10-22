@@ -74,6 +74,12 @@ sala; `botao_escolher_instancia` (1076,436) abre a escolha. Os textos da Calibra
   do log, `difficulty_screen`), transições demoradas (`transition`) e a sala com o botão de escolher mudado
   (`choice_button_changes`). A demonstração da interface usa esse fluxo.
 
+- **Derrota lida na navegação** (revisão antes do merge): uma vitória/derrota lida entre as telas antes da batalha,
+  sem batalha nesta ida, não pode ser um resultado. Antes, se a derrota passasse do mínimo no Cais ou na sala, o
+  bot entrava na tela de resultado e clicava em **Sair** se o botão casasse (`test_result_screen_between_navigation_
+  screens_is_ignored` reprova o `ec8acdf` exatamente assim). Agora vale a tela de baixo, se reconhecida, ou a leitura
+  conta como desconhecida, com um aviso no Histórico. No começo da rotina e depois da batalha nada muda.
+
 Nada foi afrouxado: um clique por botão, nada às cegas, botões proibidos bloqueados, a permissão do lembrete continua
 necessária (sem ela o bot pausa e pergunta), e a opção ou dificuldade ausente pausa sem escolher outra.
 
@@ -82,7 +88,7 @@ necessária (sem ela o bot pausa e pergunta), e a opção ou dificuldade ausente
 | Verificação | Onde | Resultado |
 |---|---|---|
 | `pyflakes src tools tests` | Linux (dev) | sem avisos |
-| `tests/test_fluxo_expedicao.py` (23 testes novos) | Linux (dev) | 23 aprovados. Contra a 0.5.2 (com o cliente simulado novo): 18 reprovam, entre eles o cenário do log (pausa "tela desconhecida por tempo demais" depois do clique em Formigueiro) |
+| `tests/test_fluxo_expedicao.py` (25 testes novos) | Linux (dev) | 25 aprovados. Contra a 0.5.2 (com o cliente simulado novo): 18 reprovam, entre eles o cenário do log (pausa "tela desconhecida por tempo demais" depois do clique em Formigueiro) |
 | pytest, suíte completa | Linux (dev, sem tela) | 350 aprovados, 7 pulados (interface e Windows) |
 | `--selftest` | Linux (dev) | OK |
 | pytest, suíte completa | container Ubuntu 24.04 + Xvfb 1920×1080 | **361 aprovados, 4 pulados** (só Windows), com a auditoria de layout em 100/125/150% |
@@ -101,8 +107,9 @@ necessária (sem ela o bot pausa e pergunta), e a opção ou dificuldade ausente
 - Esperas de 0,6-0,8 s depois de cada clique: escolhidas sem medir o cliente. Se o jogo ignorar cliques rápidos demais,
   aumente as esperas no fluxo (`instancias/<id>.json`) ou avise.
 - O lembrete foi tratado como o aviso de um jogador da 0.5.1 (`aviso_sozinho`): confirmar que é a mesma janela.
-- Leituras falsas de "Derrota" (0,53-0,56 em quase toda tela do log, e uma "tela: derrota" ao iniciar às 21:25:45)
-  sugerem que o modelo de derrota é genérico demais; não foi mexido.
+- Leituras de "Derrota" (0,53-0,56 em quase toda tela do log, e uma "tela: derrota" ao iniciar às 21:25:45, um
+  segundo antes de "tela: sala") sugerem que o modelo de derrota é genérico demais. Sem a imagem não dá para dizer se
+  aquela leitura era falsa (às 21:25:45 o bot não clicou em nada). Ver "Derrota lida na navegação" abaixo.
 
 ## Versão 0.5.2: revisão do combate automático (2026-10-21)
 

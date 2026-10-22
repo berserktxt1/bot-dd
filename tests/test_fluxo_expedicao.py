@@ -308,3 +308,25 @@ def test_vision_reader_passes_the_scores_and_actor_checks_visibility(tmp_path):
     assert actor.visible("dificuldade_normal", changed) and not actor.visible("dificuldade_facil", changed)
     lib.add("dificuldade_facil", changed[150:190, 80:160].copy())  # igual à normal: ambígua, não está "visível"
     assert not actor.visible("dificuldade_normal", changed)
+
+
+# ------------------------------------------------- derrota falsa na navegação
+def test_result_screen_between_navigation_screens_is_ignored():
+    """No log a "Derrota" teve 0,52-0,56 em quase toda tela e uma vez passou do mínimo. Sem batalha nesta ida, entre
+    as telas de navegação ela não é um resultado: vale a tela de baixo e o bot não clica em Sair."""
+    false_defeat = ScreenState("derrota", 0.82, scores={"derrota": 0.82, "sala": 0.85, "lobby": 0.3})
+    r, io = scripted(CAIS + [false_defeat] * 6, steps=12)
+    assert "botao_sair" not in io.clicks and r.current_state == "sala"
+    assert io.clicks[:2] == ["botao_criar_sala", "botao_escolher_instancia"]
+    assert r.counters.defeats == 0
+    # sem a tela de baixo reconhecida, a leitura conta como desconhecida (nunca como derrota)
+    r, io = scripted(CAIS + [ScreenState("derrota", 0.82, scores={"derrota": 0.82, "sala": 0.4})], steps=12)
+    assert "botao_sair" not in io.clicks and r.current_state == "cais_expedicao" and r.unknown_screen
+
+
+def test_result_screen_at_start_or_after_battle_still_counts(kb, params):
+    """No começo da rotina (o jogo pode estar num resultado) a derrota continua valendo; depois da batalha também."""
+    r, io = scripted([ScreenState("derrota", 0.9)], steps=6)
+    assert r.current_state == "derrota" and "botao_sair" in io.clicks
+    run = Run(kb, params, "formigueiro_normal", faults={"solo_warning": True})
+    assert run.drive() == RunStatus.FINISHED and run.r.counters.victories + run.r.counters.defeats == 1
