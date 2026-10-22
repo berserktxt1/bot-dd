@@ -196,7 +196,7 @@ def test_instance_goes_through_the_dock_and_chooses_inside_the_room_every_run(kb
     """Caminho do DDClássico: lobby -> Cais de Expedição -> Criar sala -> na sala, escolher a instância -> Iniciar.
     A sala volta com a instância anterior escolhida: mesmo assim cada ida escolhe de novo antes de Iniciar."""
     d = build_activity(catalog.get("formigueiro_normal"), catalog)
-    assert d.start_states == ("lobby", "cais_expedicao", "sala", "menu_instancias")
+    assert d.start_states == ("lobby", "cais_expedicao", "sala", "menu_instancias", "menu_dificuldade")
     r, client, eng, clock, cleanup = simulated_activity(kb, params, d, runs=2, profile=profiles["formigueiro_normal"],
                                                         settings=SimSettings(seed=4, max_turns=40,
                                                                              distance_range=(4.0, 12.0)))

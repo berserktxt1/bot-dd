@@ -72,6 +72,31 @@ garantem proteções que já existiam.
 | `test_blocked_input_during_combat_pauses_the_routine` | entrada bloqueada pelo Windows no combate pausa a rotina com o motivo |
 | `test_generic_enemy_marker_optional_when_instance_targets_cover_every_stage` | **defeito corrigido**: com a formiga e a rainha capturadas, o marcador genérico de inimigo deixa de ser obrigatório |
 
+## Testes de regressão do fluxo das expedições (2026-10-21, log do usuário)
+
+`test_fluxo_expedicao.py`, no cliente simulado com a escolha como no DDClássico (janela que muda depois do clique na
+instância, lida como no log: "Escolha da instância 0,75, Derrota 0,56, Sala/preparação 0,49"; OK obrigatório).
+Contra a 0.5.2 (com o cliente simulado novo), 18 dos 23 reprovam.
+
+| Teste | O que garante |
+|---|---|
+| `test_dock_flow_follows_the_user_steps_with_the_chosen_difficulty` | Lobby → Central → Jogar → escolher a instância → instância → dificuldade → OK → Início → OK do lembrete, para Formigueiro Normal e Fácil e Galinheiro Difícil; a sala inicia com a dificuldade escolhida; nenhuma outra dificuldade nem clique repetido |
+| `test_log_scenario_changed_dialog_is_followed_by_context` | **cenário do log**: a janela a 0,75 segue pelo contexto (dificuldade visível), sem "tela não reconhecida" e sem clicar de novo na instância |
+| `test_captured_difficulty_screen_keeps_what_was_chosen` | com a "Tela: Escolha da dificuldade" capturada, a instância não é clicada de novo |
+| `test_return_to_room_after_ok_clicks_start_and_each_run_chooses_again` | depois do OK a sala leva a Início, não a uma nova escolha; cada ida escolhe de novo |
+| `test_ok_is_never_clicked_without_the_difficulty` | sem a dificuldade na janela: pausa em até 12 s, sem OK (que iniciaria a padrão), sem X e sem outra dificuldade |
+| `test_menu_without_the_difficulty_never_confirms` | dificuldade ausente do menu: pausa, não escolhe outra |
+| `test_slow_transition_waits_without_repeating_the_click` | Cais e sala demorando (3 e 7,5 s desconhecidos): nenhum clique repetido |
+| `test_weak_screen_with_the_expected_button_is_accepted_by_context` | sala lida a 0,77 (como no log) com o botão esperado: segue em menos de 3 s |
+| `test_weak_screen_without_the_button_pauses_without_clicking` | sem o botão esperado, a tela fraca não é aceita: pausa em até 12 s, sem cliques |
+| `test_loading_after_start_keeps_the_longer_limit` | depois de Início (carregando), a tela desconhecida só pausa no limite configurado (20 s) |
+| `test_navigation_until_the_battle_is_fast` | do lobby à batalha em menos de 8 s simulados (9,9 s na 0.5.2) |
+| `test_room_with_an_instance_already_chosen_pauses_with_a_clear_reason` | sala que já tem instância e botão de escolher mudado: pausa explicando, sem clicar em Início |
+| `test_context_never_accepts_a_doubtful_screen` | o contexto recusa tela não esperada, derrota, folga pequena e nota baixa |
+| `test_context_needs_the_button_on_screen`, `test_global_threshold_is_unchanged` | sem o botão não há contexto; fora dele, 0,79 continua desconhecida |
+| `test_difficulty_screen_is_optional_and_ok_is_required`, `test_old_user_flow_without_difficulty_screen_uses_the_choice_actions` | Calibração: tela da dificuldade opcional, OK obrigatório; definições antigas funcionam |
+| `test_vision_reader_passes_the_scores_and_actor_checks_visibility` | o leitor real passa as notas de cada tela; `GameActor.visible` recusa botão ambíguo |
+
 ## Teste de interface (`--gui-smoke`)
 
 Abre a janela de verdade e, em modo de demonstração, aciona os botões: lista a demonstração, *Iniciar*, confere

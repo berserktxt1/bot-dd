@@ -141,8 +141,8 @@ escolhido. **Fazer agora** abre a página certa já com o item escolhido e captu
 | O que capturar | Exemplos | Para que serve |
 |---|---|---|
 | **Regiões** | número do ângulo, vento, barra de força, indicador de turno, área de jogo | Dizer ao bot **onde** olhar na tela. |
-| **Modelos de tela** (`estado_...`) | lobby, Cais de Expedição, sala, escolha da instância, aviso de instância difícil, menu de partidas, carregando, batalha, etapa concluída, recompensa, vitória, derrota, desconectado | Saber **em que tela** o jogo está. Capture um pedaço que só aparece naquela tela (na escolha da instância e no aviso, um pedaço da própria janela, não da sala atrás dela). |
-| **Botões** | Cais de Expedição (no lobby), Criar sala, o botão da sala que abre a escolha da instância, confirmar, Iniciar, confirmar do aviso de instância difícil, abrir partidas, continuar, sair, fechar (X), carta de recompensa e os botões de dificuldade **Fácil**, **Normal** e **Difícil** | Saber **onde clicar**. Cada botão de dificuldade é capturado uma vez e serve para todas as instâncias. |
+| **Modelos de tela** (`estado_...`) | lobby, Cais de Expedição, sala, escolha da instância, escolha da dificuldade (opcional), lembrete antes da partida, menu de partidas, carregando, batalha, etapa concluída, recompensa, vitória, derrota, desconectado | Saber **em que tela** o jogo está. Capture um pedaço que só aparece naquela tela (na escolha da instância e no lembrete, um pedaço da própria janela, não da sala atrás dela). |
+| **Botões** | **Central** (Cais de Expedição, no lobby), **Jogar** (Criar sala, no Cais), o botão da sala que abre a escolha da instância, **OK** depois da dificuldade, **Início**, **OK do lembrete**, abrir partidas, continuar, sair, fechar (X), carta de recompensa e os botões de dificuldade **Fácil**, **Normal** e **Difícil** | Saber **onde clicar**. Cada botão de dificuldade é capturado uma vez e serve para todas as instâncias. |
 | **Marcadores** | seu personagem, um inimigo, indicador de turno, setas do vento | Achar **quem é quem** na batalha e o sentido do vento. |
 | **Números** | ângulo e vento | Ler os **valores**. Marque o número, digite o valor que aparece e clique em **Aprender**. Repita com valores diferentes até cobrir os dígitos de 0 a 9. |
 
@@ -203,14 +203,35 @@ Na aba **Início**:
 2. Em **Quantas vezes**, escolha **Uma vez**, **Repetir** (e o número de vezes) ou **Até eu parar**.
 3. Clique em **Iniciar** (F5).
 
-O caminho das instâncias é o do jogo: **lobby → Cais de Expedição → Criar sala → na sala, escolher a instância e a
-dificuldade → Iniciar**. A cada execução o bot escolhe a instância de novo dentro da sala, mesmo que ela já esteja
-escolhida, para nunca iniciar outra.
+O caminho das instâncias é o do jogo:
 
-Se, ao clicar em Iniciar, o jogo avisar que a **instância é difícil para um jogador**, o bot **pausa** e pergunta.
-Para continuar sozinho mesmo assim, clique em **Confirmar o aviso e continuar** (aparece no Início durante a pausa;
-a rotina segue da mesma tela, sem recomeçar). A permissão fica em Configurações > Automação e pode ser desmarcada.
-Ela só vale para esse aviso, reconhecido pelo modelo que você capturou: não libera nenhum outro botão nem bloqueio.
+| Passo | Tela | O bot clica em |
+|---|---|---|
+| 1 | Lobby | **Central** (abre o Cais de Expedição) |
+| 2 | Cais de Expedição | **Jogar** (abre a sala) |
+| 3 | Sala | o botão que abre a **escolha da instância** |
+| 4 | Escolha da instância | a instância (por exemplo, **Formigueiro**) |
+| 5 | A mesma janela, agora com as dificuldades | a dificuldade escolhida no JonFlow (por exemplo, **Normal**) |
+| 6 | A mesma janela | **OK** |
+| 7 | Sala, com a instância escolhida | **Início** |
+| 8 | Lembrete antes da partida | **OK** (só com a sua permissão, veja abaixo) |
+| 9 | Batalha | começa a jogar |
+
+Cada passo só começa depois que o bot **vê** a tela do passo anterior; ele confere a tela várias vezes por
+segundo, então não espera tempo à toa. A dificuldade é sempre a da atividade escolhida (Formigueiro — Normal nunca
+começa no Fácil): se o botão dela não aparecer, o bot **pausa** sem clicar em OK. A cada execução o bot escolhe a
+instância de novo dentro da sala, mesmo que ela já esteja escolhida, para nunca iniciar outra.
+
+Depois do clique na instância, a janela de escolha muda (a instância fica marcada e as dificuldades aparecem), e a
+captura da "Tela: Escolha da instância" pode deixar de bater. O bot continua mesmo assim quando a janela continua
+sendo a mais parecida e o botão da dificuldade aparece nela. Para ficar ainda mais seguro, capture também a
+**"Tela: Escolha da dificuldade"**: abra a escolha, clique na instância e capture um pedaço da janela nesse momento.
+
+Antes da partida o jogo mostra um **lembrete** (o aviso de que a instância é difícil para um jogador). Sem a sua
+permissão, o bot **pausa** e pergunta: para seguir, clique em **Confirmar o aviso e continuar** (aparece no Início
+durante a pausa; a rotina segue da mesma tela, sem recomeçar). Para o bot clicar em OK sozinho, marque **Clicar em
+OK no lembrete antes da partida** em Configurações > Automação (pode ser desmarcado). A permissão só vale para esse
+lembrete, reconhecido pelo modelo que você capturou: não libera nenhum outro botão nem bloqueio.
 
 Durante a rotina a janela do JonFlow se minimiza para não cobrir o jogo e volta sozinha quando a rotina pausa,
 termina ou precisa de você.
@@ -242,7 +263,7 @@ no jogo fica bloqueado.
 |---|---|
 | Joga sozinho atividades **PvE/solo**. | Jogar sozinho contra outros jogadores (fila/PvP). Ali use a *Mira assistida ao vivo* (aba Diagnóstico), que só **sugere** ângulo e força. |
 | Envia teclas e cliques **só com o jogo em foco**, no máximo **um disparo por turno**. | Comprar itens, gastar moeda premium ou entrar em ranqueadas. Botões como comprar e loja ficam bloqueados (para liberar um botão pago específico, digite o nome dele em Configurações). |
-| Só aceita uma tela depois de reconhecê-la em leituras seguidas (uma explosão ou animação não conta vitória nem dispara de novo). | Apertar teclas às cegas. Se uma tela ou botão não aparece, ele só fecha avisos pelo botão **X** que você capturou (nunca na batalha nem no aviso de instância difícil, onde o X sairia da batalha ou cancelaria a ida); se não resolver, **pausa**, mostra o motivo e salva a imagem em `dados\capturas`. |
+| Só aceita uma tela depois de reconhecê-la em leituras seguidas (uma explosão ou animação não conta vitória nem dispara de novo). | Apertar teclas às cegas. Se uma tela ou botão não aparece, ele só fecha avisos pelo botão **X** que você capturou (nunca na batalha, na escolha da instância nem no lembrete, onde o X sairia da batalha, fecharia a escolha ou cancelaria a ida); se não resolver, **pausa**, mostra o motivo e salva a imagem em `dados\capturas`. |
 | **Pausa** se você trocar de janela (Alt+Tab) ou minimizar o jogo, e espera você clicar em Retomar. | Mandar comandos ao launcher: só clica dentro da área do jogo e só envia teclas com o foco dentro do jogo. Se o foco estiver no launcher, pausa e pede para você clicar uma vez no jogo. |
 | Com o inimigo invisível, usa a última posição vista e calcula quanto ele pode ter andado. | Atirar às cegas: se a incerteza for grande, espera o inimigo reaparecer. |
 | Pede a imagem à própria janela do jogo, mesmo com outra janela por cima. | Ler a janela errada: se o jogo não permitir e outra janela cobrir o jogo, pausa e avisa. |
@@ -322,6 +343,20 @@ exemplo "mais parecidas: Lobby 0,62, Sala/preparação 0,55 (mínimo 0,80)"). Um
 falta capturar aquela tela em Calibração > Modelos; a aba Diagnóstico mostra as mesmas notas ao vivo
 ("telas_parecidas"). Na batalha, se o bot não consegue ler o seu turno ou mirar (personagem, inimigo ou régua não
 encontrados), ele avisa o motivo e, se continuar assim, pausa.
+</details>
+
+<details>
+<summary><b>O bot parou depois de clicar na instância (Formigueiro)</b></summary>
+
+Até a versão 0.5.2, a janela de escolha mudava depois do clique na instância e o bot achava que a tela era
+desconhecida ("Escolha da instância 0,75 ... mínimo 0,80"). Agora ele segue pela mesma janela, desde que encontre o
+botão da dificuldade. Se ainda pausar, o Histórico diz o que faltou (por exemplo "dificuldade_normal não foi
+encontrado nela"). Com o jogo nessa janela, capture em Calibração > Modelos a **Tela: Escolha da dificuldade** e,
+se faltar, o botão da dificuldade e o **OK**. Depois clique em **Retomar**.
+
+Se o bot pausar na sala dizendo que ela **já parece ter uma instância escolhida**, o botão de escolher a instância
+mudou de aparência depois da escolha. Salve mais uma amostra desse botão com uma instância já escolhida (Calibração
+> Modelos, o mesmo nome) ou volte ao lobby, e clique em **Retomar**.
 </details>
 
 <details>

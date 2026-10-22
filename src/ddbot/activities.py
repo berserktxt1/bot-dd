@@ -52,8 +52,32 @@ CONDITIONS = ("sem_escolha", "com_escolha")
 CLICKS = ("clicar", "clicar_opcional", "confirmar_aviso")  # ações que clicam num modelo
 # aviso do jogo ao iniciar sozinho uma instância difícil: só é confirmado com a permissão do usuário
 SOLO_WARNING = "aviso_sozinho"
-# telas em que a recuperação não clica no X: pausa e explica
-NO_CLOSE_RECOVERY = ("batalha", SOLO_WARNING)
+# Janela de escolher a instância. Depois do clique na instância, a mesma janela muda (a instância fica marcada e as
+# dificuldades aparecem) e o modelo capturado antes dele deixa de casar (log do usuário de 2026-10-21: "Escolha da
+# instância 0,75"). As duas telas têm as mesmas ações e guardam o que já foi escolhido nesta janela.
+DIFFICULTY_MENU = "menu_dificuldade"
+CHOICE_SCREENS = ("menu_instancias", DIFFICULTY_MENU)
+# telas em que a recuperação não clica no X: pausa e explica. Na escolha, o X fecharia a janela e a sala a abriria
+# de novo (um ciclo de cliques)
+NO_CLOSE_RECOVERY = ("batalha", SOLO_WARNING) + CHOICE_SCREENS
+# telas de navegação antes da batalha: passagens rápidas, com limites de tempo curtos
+NAV_SCREENS = ("lobby", "cais_expedicao", "sala", "menu_partidas") + CHOICE_SCREENS
+# telas que podem vir depois de cada tela de navegação (reconhecimento pelo contexto)
+NEXT_SCREENS = {
+    "lobby": ("cais_expedicao", "menu_partidas"),
+    "cais_expedicao": ("sala",),
+    "sala": CHOICE_SCREENS,
+    "menu_instancias": (DIFFICULTY_MENU, "sala"),
+    DIFFICULTY_MENU: ("menu_instancias", "sala"),
+    "menu_partidas": ("sala",),
+}
+# Reconhecimento pelo contexto: uma tela abaixo do mínimo só é aceita se for a atual ou a esperada depois dela, se for
+# a mais parecida com folga sobre a segunda e se o botão que o fluxo clica nela estiver na tela. O mínimo geral
+# (thresholds.template) não muda: derrota, batalha e resultados nunca são aceitos assim.
+CONTEXT_MIN = 0.65
+CONTEXT_MARGIN = 0.10
+# cliques depois dos quais o jogo carrega a batalha (pode demorar): vale o limite normal de tela desconhecida
+LOADING_CLICKS = ("botao_iniciar",)
 
 
 def is_selection(template: str | None) -> bool:
@@ -240,22 +264,26 @@ def unique_slug(base: str, taken) -> str:
 
 
 def instance_room_flow(selection: list[Action]) -> dict[str, list[Action]]:
-    """Caminho das instâncias no DDClássico (informado pelo usuário em 2026-10-21): lobby -> Cais de Expedição
-    -> Criar sala -> sala sem instância -> escolher a instância (opção, dificuldade, confirmar) -> sala -> Iniciar.
+    """Caminho das instâncias no DDClássico (informado pelo usuário em 2026-10-21): lobby -> Central (Cais de
+    Expedição) -> Jogar (``botao_criar_sala``) -> sala sem instância -> escolher a instância -> instância ->
+    dificuldade -> OK -> sala -> Início (``botao_iniciar``) -> lembrete (OK, com a permissão) -> batalha.
 
-    A escolha é refeita a cada ida, mesmo que a sala ainda mostre a instância anterior: nunca inicia outra.
+    A escolha é refeita a cada ida, mesmo que a sala ainda mostre a instância anterior: nunca inicia outra. O OK é
+    obrigatório: sem ele a janela não fecha e a dificuldade não vale.
     """
+    choice = selection + [Action("clicar", "botao_confirmar", 0.8)]
     return {
-        "lobby": [Action("clicar", "botao_cais", 1.5)],
-        "cais_expedicao": [Action("clicar", "botao_criar_sala", 1.5)],
-        "sala": [Action("clicar", "botao_escolher_instancia", 1.5, "sem_escolha"),
-                 Action("clicar", "botao_iniciar", 2.0, "com_escolha")],
-        "menu_instancias": selection + [Action("clicar_opcional", "botao_confirmar", 1.5)],
+        "lobby": [Action("clicar", "botao_cais", 0.8)],
+        "cais_expedicao": [Action("clicar", "botao_criar_sala", 0.8)],
+        "sala": [Action("clicar", "botao_escolher_instancia", 0.8, "sem_escolha"),
+                 Action("clicar", "botao_iniciar", 1.5, "com_escolha")],
+        "menu_instancias": choice,
+        DIFFICULTY_MENU: list(choice),
         SOLO_WARNING: [Action("confirmar_aviso", "botao_confirmar_aviso", 1.5)],
     }
 
 
-INSTANCE_START_STATES = ("lobby", "cais_expedicao", "sala", "menu_instancias")
+INSTANCE_START_STATES = ("lobby", "cais_expedicao", "sala", "menu_instancias", DIFFICULTY_MENU)
 
 
 def activity_from_option(option_template: str, name: str, kind: str = "instancia",
@@ -266,7 +294,7 @@ def activity_from_option(option_template: str, name: str, kind: str = "instancia
     são os mesmos para todas as atividades e são capturados uma vez na Calibração.
     """
     if kind == "instancia":
-        flow = instance_room_flow([Action("clicar", option_template, 1.0)])
+        flow = instance_room_flow([Action("clicar", option_template, 0.6)])
         start = INSTANCE_START_STATES
     else:
         flow = {
@@ -296,13 +324,13 @@ def instance_from_option(option_template: str, name: str, category: str = "pve")
 
 # botões e marcadores que a Calibração pede para capturar (chave -> descrição)
 COMMON_TEMPLATES = {
-    "botao_cais": "Botão do Cais de Expedição (no lobby)",
-    "botao_criar_sala": "Botão Criar sala (no Cais de Expedição)",
+    "botao_cais": "Botão Central / Cais de Expedição (no lobby)",
+    "botao_criar_sala": "Botão Jogar / Criar sala (no Cais de Expedição)",
     "botao_escolher_instancia": "Botão da sala que abre a escolha da instância",
     "botao_partidas": "Botão que abre o menu de partidas/modalidades (no lobby)",
-    "botao_confirmar": "Botão de confirmar/OK depois de escolher a instância ou a partida",
-    "botao_confirmar_aviso": "Botão de confirmar no aviso de instância difícil (um jogador)",
-    "botao_iniciar": "Botão Iniciar na sala de preparação",
+    "botao_confirmar": "Botão OK depois de escolher a instância e a dificuldade (ou a partida)",
+    "botao_confirmar_aviso": "Botão OK do lembrete antes da partida (aviso de um jogador)",
+    "botao_iniciar": "Botão Início (Iniciar) na sala de preparação",
     "botao_continuar": "Botão Continuar/Próxima etapa",
     "botao_sair": "Botão Sair/Voltar após o resultado",
     "botao_fechar": "Botão X para fechar avisos e janelas",
@@ -322,6 +350,7 @@ class ScreenState:
     confidence: float
     frame: object = None
     note: str = ""
+    scores: dict = field(default_factory=dict)  # semelhança de cada tela calibrada (para o contexto)
 
 
 # estados especiais vindos do leitor (não dependem de modelo de imagem)
@@ -347,6 +376,10 @@ class Actor:
     def press(self, key: str):
         raise NotImplementedError
 
+    def visible(self, template: str, frame) -> bool:
+        """O botão está na tela e seria clicado (sem clicar)? Usado no reconhecimento pelo contexto."""
+        return False
+
 
 class RunStatus(str, Enum):
     IDLE = "parado"
@@ -363,6 +396,8 @@ class RunLimits:
     max_minutes: float = 60.0     # tempo em pausa não conta
     unknown_state_timeout_s: float = 20.0
     stuck_timeout_s: float = 60.0  # mesma tela sem avançar
+    nav_unknown_timeout_s: float = 10.0  # tela desconhecida entre as telas antes da batalha
+    nav_button_timeout_s: float = 12.0   # botão obrigatório que não aparece numa tela antes da batalha
     max_clicks_per_visit: int = 4
     battle_timeout_s: float = 900.0
     confirm_reads: int = 2        # leituras iguais para aceitar uma tela nova
@@ -379,6 +414,8 @@ class RunLimits:
                    max_minutes=float(g("instances.max_minutes", 60)),
                    unknown_state_timeout_s=float(g("instances.unknown_state_timeout_s", 20)),
                    stuck_timeout_s=float(g("instances.action_timeout_s", 60)),
+                   nav_unknown_timeout_s=float(g("instances.nav_unknown_timeout_s", 10)),
+                   nav_button_timeout_s=float(g("instances.nav_button_timeout_s", 12)),
                    battle_timeout_s=float(g("instances.battle_timeout_s", 900)))
 
 
@@ -413,7 +450,7 @@ class RunEvent:
 class ActivityRunner:
     """Executa uma ``ActivityDef`` até cumprir os limites, receber parada ou falhar."""
 
-    POLL_S = 0.4
+    POLL_S = 0.25          # intervalo entre leituras fora do combate (a mudança de tela é conferida, não esperada)
     COMBAT_POLL_S = 0.15   # intervalo entre leituras no combate (CPU e responsividade)
 
     def __init__(self, definition: ActivityDef, reader: ScreenReader, actor: Actor, combat_step,
@@ -465,6 +502,10 @@ class ActivityRunner:
         self._in_activity = False
         self._pending_result: str | None = None
         self._chosen = False  # a opção (e a dificuldade) desta atividade já foram clicadas nesta ida
+        self._choice_done: set[str] = set()  # opção/dificuldade clicadas nesta janela de escolha (não repete)
+        self._last_clicked: tuple[str, str, float] | None = None  # (tela, modelo, quando): confirmação e limites
+        self._context_seen: tuple | None = None  # último reconhecimento pelo contexto avisado (sem repetir)
+        self._by_context_now: str | None = None
         self.blocked: str | None = None  # pausa que pede uma decisão do usuário (ex.: SOLO_WARNING)
 
     # ------------------------------------------------------------------ util
@@ -585,11 +626,16 @@ class ActivityRunner:
             self._unknown_since = self._nofocus_since = None
             self._recovery_attempts.clear()
             self._candidate, self._candidate_n = None, 0
+            self._choice_done.clear()  # o usuário pode ter mexido na janela de escolha durante a pausa
+            self._context_seen = None
         now = self.clock()
         screen = self.reader.read()
         self._last_frame = screen.frame
         raw = screen.state if (screen.confidence >= self.state_threshold or screen.state in (WINDOW_GONE, NO_FOCUS)) \
             else "desconhecido"
+        self._by_context_now = None
+        if raw == "desconhecido":
+            raw = self._by_context(screen) or raw
 
         # janela: nada de cliques numa tela que o bot não está vendo
         if raw == WINDOW_GONE:
@@ -624,7 +670,7 @@ class ActivityRunner:
             done = self._limits_reached()
             if done and state in self.d.start_states:
                 return self._finish(done)
-        actions = self.d.flow.get(state)
+        actions = self._actions_for(state)
         if actions is None:
             # tela reconhecida, mas fora do fluxo desta atividade: não age, tenta recuperar
             if now - self._visit_started > self.limits.stuck_timeout_s / 2:
@@ -632,6 +678,80 @@ class ActivityRunner:
             self._sleep(self.POLL_S)
             return True
         return self._run_actions(state, actions, screen, now)
+
+    def _actions_for(self, state: str) -> list[Action] | None:
+        actions = self.d.flow.get(state)
+        if actions is None and state == DIFFICULTY_MENU:
+            actions = self.d.flow.get("menu_instancias")  # definições antigas: é a mesma janela
+        return actions
+
+    def _skips(self, a: Action, state: str) -> bool:
+        """A ação não existe nesta visita: condição que não vale agora, ou escolha já feita nesta janela."""
+        if a.when is not None and (a.when == "com_escolha") != self._chosen:
+            return True
+        return (state in CHOICE_SCREENS and a.kind == "clicar" and is_selection(a.target)
+                and a.target in self._choice_done)
+
+    def _next_click(self, state: str) -> Action | None:
+        """Próximo clique que o fluxo faria nessa tela (na visita atual, se for a tela atual)."""
+        actions = self._actions_for(state) or []
+        start = self._visit_done_actions if state == self.current_state else 0
+        for a in actions[start:]:
+            if a.kind == "concluir" or self._skips(a, state):
+                continue
+            return a if a.kind in CLICKS and a.target else None
+        return None
+
+    def _by_context(self, screen: ScreenState) -> str | None:
+        """Tela abaixo do mínimo aceita pelo contexto, ou None.
+
+        Exige as três evidências: é a tela atual ou uma das esperadas depois dela (``NEXT_SCREENS``), é a mais
+        parecida com semelhança >= ``CONTEXT_MIN`` e folga >= ``CONTEXT_MARGIN`` sobre a segunda, e o botão que o
+        fluxo clica nela foi encontrado (acima do mínimo e sem ambiguidade). Só vale entre telas de navegação.
+        """
+        cur = self.current_state
+        scores = dict(screen.scores or {})
+        if not scores and screen.state not in ("desconhecido", WINDOW_GONE, NO_FOCUS):
+            scores = {screen.state: screen.confidence}
+        if cur not in NAV_SCREENS or not scores:
+            return None
+        best = max(scores, key=scores.get)
+        score = scores[best]
+        if best not in NAV_SCREENS or score < CONTEXT_MIN or (best != cur and best not in NEXT_SCREENS.get(cur, ())):
+            return None
+        second = max((v for k, v in scores.items() if k != best), default=0.0)
+        if score - second < CONTEXT_MARGIN:
+            return None
+        nxt = self._next_click(best)
+        if nxt is None or nxt.target in self.forbidden() or not self._visible(nxt.target, screen.frame):
+            return None
+        self._by_context_now = best
+        if self._context_seen != (cur, best, nxt.target):
+            self._context_seen = (cur, best, nxt.target)
+            label = "a mesma tela" if best == cur else f"a tela {best}"
+            self._emit("etapa", f"{label} reconhecida pelo contexto: semelhança {score:.2f} (mínimo "
+                       f"{self.state_threshold:.2f}) depois da tela {cur}, com {nxt.target} visível"
+                       .replace(".", ","),
+                       state=best, contexto=True, semelhanca=round(score, 2))
+        return best
+
+    def _visible(self, template: str, frame) -> bool:
+        visible = getattr(self.actor, "visible", None)  # atores sem a consulta: nunca há contexto
+        return bool(visible and visible(template, frame))
+
+    def _unknown_timeout(self) -> float:
+        """Tela desconhecida: entre as telas antes da batalha a espera é curta; depois de Iniciar (carregando a
+        batalha) e na batalha vale o limite configurado."""
+        lim = self.limits
+        loading = self._last_clicked is not None and self._last_clicked[1] in LOADING_CLICKS
+        if self.current_state in NAV_SCREENS and not loading:
+            return min(lim.unknown_state_timeout_s, lim.nav_unknown_timeout_s)
+        return lim.unknown_state_timeout_s
+
+    def _button_timeout(self, state: str) -> float:
+        if state in NAV_SCREENS:
+            return min(self.limits.stuck_timeout_s / 2, self.limits.nav_button_timeout_s)
+        return self.limits.stuck_timeout_s / 2
 
     def _confirm(self, raw: str) -> str | None:
         """Tela confirmada (lida igual ``confirm_reads`` vezes seguidas) ou None se ainda incerta."""
@@ -653,7 +773,14 @@ class ActivityRunner:
         self.current_state = state
         self._reset_visit(now)
         self._recovery_attempts.clear()  # a tela avançou: tentativas anteriores não contam mais
-        self._emit("etapa", f"tela: {state}", state=state, previous=prev)
+        if state not in CHOICE_SCREENS:
+            self._choice_done.clear()  # a janela de escolha fechou: uma nova começa do zero
+        how = " (pelo contexto)" if self._by_context_now == state else ""
+        last = self._last_clicked
+        if last is not None and last[0] == prev:
+            how += f": confirmado o clique em {last[1]} em {now - last[2]:.1f} s".replace(".", ",")
+        self._emit("etapa", f"tela: {state}{how}", state=state, previous=prev)
+        self._last_clicked = None  # o clique anterior já levou a esta tela
         if state == "batalha":
             if not self._in_activity:
                 self._in_activity = True
@@ -702,8 +829,8 @@ class ActivityRunner:
             return self._wait_for_change(state, actions, screen, now)
         idx = self._visit_done_actions
         a = actions[idx]
-        if a.when is not None and (a.when == "com_escolha") != self._chosen:
-            self._visit_done_actions += 1  # condição não vale agora: a ação não existe nesta visita
+        if self._skips(a, state):
+            self._visit_done_actions += 1  # condição que não vale agora ou escolha já feita nesta janela
             return True
         if a.kind == "concluir":
             if self._in_activity:
@@ -725,9 +852,9 @@ class ActivityRunner:
             # decisão do usuário, não do bot: pausa na mesma tela; com a permissão, Retomar continua daqui
             self.blocked = SOLO_WARNING
             return self._pause_for_user(
-                "o jogo avisa que esta instância é difícil para um jogador. Para continuar mesmo assim, clique em "
-                "Confirmar o aviso e continuar (ou marque a permissão em Configurações e clique em Retomar); para "
-                "desistir, clique em Parar")
+                "o jogo mostra o lembrete antes da partida (instância difícil para um jogador). Para clicar em OK e "
+                "continuar, clique em Confirmar o aviso e continuar (ou marque a permissão em Configurações e "
+                "clique em Retomar); para desistir, clique em Parar")
         # clicar / clicar_opcional / confirmar_aviso (com permissão)
         if a.target in self.forbidden():
             return self._fail(f"clique em '{a.target}' bloqueado (proibido nas configurações)")
@@ -737,8 +864,11 @@ class ActivityRunner:
         if result is True:
             self._visit_clicks += 1
             self._last_click_idx, self._last_click_at = idx, now
+            self._last_clicked = (state, a.target, now)
             self._action_first_try = None
             data = {"state": state}
+            if state in CHOICE_SCREENS and is_selection(a.target):
+                self._choice_done.add(a.target)
             picks = [i for i, x in enumerate(actions) if x.kind == "clicar" and is_selection(x.target)]
             if picks and idx == picks[-1]:
                 data["selecao_feita"] = a.target  # a opção (e a dificuldade) desta atividade estavam no menu
@@ -758,10 +888,20 @@ class ActivityRunner:
             else:
                 self._sleep(0.3)
             return True
-        give_up = self.limits.stuck_timeout_s / 2
+        give_up = self._button_timeout(state)
         if now - self._visit_started > give_up:
             if is_selection(a.target):
                 return self._selection_missing(a.target)
+            if (state == "sala" and a.target == "botao_escolher_instancia"
+                    and self._visible("botao_iniciar", screen.frame)):
+                # a sala já tem uma instância (escolhida antes desta ida ou à mão): o botão de escolher muda de
+                # aparência depois da escolha. Sem escolher ele mesmo, o bot não inicia (poderia ser outra)
+                return self._pause_for_user(
+                    "a sala já parece ter uma instância escolhida e o botão de escolher a instância não foi "
+                    "reconhecido (ele muda depois da escolha). O bot só clica em Início depois de escolher a "
+                    "instância e a dificuldade ele mesmo: em Calibração > Modelos, salve mais uma amostra do botão "
+                    "que abre a escolha da instância com uma instância já escolhida, ou volte ao lobby, e clique em "
+                    "Retomar")
             return self._recover(f"botão '{a.target}' não encontrado na tela '{state}'", screen)
         if not self._missing_warned and now - self._action_first_try >= self.limits.missing_warn_s:
             # não deixa o usuário olhando uma tela parada sem saber o motivo
@@ -794,16 +934,29 @@ class ActivityRunner:
             self._emit("aviso", f"tela não reconhecida{detail}. Se for uma tela do jogo, capture-a em "
                        "Calibração > Modelos; a imagem fica em dados\\capturas se o bot pausar")
         elapsed = now - self._unknown_since
-        if self.current_state == "batalha" and elapsed < self.limits.unknown_state_timeout_s:
+        limit = self._unknown_timeout()
+        if self.current_state == "batalha" and elapsed < limit:
             # explosões e animações atrapalham a leitura: segue observando, sem disparar
             self.combat_step(allow_fire=False)
             self._sleep(self.COMBAT_POLL_S)
             return True
-        if elapsed > self.limits.unknown_state_timeout_s:
-            return self._recover("tela desconhecida por tempo demais", screen,
-                                 detail=f" ({screen.note})" if screen.note else "")
+        if elapsed > limit:
+            detail = f" ({screen.note})" if screen.note else ""
+            if self.current_state in CHOICE_SCREENS:
+                return self._recover(self._choice_unknown_reason(), screen, detail=detail)
+            return self._recover("tela desconhecida por tempo demais", screen, detail=detail)
         self._sleep(self.POLL_S)
         return True
+
+    def _choice_unknown_reason(self) -> str:
+        """A janela de escolha virou uma tela desconhecida: diz o que foi clicado, o que faltou e o que capturar."""
+        last = self._last_clicked[1] if self._last_clicked else None
+        nxt = self._next_click(self.current_state)
+        missing = f"; {nxt.target} não foi encontrado nela" if nxt is not None else ""
+        after = f" depois do clique em {last}" if last else ""
+        return (f"a janela de escolha da instância mudou{after} e não foi reconhecida{missing}. Com o jogo nessa "
+                "janela, salve em Calibração > Modelos a \"Tela: Escolha da dificuldade\" (e o botão da "
+                "dificuldade, se faltar) e clique em Retomar")
 
     def _recover(self, why, screen, detail: str = "") -> bool:
         """Recuperação só com evidência: fecha um aviso se o botão de fechar for reconhecido.
@@ -911,6 +1064,7 @@ class ActivityRunner:
             self.status = RunStatus.RUNNING
         self.counters = RunCounters(started_at=self.clock(), clock=self.clock)
         self._chosen = False
+        self._choice_done.clear()
         how = "repetição contínua" if not self.limits.runs else (
             "uma vez" if self.limits.runs == 1 else f"{self.limits.runs} vezes")
         self._emit("etapa", f"iniciando {self.d.name} ({how})")

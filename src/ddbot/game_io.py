@@ -308,7 +308,8 @@ class VisionScreenReader(ScreenReader):
             return self.last
         snap = Snapshot(width=frame.shape[1], height=frame.shape[0])
         self.perception.classify_state(frame, snap)
-        self.last = ScreenState(snap.state, snap.state_confidence, frame, self.perception.explain_state(snap))
+        self.last = ScreenState(snap.state, snap.state_confidence, frame, self.perception.explain_state(snap),
+                                dict(snap.state_scores))
         return self.last
 
 
@@ -425,6 +426,10 @@ class GameActor(Actor):
 
     def press(self, key: str):
         self.inp.tap(key)
+
+    def visible(self, template: str, frame) -> bool:
+        m = self.find(template, frame)
+        return m is not None and self.ambiguous(template, m, frame) is None
 
 
 def overlap(a, b) -> float:

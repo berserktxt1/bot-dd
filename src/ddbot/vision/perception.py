@@ -20,13 +20,15 @@ MAX_WIND = 10.0  # o indicador do jogo mostra valores pequenos; acima disso é l
 
 # estados reconhecidos por modelos "estado_<nome>"
 STATES = ["batalha", "vitoria", "derrota", "recompensa", "etapa_concluida", "lobby", "cais_expedicao",
-          "menu_instancias", "aviso_sozinho", "menu_partidas", "sala", "carregando", "desconectado"]
+          "menu_instancias", "menu_dificuldade", "aviso_sozinho", "menu_partidas", "sala", "carregando",
+          "desconectado"]
 # telas que aparecem POR CIMA de outra (cuja imagem continua visível atrás): reconhecidas, valem mais que ela
-OVERLAY_STATES = ("vitoria", "derrota", "desconectado", "menu_instancias", "aviso_sozinho")
+OVERLAY_STATES = ("vitoria", "derrota", "desconectado", "menu_instancias", "menu_dificuldade", "aviso_sozinho")
 STATE_LABELS = {
     "batalha": "Batalha", "vitoria": "Vitória", "derrota": "Derrota", "recompensa": "Recompensa",
     "etapa_concluida": "Etapa concluída", "lobby": "Lobby", "cais_expedicao": "Cais de Expedição",
-    "menu_instancias": "Escolha da instância", "aviso_sozinho": "Aviso de instância difícil (um jogador)",
+    "menu_instancias": "Escolha da instância", "menu_dificuldade": "Escolha da dificuldade",
+    "aviso_sozinho": "Lembrete antes da partida (aviso de um jogador)",
     "menu_partidas": "Menu de partidas",
     "sala": "Sala/preparação", "carregando": "Carregando", "desconectado": "Desconectado",
     "desconhecido": "Desconhecido",

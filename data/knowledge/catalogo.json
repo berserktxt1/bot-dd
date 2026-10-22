@@ -1,5 +1,5 @@
 {
-  "_doc": "Atividades pré-cadastradas que aparecem no Início antes de conectar ao jogo. Cada uma usa a opção da instância no menu (modelo 'instancia_<instancia>', capturado uma vez para todas as dificuldades) e o botão da dificuldade (modelo 'dificuldade_<nivel>', capturado uma vez para todas as instâncias). O catálogo não garante que a atividade exista no cliente: a disponibilidade só muda com evidência (opção vista no menu, não encontrada durante a rotina ou marcada pelo usuário). 'fluxo_padrao' segue o caminho do DDClássico informado pelo usuário em 2026-10-21 (lobby -> Cais de Expedição -> Criar sala -> na sala, escolher a instância: opção, dificuldade, confirmar -> Iniciar), usa {opcao} e {dificuldade} e, na sala, 'se' (sem_escolha/com_escolha) separa escolher a instância de Iniciar; 'aviso_sozinho' é o aviso de instância difícil para um jogador, confirmado só com a permissão do usuário; uma atividade do usuário com o mesmo id em instancias/ substitui a do catálogo.",
+  "_doc": "Atividades pré-cadastradas que aparecem no Início antes de conectar ao jogo. Cada uma usa a opção da instância no menu (modelo 'instancia_<instancia>', capturado uma vez para todas as dificuldades) e o botão da dificuldade (modelo 'dificuldade_<nivel>', capturado uma vez para todas as instâncias). O catálogo não garante que a atividade exista no cliente: a disponibilidade só muda com evidência (opção vista no menu, não encontrada durante a rotina ou marcada pelo usuário). 'fluxo_padrao' segue o caminho do DDClássico informado pelo usuário em 2026-10-21 (lobby -> Central/Cais de Expedição -> Jogar ('botao_criar_sala') -> na sala, escolher a instância: opção, dificuldade, OK -> Início ('botao_iniciar') -> lembrete), usa {opcao} e {dificuldade} e, na sala, 'se' (sem_escolha/com_escolha) separa escolher a instância de Iniciar; 'menu_dificuldade' é a mesma janela de escolha depois do clique na instância (as duas telas guardam o que já foi escolhido nela); o OK ('botao_confirmar') é obrigatório; as esperas são o mínimo depois de cada clique, a mudança de tela é conferida em leituras curtas; 'aviso_sozinho' é o aviso de instância difícil para um jogador, confirmado só com a permissão do usuário; uma atividade do usuário com o mesmo id em instancias/ substitui a do catálogo.",
   "versao": 1,
   "dificuldades": {
     "facil": {"nome": "Fácil", "modelo": "dificuldade_facil"},
@@ -26,12 +26,14 @@
      "motivo": "Substituída por Olimpíadas Bugou — Normal na lista principal (pedido de 2026-10-20). A estratégia continua disponível para atividades capturadas pelo menu (Calibração > Alvos)."}
   ],
   "fluxo_padrao": {
-    "lobby": [{"clicar": "botao_cais", "espera": 1.5}],
-    "cais_expedicao": [{"clicar": "botao_criar_sala", "espera": 1.5}],
-    "sala": [{"clicar": "botao_escolher_instancia", "espera": 1.5, "se": "sem_escolha"},
-             {"clicar": "botao_iniciar", "espera": 2.0, "se": "com_escolha"}],
-    "menu_instancias": [{"clicar": "{opcao}", "espera": 1.0}, {"clicar": "{dificuldade}", "espera": 1.0},
-                        {"clicar_opcional": "botao_confirmar", "espera": 1.5}],
+    "lobby": [{"clicar": "botao_cais", "espera": 0.8}],
+    "cais_expedicao": [{"clicar": "botao_criar_sala", "espera": 0.8}],
+    "sala": [{"clicar": "botao_escolher_instancia", "espera": 0.8, "se": "sem_escolha"},
+             {"clicar": "botao_iniciar", "espera": 1.5, "se": "com_escolha"}],
+    "menu_instancias": [{"clicar": "{opcao}", "espera": 0.6}, {"clicar": "{dificuldade}", "espera": 0.6},
+                        {"clicar": "botao_confirmar", "espera": 0.8}],
+    "menu_dificuldade": [{"clicar": "{opcao}", "espera": 0.6}, {"clicar": "{dificuldade}", "espera": 0.6},
+                         {"clicar": "botao_confirmar", "espera": 0.8}],
     "aviso_sozinho": [{"confirmar_aviso": "botao_confirmar_aviso", "espera": 1.5}],
     "carregando": [{"aguardar": 1.0}],
     "batalha": [{"combate": true}],
