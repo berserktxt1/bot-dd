@@ -246,7 +246,7 @@ class DetectDialog(tk.Toplevel):
         self.gallery.grid_remove()
         if m == "procurando":
             self._set_text("Procurando o jogo...",
-                           "Abra o DDClássico pelo launcher. O JonFlow continua procurando e conecta sozinho quando "
+                           "Abra o jogo pelo launcher. O JonFlow continua procurando e conecta sozinho quando "
                            "o jogo aparecer. Se o jogo já está aberto e não foi encontrado, clique em Escolher pela "
                            "imagem.")
             self._buttons([gallery] + ([point] if can_point else []) + [cancel])

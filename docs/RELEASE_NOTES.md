@@ -1,4 +1,4 @@
-**JonFlow** (antes *DDClássico Bot*): aplicativo para Windows 10/11 (64 bits) que joga partidas e instâncias PvE do DDTank (servidor DDClássico) sozinho, com mira calculada e calibrada pelos seus disparos e interface em português.
+**JonFlow** (repositório `bot-dd`): aplicativo para Windows 10/11 (64 bits) que joga partidas e instâncias PvE do DDTank sozinho, com mira calculada e calibrada pelos seus disparos e interface em português.
 
 ## Novidades da 0.5.3
 
@@ -81,7 +81,7 @@ Correções do primeiro uso no cliente real (ainda não conferidas no jogo):
 - **Mira:** cada disparo guarda instância, dificuldade, etapa, alvo e cenário (modo da força e programa do jogo); a
   correção usa só disparos do mesmo cenário e pesa menos os marcados errado. O ângulo recomendado não fica trocando
   no meio do turno e a força recomendada vai até 98. Para quem instala agora, a barra de força padrão é de 3,33 s
-  até 100, com 0,06 s até começar a encher (medidas de outro programa no DDClássico, ainda não conferidas).
+  até 100, com 0,06 s até começar a encher (medidas de outro programa no servidor do jogo, ainda não conferidas).
 - **Interface:** Início em três colunas (Atividades, detalhes e Andamento); as seis páginas da Calibração são
   escolhidas por botões em duas linhas (como abas, os nomes ficavam cortados no Windows); em 1080p a 150% o
   Histórico e a lista dos disparos voltaram a mostrar linhas. Corrigida a causa provável da janela parada por
@@ -94,7 +94,7 @@ Correções do primeiro uso no cliente real (ainda não conferidas no jogo):
   no tamanho de 100% e o Windows o amplia na tela; antes, a imagem lida pelo bot vinha menor, num canto, com o
   resto preto. Agora ela é pedida no tamanho em que o jogo desenha e ampliada como o Windows faz. Se ainda vier
   incompleta, o bot não a usa: pausa e explica. Testado com janelas de teste em 125% na CI, **ainda não com o
-  cliente do DDClássico**.
+  cliente do jogo**.
 - **LEIA-ME passo a passo** para quem nunca usou o programa: como o bot funciona, passos numerados, teclas de
   atalho, problemas comuns e um glossário.
 - A CI passou a rodar os testes de janelas reais e a suíte completa também com a escala do Windows em 125%.
@@ -114,7 +114,7 @@ Correções do primeiro uso no cliente real (ainda não conferidas no jogo):
 
 - Correção da simulação de precisão (`--simulate`): desde a 0.3.0 ela perdia o 1º turno de cada batalha (o fim da
   batalha anterior não era aceito pelo motor, que exige leituras seguidas). Com 50 batalhas: 40,0% de acerto sem
-  calibração e 96,2% com calibração, sem turnos perdidos. É uma medição em jogo **simulado**, não no DDClássico.
+  calibração e 96,2% com calibração, sem turnos perdidos. É uma medição em jogo **simulado**, não no jogo real.
 - A rotina no jogo, a demonstração e as estratégias das instâncias não mudaram: elas já começavam cada batalha do
   zero.
 
@@ -137,7 +137,7 @@ janela do jogo ainda na animação de abertura). A tag v0.4.0 não teve Release 
 - Covil do Dragão, Tribo Piatan, Castelo Sombrio, Olimpíadas Boom, Ilha dos Enamorados, Redemoinho e Arena de
   Guerreiros ficaram registradas como pesquisa: o bot ainda não joga sozinho com elas.
 
-> **Ainda não foi testado no DDClássico real.** Esta versão foi validada com testes automatizados, simulação e o `.exe` rodando no Windows da CI, sem o jogo. As etapas das instâncias vêm de guias de jogadores (2011–2017), notícias oficiais e vídeos, e precisam ser conferidas no cliente. Antes de usar o modo automático, leia os Termos do servidor: as regras sobre programas de automação não puderam ser verificadas.
+> **Ainda não foi testado no jogo real.** Esta versão foi validada com testes automatizados, simulação e o `.exe` rodando no Windows da CI, sem o jogo. As etapas das instâncias vêm de guias de jogadores (2011–2017), notícias oficiais e vídeos, e precisam ser conferidas no cliente. Antes de usar o modo automático, leia os Termos do servidor: as regras sobre programas de automação não puderam ser verificadas.
 
 ## Qual arquivo baixar
 
@@ -162,7 +162,7 @@ O executável não tem assinatura digital. Se o Windows mostrar "O Windows prote
 - `.exe` da pasta extraída do ZIP e `.exe` de arquivo único sozinho numa pasta vazia, os dois sem Python no PATH: autoteste e teste de interface aprovados.
 - Estratégias das instâncias: validadas **só em simulação** (cenários fictícios com os papéis de cada perfil) e com imagens sintéticas.
 - Interface: auditada em 1080p a 100%, 125% e 150% com as fontes do Windows (nada cortado).
-- Detecção testada no Windows da CI com janelas e processos reais de teste (launcher que abre o jogo em outro processo, dois launchers abertos, janela cobrindo o jogo). **Não** testada com o launcher e o cliente reais do DDClássico.
+- Detecção testada no Windows da CI com janelas e processos reais de teste (launcher que abre o jogo em outro processo, dois launchers abertos, janela cobrindo o jogo). **Não** testada com o launcher e o cliente reais do jogo.
 
 SHA-256:
 - `JonFlow.zip`: `{SHA_ZIP}`

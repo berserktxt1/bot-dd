@@ -44,7 +44,7 @@ class FakeGame(FrameSource, RecordingBackend):
         self.space_down_at = None
         self.released_power = None
         self.full_time = 0.5
-        self.start_delay = 0.06  # a barra só começa a encher um pouco depois da tecla descer (como no DDClássico)
+        self.start_delay = 0.06  # a barra só começa a encher um pouco depois da tecla descer (como no servidor do jogo)
         self.lock = threading.Lock()
 
     def power(self):

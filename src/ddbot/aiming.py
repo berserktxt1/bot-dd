@@ -85,7 +85,7 @@ def _phi(z):
 
 class Aimer:
     FORCE_EXEC_SIGMA = 0.6   # erro típico ao soltar a barra de força
-    # a força vai de 0 a 100 no DDClássico (informado pelo usuário em 2026-10-21); o teto de 98 da 0.5.0 vinha
+    # a força vai de 0 a 100 no servidor do jogo (informado pelo usuário em 2026-10-21); o teto de 98 da 0.5.0 vinha
     # de um clone (BoomShot) em que a barra volta a esvaziar perto do fim
     MAX_FORCE = 100.0
 

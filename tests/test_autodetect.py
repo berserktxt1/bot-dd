@@ -1,4 +1,4 @@
-"""Sugestão automática das regiões do combate (imagens sintéticas; nenhuma captura do DDClássico)."""
+"""Sugestão automática das regiões do combate (imagens sintéticas; nenhuma captura do jogo real)."""
 import cv2
 import numpy as np
 

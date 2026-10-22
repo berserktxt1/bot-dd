@@ -37,7 +37,7 @@ class Banner:
 ADVICE = [
     ("regras do servidor", "Abra Configurações, leia o aviso e marque a autorização."),
     ("falta calibrar", "Abra a aba Calibração, capture a tela do jogo e salve cada item da lista (uma vez só)."),
-    ("selecione a janela", "Abra o DDClássico pelo launcher e clique em Detectar jogo, no topo."),
+    ("selecione a janela", "Abra o jogo pelo launcher e clique em Detectar jogo, no topo."),
     ("confirme a janela", "Clique em Detectar jogo e confira na prévia se é a tela do jogo."),
     ("launcher está aberto", "Entre no jogo pelo launcher. O bot conecta sozinho quando o jogo abrir."),
     ("na frente do jogo", "Deixe a janela do jogo visível; não coloque outras janelas por cima durante a rotina."),
@@ -46,7 +46,7 @@ ADVICE = [
                         "a opção de novo em Calibração > Menu; o bot nunca escolhe outra no lugar."),
     ("precisa reconhecer", "Numa batalha da instância, capture os alvos pedidos em Calibração > Alvos."),
     ("jogue esta etapa", "Jogue essa etapa você mesmo e clique em Retomar quando ela terminar."),
-    ("não foi encontrad", "Abra o DDClássico pelo launcher e clique em Detectar jogo, no topo."),
+    ("não foi encontrad", "Abra o jogo pelo launcher e clique em Detectar jogo, no topo."),
     ("tela desconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
     ("não reconhecida", "Deixe o jogo numa tela conhecida (lobby) ou capture o modelo dessa tela em Calibração."),
     ("não encontrado na tela", "Capture de novo esse botão em Calibração > Modelos (a aparência pode ter mudado)."),
@@ -138,7 +138,7 @@ def _describe(s: UiSnapshot) -> Banner:
             return Banner("warning", "Confirme a janela do jogo",
                           "O bot achou o jogo, mas precisa que você confira na prévia. Clique em Detectar jogo.")
         return Banner("warning", "Jogo não encontrado",
-                      "Abra o DDClássico pelo launcher e clique em Detectar jogo, no topo. "
+                      "Abra o jogo pelo launcher e clique em Detectar jogo, no topo. "
                       "Para conhecer o programa sem o jogo, ligue o modo demonstração.")
     if not s.activity_name:
         return Banner("idle", "Escolha o que jogar",

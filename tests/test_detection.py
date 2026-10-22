@@ -1,4 +1,5 @@
 """Detectar jogo: cenários do launcher sem nomes fixos (janelas e processos simulados)."""
+from ddbot.config import DEFAULTS
 from ddbot.detection import CHOOSE, GAME, LAUNCHER_ONLY, NOTHING, detect, pick_at
 from ddbot.game_window import GameWindowProfile, WindowRule
 from ddbot.winapi import WindowInfo
@@ -20,7 +21,7 @@ NEWS = win(101, 10, "AlgumLauncher.exe", "", 500, 300, parent=100, cls="Painel")
 # jogo em processo próprio, aberto pelo launcher, com título que não diz nada
 GAME_WIN = win(200, 20, "cliente.exe", "Janela", 1000, 600)
 PARENTS = {10: EXPLORER, 20: 10, 50: EXPLORER, OWN: EXPLORER}
-KW = ["DDTank", "DDClássico"]
+KW = DEFAULTS["window"]["title_keywords"]  # as palavras padrão do título da janela
 
 
 def run(windows, parents=PARENTS, **kw):

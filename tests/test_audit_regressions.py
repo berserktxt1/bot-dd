@@ -436,7 +436,7 @@ def test_window_capture_releases_all_threads():
 
 
 def test_legacy_localappdata_folder_kept(tmp_path, monkeypatch):
-    """Quem usava o DDClássico Bot com dados em %LOCALAPPDATA% continua com os mesmos dados no JonFlow."""
+    """Dados em %LOCALAPPDATA% com o nome antigo do programa (até a 0.2.1) continuam em uso no JonFlow."""
     from ddbot import paths as P
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     assert P._fallback_dir() == tmp_path / "JonFlow"

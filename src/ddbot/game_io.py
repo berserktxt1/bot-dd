@@ -224,7 +224,7 @@ class KeyboardShooter(Shooter):
         full = float(self.config.get("automation.power_full_time_s", 3.33))
         # atraso de reação (captura + SendInput) compensado em pontos de força; calibrável
         force = max(1.0, force - float(self.config.get("automation.power_offset", 0.0)))
-        # a barra só começa a encher um pouco depois da tecla descer (medido no DDClássico por terceiros)
+        # a barra só começa a encher um pouco depois da tecla descer (medido no servidor do jogo por terceiros)
         timed = float(self.config.get("automation.power_start_delay_s", 0.0)) + full * force / 100.0
         if self.config.get("automation.power_mode") == "visual" and self.config.get("regions.power_bar"):
             frame, snap = self._grab_snap()
